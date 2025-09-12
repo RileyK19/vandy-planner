@@ -10,7 +10,7 @@ function App() {
     <>
       <h1>Vandy Planner</h1>
       <h2>Eddy You, Kevin Song, Riley Koo</h2>
-      <h2>CS 4278 | 2025 Fall</h2>
+      <h2>Principles of SWE | 2025 Fall</h2>
     </>
   )
 }
