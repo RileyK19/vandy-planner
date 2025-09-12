@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import './App.css' 
 
 // Mock Data
 const allClasses = [
@@ -42,48 +43,9 @@ const allClasses = [
 
 function Modal({ onClose, children }) {
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 1000,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          backgroundColor: '#fff',
-          borderRadius: 8,
-          maxWidth: 500,
-          width: '90%',
-          maxHeight: '80vh',
-          overflowY: 'auto',
-          padding: '1.5rem',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
-          position: 'relative',
-        }}
-      >
-        <button
-          onClick={onClose}
-          style={{
-            position: 'absolute',
-            top: 10,
-            right: 10,
-            background: 'transparent',
-            border: 'none',
-            fontSize: '1.25rem',
-            cursor: 'pointer',
-          }}
-          aria-label="Close modal"
-        >
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose} aria-label="Close modal">
           &times;
         </button>
         {children}
@@ -98,7 +60,7 @@ function App() {
   const [selectedFilters, setSelectedFilters] = useState({})
   const [infoClass, setInfoClass] = useState(null)
   const [showInfoModal, setShowInfoModal] = useState(false)
-  
+
   const filterableKeys = useMemo(() => {
     if (allClasses.length === 0) return []
     return Object.keys(allClasses[0]).filter(
@@ -161,56 +123,39 @@ function App() {
   })
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'Arial, sans-serif', maxWidth: 600, margin: 'auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <h1 style={{ margin: 0 }}>Vandy Planner</h1>
+    <div className="app-container">
+      <div className="app-header">
+        <h1>Vandy Planner</h1>
         <button
-          onClick={() => setShowInfoModal(true)} 
+          onClick={() => setShowInfoModal(true)}
+          className="info-button"
           aria-label="Show app info"
-          style={{
-            width: '24px',
-            height: '24px',
-            borderRadius: '50%',
-            border: '1.5px solid #333',
-            background: 'white',
-            color: '#333',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            fontSize: '16px',
-            lineHeight: '22px',
-            padding: 0,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
         >
           i
         </button>
       </div>
+
       <input
         type="text"
         placeholder="Search classes..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        style={{ padding: '0.5rem', width: '100%', marginBottom: '1rem' }}
+        className="search-input"
       />
+
       <button
         onClick={() => setShowFilter(true)}
-        style={{ marginBottom: '1rem', padding: '0.5rem 1rem' }}
+        className="button"
       >
         Show Filters
       </button>
 
-      <ul style={{ padding: 0, listStyle: 'none' }}>
+      <ul className="class-list">
         {filteredClasses.length === 0 && <li>No classes found.</li>}
         {filteredClasses.map((cls) => (
           <li
             key={cls.id}
-            style={{
-              borderBottom: '1px solid #ddd',
-              padding: '0.5rem 0',
-              cursor: 'pointer',
-            }}
+            className="class-item"
             onClick={() => setInfoClass(cls)}
             tabIndex={0}
             onKeyDown={(e) => {
@@ -218,17 +163,14 @@ function App() {
             }}
             aria-label={`Show details for ${cls.code}: ${cls.name}`}
           >
-            <strong>{cls.code}</strong>: {cls.name}{' '}
+            <strong>{cls.code}</strong>: {cls.name}
             <span
-              style={{
-                color: cls.active ? 'green' : 'red',
-                fontStyle: 'italic',
-                marginLeft: '0.5rem',
-              }}
+              className="class-status"
+              style={{ color: cls.active ? 'green' : 'red' }}
             >
               ({cls.active ? 'Active' : 'Inactive'})
             </span>
-            <div style={{ fontSize: 12, color: '#555' }}>
+            <div className="class-meta">
               Prof: {cls.professors.join(', ')} | Term: {cls.term}
             </div>
           </li>
@@ -240,18 +182,11 @@ function App() {
         <Modal onClose={() => setShowFilter(false)}>
           <h2>Filters</h2>
           {filterableKeys.map((key) => (
-            <div key={key} style={{ marginBottom: '1rem' }}>
-              <strong style={{ textTransform: 'capitalize' }}>{key}</strong>
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '0.5rem',
-                  marginTop: '0.5rem',
-                }}
-              >
+            <div key={key} className="filter-section">
+              <strong>{key}</strong>
+              <div className="filter-options">
                 {attributeOptions[key].map((option) => (
-                  <label key={option} style={{ userSelect: 'none' }}>
+                  <label key={option}>
                     <input
                       type="checkbox"
                       checked={
@@ -260,7 +195,6 @@ function App() {
                           : false
                       }
                       onChange={() => toggleFilter(key, option)}
-                      style={{ marginRight: '0.25rem' }}
                     />
                     {String(option)}
                   </label>
@@ -275,15 +209,9 @@ function App() {
       {infoClass && (
         <Modal onClose={() => setInfoClass(null)}>
           <h2>{infoClass.code}: {infoClass.name}</h2>
-          <p>
-            <strong>Subject:</strong> {infoClass.subject}
-          </p>
-          <p>
-            <strong>Professors:</strong> {infoClass.professors.join(', ')}
-          </p>
-          <p>
-            <strong>Term:</strong> {infoClass.term}
-          </p>
+          <p><strong>Subject:</strong> {infoClass.subject}</p>
+          <p><strong>Professors:</strong> {infoClass.professors.join(', ')}</p>
+          <p><strong>Term:</strong> {infoClass.term}</p>
           <p>
             <strong>Status:</strong>{' '}
             <span style={{ color: infoClass.active ? 'green' : 'red' }}>
@@ -293,7 +221,7 @@ function App() {
         </Modal>
       )}
 
-      {/* General Info Modal triggered by 'i' button */}
+      {/* Info Modal (App Info) */}
       {showInfoModal && (
         <Modal onClose={() => setShowInfoModal(false)}>
           <h2>About Vandy Planner</h2>
@@ -304,9 +232,7 @@ function App() {
             <li>🎯 Filter by professor, subject, term, or status</li>
             <li>📄 Click a course to view details</li>
           </ul>
-          <p style={{ marginTop: '1rem', fontSize: 12, color: '#666' }}>
-            Built with ❤️ for CS students
-          </p>
+          <p className="footer-note">Built with ❤️ for CS students</p>
         </Modal>
       )}
     </div>
