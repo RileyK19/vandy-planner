@@ -7,11 +7,16 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "scrape": "node scrape-cs-courses.js",
+    "test-api": "node test-api.js"
   },
   "dependencies": {
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "@vanderbilt/yes-api": "^1.0.8",
+    "mongodb": "^6.3.0",
+    "dotenv": "^16.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
