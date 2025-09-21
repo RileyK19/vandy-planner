@@ -13,10 +13,10 @@ body {
 }
 
 .app-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
-  width: 100%;
+  width: 220%;
+  max-width: none;
+  margin: 0;
+  padding: 20px;
 }
 
 /* Header */

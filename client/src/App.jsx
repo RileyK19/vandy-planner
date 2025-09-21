@@ -3,7 +3,9 @@ import './App.css'
 import { fetchClassesFromDB, savePlannedClassesToDB } from './api.jsx'
 import { mockClasses } from './mockData.jsx'
 import PlannerCalendar from './PlannerCalendar.jsx'
-import Modal from './Modal.jsx'
+import Modal from './Modal.jsx'// In App.js, replace fetchClassesFromDB() with:
+import { fetchClassesWithRatings, getClassAverageRatings, formatRating } from './api.jsx'
+
 
 function App() {
   const [currentView, setCurrentView] = useState('search') // 'search' or 'planner'
@@ -39,7 +41,7 @@ function App() {
     async function loadClasses() {
       setLoading(true)
       try {
-        const dbClasses = await fetchClassesFromDB()
+        const dbClasses = await fetchClassesWithRatings()        
         if (dbClasses && dbClasses.length > 0) {
           setAllClasses(dbClasses)
           setUsingMockData(false)
@@ -124,7 +126,7 @@ function App() {
   const refreshData = async () => {
     setLoading(true)
     try {
-      const dbClasses = await fetchClassesFromDB()
+      const dbClasses = await fetchClassesWithRatings()
       if (dbClasses && dbClasses.length > 0) {
         setAllClasses(dbClasses)
         setUsingMockData(false)
@@ -304,7 +306,7 @@ function App() {
           <ul className="class-list">
             {filteredClasses.length === 0 && <li>No classes found.</li>}
             {filteredClasses.map((cls) => (
-              <li key={cls.id} className="class-item">
+                <li key={`${cls.id}-${cls.sectionNumber}-${cls.term}`} className="class-item">
                 <div
                   onClick={() => setInfoClass(cls)}
                   tabIndex={0}
@@ -325,6 +327,21 @@ function App() {
                     Prof: {cls.professors.join(', ')} | Term: {cls.term}
                     {cls.sectionNumber && ` | Section: ${cls.sectionNumber}`}
                   </div>
+                  {(() => {
+                    const avg = getClassAverageRatings(cls)
+                    if (!avg?.hasData) return null
+
+                    const quality = formatRating(avg.avgQuality, 'quality')
+                    const difficulty = formatRating(avg.avgDifficulty, 'difficulty')
+
+                    return (
+                        <div style={{ fontSize: '13px', marginTop: '4px' }}>
+                        <span style={{ color: quality.color }}>⭐ Quality: {quality.value}</span> |{' '}
+                        <span style={{ color: difficulty.color }}>💪 Difficulty: {difficulty.value}</span>
+                        </div>
+                    )
+                  })()}
+
                 </div>
                 <button
                   onClick={() => addToPlanner(cls)}
@@ -398,6 +415,24 @@ function App() {
           {infoClass.hours && (
             <p><strong>Credit Hours:</strong> {infoClass.hours}</p>
           )}
+          {(() => {
+            const avg = getClassAverageRatings(infoClass)
+            if (!avg?.hasData) return null
+
+            const quality = formatRating(avg.avgQuality, 'quality')
+            const difficulty = formatRating(avg.avgDifficulty, 'difficulty')
+
+            return (
+                <div style={{ marginTop: '10px' }}>
+                <p><strong>RMP Ratings (Avg):</strong></p>
+                <ul style={{ marginLeft: '20px' }}>
+                    <li><strong>Quality:</strong> <span style={{ color: quality.color }}>{quality.value}</span></li>
+                    <li><strong>Difficulty:</strong> <span style={{ color: difficulty.color }}>{difficulty.value}</span></li>
+                </ul>
+                </div>
+            )
+          })()}
+
           {infoClass.schedule && (
             <div>
               <p><strong>Schedule:</strong></p>
