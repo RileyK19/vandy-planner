@@ -45,10 +45,23 @@ function parseSchedule(scheduleStr) {
   };
 }
 
+// Get API base URL based on environment
+const getAPIBase = () => {
+  if (typeof window !== 'undefined') {
+    // Client-side
+    return process.env.NODE_ENV === 'production' 
+      ? 'https://your-backend-url.vercel.app' // Replace with your actual backend URL
+      : 'http://localhost:3001';
+  }
+  return 'http://localhost:3001'; // Server-side fallback
+};
+
 // API functions to fetch data from your backend
 export async function fetchClassesFromDB() {
   try {
-    const response = await fetch('http://localhost:3001/api/classes')
+    const apiBase = getAPIBase();
+    const response = await fetch(`${apiBase}/api/classes`);
+    
     if (!response.ok) {
       throw new Error('Failed to fetch classes from database')
     }
@@ -89,7 +102,8 @@ export async function savePlannedClassesToDB(plannedClasses, userId = null) {
       lastUpdated: new Date().toISOString()
     }
 
-    const response = await fetch('http://localhost:3001/api/planned-classes', {
+    const apiBase = getAPIBase();
+    const response = await fetch(`${apiBase}/api/planned-classes`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
