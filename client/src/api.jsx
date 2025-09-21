@@ -3,7 +3,7 @@
 // API functions to fetch data from your backend
 export async function fetchClassesFromDB() {
     try {
-      const response = await fetch('/api/classes')
+      const response = await fetch('http://localhost:3001/api/classes')
       if (!response.ok) {
         throw new Error('Failed to fetch classes from database')
       }
@@ -44,7 +44,7 @@ export async function fetchClassesFromDB() {
         lastUpdated: new Date().toISOString()
       }
   
-      const response = await fetch('/api/planned-classes', {
+      const response = await fetch('http://localhost:3001/api/planned-classes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

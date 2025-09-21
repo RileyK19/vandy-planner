@@ -87,7 +87,7 @@ async function getAllCSCourses() {
             
             // Delete existing data for this term to avoid duplicates
             const deleteResult = await collection.deleteMany({ 
-              termId: section.term,
+              termId: term.id,
               subject: 'CS' 
             });
             console.log(`Deleted ${deleteResult.deletedCount} existing records for ${term.title}`);
