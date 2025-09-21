@@ -1,4 +1,4 @@
-// api.js - API functions for database operations
+// api.jsx - Fixed with direct URLs (like your working version)
 
 // Helper function to parse schedule strings from database
 function parseSchedule(scheduleStr) {
@@ -49,15 +49,13 @@ function parseSchedule(scheduleStr) {
 function normalizeInstructorName(name) {
   if (!name || typeof name !== 'string') return '';
   
-  // Remove extra whitespace
   name = name.trim();
   
-  // Handle "Last, First Middle" format -> "First Last"
   if (name.includes(',')) {
     const parts = name.split(',').map(p => p.trim());
     if (parts.length >= 2) {
       const lastName = parts[0];
-      const firstName = parts[1].split(' ')[0]; // Take only first name, ignore middle
+      const firstName = parts[1].split(' ')[0];
       return `${firstName} ${lastName}`;
     }
   }
@@ -65,7 +63,6 @@ function normalizeInstructorName(name) {
   return name;
 }
 
-// Helper function to extract instructor names from various formats
 function extractInstructorNames(instructors) {
   if (!instructors) return [];
   
@@ -87,22 +84,11 @@ function extractInstructorNames(instructors) {
   return [];
 }
 
-// Get API base URL based on environment
-const getAPIBase = () => {
-  if (typeof window !== 'undefined') {
-    // Client-side
-    return process.env.NODE_ENV === 'production' 
-      ? 'https://your-backend-url.vercel.app' // Replace with your actual backend URL
-      : 'http://localhost:3001';
-  }
-  return 'http://localhost:3001'; // Server-side fallback
-};
-
 // API functions to fetch data from your backend
 export async function fetchClassesFromDB() {
   try {
-    const apiBase = getAPIBase();
-    const response = await fetch(`${apiBase}/api/classes`);
+    // Use direct URL like your working version
+    const response = await fetch('http://localhost:3001/api/classes');
     
     if (!response.ok) {
       throw new Error('Failed to fetch classes from database')
@@ -122,7 +108,6 @@ export async function fetchClassesFromDB() {
       sectionType: section.sectionType,
       schedule: parseSchedule(section.schedule),
       hours: section.hours,
-      // Add RMP data placeholders - will be populated by fetchRMPData
       rmpData: {}
     }))
   } catch (error) {
@@ -134,8 +119,7 @@ export async function fetchClassesFromDB() {
 // Fetch RMP ratings data
 export async function fetchRMPData() {
   try {
-    const apiBase = getAPIBase();
-    const response = await fetch(`${apiBase}/api/rmp-ratings`);
+    const response = await fetch('http://localhost:3001/api/rmp-ratings');
     
     if (!response.ok) {
       console.warn('RMP data not available');
@@ -144,10 +128,8 @@ export async function fetchRMPData() {
     
     const data = await response.json();
     
-    // Create lookup map: courseId|instructorName -> ratings
     const rmpMap = {};
     data.forEach(rating => {
-      // Normalize the instructor name from RMP data too
       const normalizedName = normalizeInstructorName(rating.instructorName);
       const key = `${rating.courseId}|${normalizedName}`;
       rmpMap[key] = {
@@ -158,8 +140,6 @@ export async function fetchRMPData() {
     });
     
     console.log('RMP Data loaded:', Object.keys(rmpMap).length, 'entries');
-    console.log('Sample keys:', Object.keys(rmpMap).slice(0, 5));
-    
     return rmpMap;
   } catch (error) {
     console.error('Error fetching RMP data:', error);
@@ -177,32 +157,15 @@ export async function fetchClassesWithRatings() {
     
     if (!classes) return null;
     
-    // Debug logging
-    console.log('Classes loaded:', classes.length);
-    console.log('RMP data keys available:', Object.keys(rmpData).length);
-    
-    // Merge RMP data with class data
     return classes.map(cls => {
       const rmpRatings = {};
-      let foundRatings = 0;
       
-      // For each professor, try to find RMP data
       cls.professors.forEach(professor => {
         const key = `${cls.code}|${professor}`;
-        console.log(`Looking for RMP data with key: "${key}"`);
-        
         if (rmpData[key]) {
           rmpRatings[professor] = rmpData[key];
-          foundRatings++;
-          console.log(`Found RMP data for ${professor}:`, rmpData[key]);
-        } else {
-          console.log(`No RMP data found for ${professor}`);
         }
       });
-      
-      if (foundRatings > 0) {
-        console.log(`Class ${cls.code} has ${foundRatings} professors with RMP data`);
-      }
       
       return {
         ...cls,
@@ -240,15 +203,13 @@ export function formatRating(rating, type = 'quality') {
   let color = '#666';
   
   if (type === 'quality') {
-    // Quality: 1-5 scale, higher is better
-    if (rating >= 4) color = '#4CAF50'; // Green
-    else if (rating >= 3) color = '#FF9800'; // Orange  
-    else color = '#f44336'; // Red
+    if (rating >= 4) color = '#4CAF50';
+    else if (rating >= 3) color = '#FF9800';
+    else color = '#f44336';
   } else {
-    // Difficulty: 1-5 scale, lower is easier
-    if (rating <= 2) color = '#4CAF50'; // Green (easy)
-    else if (rating <= 3.5) color = '#FF9800'; // Orange (medium)
-    else color = '#f44336'; // Red (hard)
+    if (rating <= 2) color = '#4CAF50';
+    else if (rating <= 3.5) color = '#FF9800';
+    else color = '#f44336';
   }
   
   return { value, color };
@@ -257,8 +218,6 @@ export function formatRating(rating, type = 'quality') {
 // API function to save planned classes to database
 export async function savePlannedClassesToDB(plannedClasses, userId = null) {
   try {
-    // TODO: Replace with actual user ID when user authentication is implemented
-    // For now, using a placeholder or browser-specific identifier
     const tempUserId = userId || `temp_user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     
     const planData = {
@@ -269,8 +228,7 @@ export async function savePlannedClassesToDB(plannedClasses, userId = null) {
       lastUpdated: new Date().toISOString()
     }
 
-    const apiBase = getAPIBase();
-    const response = await fetch(`${apiBase}/api/planned-classes`, {
+    const response = await fetch('http://localhost:3001/api/planned-classes', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
