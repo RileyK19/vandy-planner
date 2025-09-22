@@ -16,6 +16,8 @@
     "@vanderbilt/yes-api": "^1.0.8",
     "dotenv": "^16.3.1",
     "mongodb": "^6.3.0",
+    "node-fetch": "^3.3.2",
+    "puppeteer": "^24.22.0",
     "rate-my-professor-api-ts": "^1.0.5",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
