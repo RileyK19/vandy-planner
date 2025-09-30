@@ -3,11 +3,19 @@ import './App.css'
 import { fetchClassesFromDB, savePlannedClassesToDB } from './api.jsx'
 import { mockClasses } from './mockData.jsx'
 import PlannerCalendar from './PlannerCalendar.jsx'
-import Modal from './Modal.jsx'// In App.js, replace fetchClassesFromDB() with:
+import Modal from './Modal.jsx'
+import LoginPage from './LoginPage.jsx'
+// In App.js, replace fetchClassesFromDB() with:
 import { fetchClassesWithRatings, getClassAverageRatings, formatRating } from './api.jsx'
 
 
 function App() {
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [user, setUser] = useState(null)
+  const [authError, setAuthError] = useState('')
+  
+  // App state
   const [currentView, setCurrentView] = useState('search') // 'search' or 'planner'
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilter, setShowFilter] = useState(false)
@@ -18,6 +26,21 @@ function App() {
   const [plannedClasses, setPlannedClasses] = useState([])
   const [loading, setLoading] = useState(true)
   const [usingMockData, setUsingMockData] = useState(false)
+
+  // Check for existing authentication on mount
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user')
+    if (savedUser) {
+      try {
+        const userData = JSON.parse(savedUser)
+        setUser(userData)
+        setIsAuthenticated(true)
+      } catch (error) {
+        console.error('Error loading user data:', error)
+        localStorage.removeItem('user')
+      }
+    }
+  }, [])
 
   // Load planned classes from localStorage on mount
   useEffect(() => {
@@ -200,6 +223,58 @@ function App() {
     }
   }
 
+  // Authentication functions
+  const handleLogin = (email, password) => {
+    setAuthError('')
+    
+    // Simple validation - in a real app, this would call an API
+    if (email && password) {
+      const userData = {
+        email: email,
+        id: Date.now().toString(), // Simple ID generation
+        loginTime: new Date().toISOString()
+      }
+      
+      setUser(userData)
+      setIsAuthenticated(true)
+      localStorage.setItem('user', JSON.stringify(userData))
+    } else {
+      setAuthError('Please enter both email and password')
+    }
+  }
+
+  const handleSignup = (email, password) => {
+    setAuthError('')
+    
+    // Simple validation - in a real app, this would call an API
+    if (email && password) {
+      const userData = {
+        email: email,
+        id: Date.now().toString(), // Simple ID generation
+        signupTime: new Date().toISOString()
+      }
+      
+      setUser(userData)
+      setIsAuthenticated(true)
+      localStorage.setItem('user', JSON.stringify(userData))
+    } else {
+      setAuthError('Please enter both email and password')
+    }
+  }
+
+  const handleLogout = () => {
+    setUser(null)
+    setIsAuthenticated(false)
+    setPlannedClasses([]) // Clear planned classes on logout
+    localStorage.removeItem('user')
+    localStorage.removeItem('plannedClasses')
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={handleLogin} onSignup={handleSignup} />
+  }
+
   if (loading) {
     return (
       <div className="app-container">
@@ -216,7 +291,14 @@ function App() {
   return (
     <div className="app-container">
       <div className="app-header">
-        <h1>Vandy Planner</h1>
+        <div>
+          <h1>Vandy Planner</h1>
+          {user && (
+            <p style={{ margin: '0', fontSize: '14px', color: '#666' }}>
+              Welcome, {user.email}
+            </p>
+          )}
+        </div>
         <div>
           <button
             onClick={() => setCurrentView('search')}
@@ -262,8 +344,25 @@ function App() {
             onClick={() => setShowInfoModal(true)}
             className="info-button"
             aria-label="Show app info"
+            style={{ marginRight: '10px' }}
           >
             i
+          </button>
+          <button
+            onClick={handleLogout}
+            className="logout-button"
+            title="Logout"
+            style={{
+              backgroundColor: '#f44336',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '8px 16px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            🚪 Logout
           </button>
         </div>
       </div>

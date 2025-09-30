@@ -10,10 +10,14 @@ body {
   background: #fafafa;
   color: #333;
   line-height: 1.6;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
 }
 
 .app-container {
-  width: 220%;
+  width: 100%;
   max-width: none;
   margin: 0;
   padding: 20px;
