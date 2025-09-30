@@ -1,15 +1,78 @@
 const puppeteer = require('puppeteer');
+const mongoose = require('mongoose');
+const express = require('express');
+const cors = require('cors');
+require('dotenv').config();
 
-class VanderbiltKualiScraper {
+// MongoDB Schemas
+const DegreeRequirementSchema = new mongoose.Schema({
+  major: { type: String, required: true, index: true },
+  department: String,
+  degreeType: { type: String, default: 'Bachelor' },
+  catalogYear: { type: String, required: true },
+  creditHours: Number,
+  lastUpdated: { type: Date, default: Date.now },
+  source: String,
+  
+  // Core requirements
+  coreRequirements: [{
+    category: String,
+    description: String,
+    courses: [String],
+    creditHours: Number,
+    notes: String
+  }],
+  
+  // All course requirements
+  courseRequirements: [{
+    courseCode: { type: String, required: true },
+    courseTitle: String,
+    creditHours: Number,
+    category: String, // 'core', 'elective', 'prerequisite', etc.
+    required: { type: Boolean, default: true }
+  }],
+  
+  // Parsed requirements structure
+  parsedRequirements: mongoose.Schema.Types.Mixed,
+  
+  // Raw scraped data for reference
+  rawData: mongoose.Schema.Types.Mixed
+});
+
+const CourseSchema = new mongoose.Schema({
+  courseCode: { type: String, required: true, unique: true },
+  subject: String,
+  courseNumber: String,
+  title: String,
+  description: String,
+  creditHours: Number,
+  prerequisites: [String],
+  corequisites: [String],
+  majors: [String], // Which majors require this course
+  lastUpdated: { type: Date, default: Date.now }
+});
+
+const DegreeRequirement = mongoose.model('DegreeRequirement', DegreeRequirementSchema);
+const Course = mongoose.model('Course', CourseSchema);
+
+class VanderbiltDegreeScraper {
     constructor() {
         this.browser = null;
         this.page = null;
+        this.app = null;
+        this.server = null;
     }
 
     async init() {
-        console.log('🚀 Launching browser...');
+        console.log('🚀 Launching browser and connecting to database...');
+        
+        // Connect to MongoDB
+        await mongoose.connect(process.env.MONGO_URI);
+        console.log('✅ MongoDB connected');
+
+        // Launch browser
         this.browser = await puppeteer.launch({ 
-            headless: true, // Set to false if you want to see the browser
+            headless: true,
             defaultViewport: null,
             args: [
                 '--no-sandbox', 
@@ -19,10 +82,7 @@ class VanderbiltKualiScraper {
         });
         this.page = await this.browser.newPage();
         
-        // Set a realistic user agent
         await this.page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-        
-        // Remove webdriver property
         await this.page.evaluateOnNewDocument(() => {
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => undefined,
@@ -32,20 +92,11 @@ class VanderbiltKualiScraper {
 
     async waitForKualiLoad() {
         console.log('⏳ Waiting for Kuali catalog to load...');
-        
-        // Wait for page to be fully loaded
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // Wait for various possible loading indicators or content
         const selectors = [
-            '.kuali-catalog-content',
-            '[data-testid="content"]', 
-            '.catalog-content',
-            '#catalog-content',
-            'main',
-            'article',
-            '.main-content',
-            '[role="main"]'
+            '.kuali-catalog-content', '[data-testid="content"]', '.catalog-content',
+            '#catalog-content', 'main', 'article', '.main-content', '[role="main"]'
         ];
         
         let contentFound = false;
@@ -56,7 +107,6 @@ class VanderbiltKualiScraper {
                 contentFound = true;
                 break;
             } catch (error) {
-                // Continue to next selector
                 continue;
             }
         }
@@ -65,10 +115,8 @@ class VanderbiltKualiScraper {
             console.log('⚠️  No specific content selectors found, proceeding anyway');
         }
         
-        // Wait for dynamic content to settle
         await new Promise(resolve => setTimeout(resolve, 3000));
         
-        // Wait for network to be idle
         try {
             await this.page.waitForLoadState?.('networkidle') || 
                   await this.page.waitForFunction(() => document.readyState === 'complete');
@@ -86,7 +134,6 @@ class VanderbiltKualiScraper {
                 timeout: 30000
             });
 
-            // For hash-based navigation, we need to handle it differently
             if (url.includes('#/')) {
                 console.log('🔄 Hash navigation detected, waiting for content...');
                 await new Promise(resolve => setTimeout(resolve, 5000));
@@ -94,21 +141,17 @@ class VanderbiltKualiScraper {
 
             await this.waitForKualiLoad();
 
-            // Extract all text content from the page
             console.log('🔍 Extracting page content...');
             
-            // First, let's see what we're working with
             const pageTitle = await this.page.title();
             const currentUrl = this.page.url();
             console.log(`📄 Page title: ${pageTitle}`);
-            console.log(`🔗 Current URL: ${currentUrl}`);
+
             const pageData = await this.page.evaluate(() => {
-                // Helper function to clean text
                 function cleanText(text) {
                     return text.replace(/\s+/g, ' ').trim();
                 }
 
-                // Get basic page info first
                 const basicInfo = {
                     title: document.title,
                     url: window.location.href,
@@ -116,22 +159,10 @@ class VanderbiltKualiScraper {
                     bodyLength: document.body.innerText?.length || 0
                 };
 
-                console.log('Page has', basicInfo.bodyLength, 'characters of content');
-
-                // Try to find the main content area with more selectors
                 const contentSelectors = [
-                    '.kuali-catalog-content',
-                    '[data-testid="content"]',
-                    '.catalog-content', 
-                    '#catalog-content',
-                    'main',
-                    '.main-content',
-                    'article',
-                    '[role="main"]',
-                    '.content',
-                    '#content',
-                    '.page-content',
-                    '.entry-content'
+                    '.kuali-catalog-content', '[data-testid="content"]', '.catalog-content', 
+                    '#catalog-content', 'main', '.main-content', 'article', '[role="main"]',
+                    '.content', '#content', '.page-content', '.entry-content'
                 ];
 
                 let mainContent = null;
@@ -146,15 +177,11 @@ class VanderbiltKualiScraper {
                     }
                 }
 
-                // Fallback to body if no main content found
                 if (!mainContent) {
                     mainContent = document.body;
                     foundSelector = 'body';
                 }
 
-                console.log('Using content from selector:', foundSelector);
-
-                // Extract structured data
                 const data = {
                     ...basicInfo,
                     mainText: cleanText(mainContent.innerText || ''),
@@ -165,9 +192,7 @@ class VanderbiltKualiScraper {
                     paragraphs: []
                 };
 
-                // Only proceed if we have substantial content
                 if (data.mainText.length < 50) {
-                    console.log('Warning: Very little content found');
                     return data;
                 }
 
@@ -211,7 +236,7 @@ class VanderbiltKualiScraper {
                     if (rows.length > 0) data.tables.push(rows);
                 });
 
-                // Extract substantial paragraphs
+                // Extract paragraphs
                 mainContent.querySelectorAll('p, div').forEach(element => {
                     const text = cleanText(element.innerText);
                     if (text.length > 20 && !data.paragraphs.includes(text)) {
@@ -223,8 +248,6 @@ class VanderbiltKualiScraper {
             });
             
             console.log(`📊 Extracted ${pageData.mainText.length} characters of content`);
-            console.log(`📋 Found ${pageData.headings.length} headings, ${pageData.lists.length} lists, ${pageData.tables.length} tables`);
-
             return pageData;
 
         } catch (error) {
@@ -241,11 +264,12 @@ class VanderbiltKualiScraper {
         const requirements = {
             major: majorName || this.extractMajorName(pageData),
             catalogYear: '2025-2026',
-            lastUpdated: new Date().toISOString(),
+            lastUpdated: new Date(),
             source: pageData.url,
             rawData: pageData,
             parsedRequirements: {},
             courseRequirements: [],
+            coreRequirements: [],
             creditHours: null
         };
 
@@ -255,42 +279,75 @@ class VanderbiltKualiScraper {
             requirements.creditHours = parseInt(creditMatch[1]);
         }
 
-        // Look for course codes (pattern: LETTERS NUMBERS)
+        // Extract course codes with enhanced parsing
         const coursePattern = /([A-Z]{2,5})\s+(\d{4}[A-Z]?)/g;
-        const courses = [];
+        const courses = new Set();
         let match;
         while ((match = coursePattern.exec(pageData.mainText)) !== null) {
-            courses.push(`${match[1]} ${match[2]}`);
+            courses.add(`${match[1]} ${match[2]}`);
         }
-        requirements.courseRequirements = [...new Set(courses)]; // Remove duplicates
 
-        // Parse structured requirements from lists and headings
+        // Parse course requirements with categories
+        const courseRequirements = [];
+        courses.forEach(courseCode => {
+            const [subject, number] = courseCode.split(' ');
+            courseRequirements.push({
+                courseCode: courseCode,
+                subject: subject,
+                courseNumber: number,
+                category: this.determineCourseCategory(courseCode, pageData.mainText),
+                required: true
+            });
+        });
+        requirements.courseRequirements = courseRequirements;
+
+        // Parse core requirements from lists
         pageData.lists.forEach((list, index) => {
             if (list.items.length > 0) {
+                const category = this.determineCategoryFromContext(list.items, index);
+                requirements.coreRequirements.push({
+                    category: category,
+                    description: `Requirement group ${index + 1}`,
+                    courses: list.items.filter(item => /[A-Z]{2,5}\s+\d{4}/.test(item)),
+                    notes: list.items.join('; ')
+                });
+                
                 requirements.parsedRequirements[`requirement_group_${index + 1}`] = {
                     type: list.type,
+                    category: category,
                     items: list.items
                 };
             }
         });
 
-        // Parse tables if any
-        pageData.tables.forEach((table, index) => {
-            requirements.parsedRequirements[`table_${index + 1}`] = table;
-        });
-
         return requirements;
     }
 
+    determineCourseCategory(courseCode, fullText) {
+        const lowerText = fullText.toLowerCase();
+        if (lowerText.includes('core') && lowerText.includes(courseCode.toLowerCase())) return 'core';
+        if (lowerText.includes('elective') && lowerText.includes(courseCode.toLowerCase())) return 'elective';
+        if (lowerText.includes('prerequisite') && lowerText.includes(courseCode.toLowerCase())) return 'prerequisite';
+        return 'required';
+    }
+
+    determineCategoryFromContext(items, index) {
+        const text = items.join(' ').toLowerCase();
+        if (text.includes('core')) return 'Core Requirements';
+        if (text.includes('elective')) return 'Elective Requirements';
+        if (text.includes('math')) return 'Mathematics Requirements';
+        if (text.includes('science')) return 'Science Requirements';
+        if (text.includes('writing')) return 'Writing Requirements';
+        return `Requirement Category ${index + 1}`;
+    }
+
     extractMajorName(pageData) {
-        // Try to extract major name from title or headings
         const title = pageData.title;
         if (title) {
             const match = title.match(/([A-Za-z\s]+)(?:\s*-\s*|,|\|)/);
             if (match) return match[1].trim();
         }
 
-        // Try from first heading
         if (pageData.headings.length > 0) {
             return pageData.headings[0].text;
         }
@@ -298,50 +355,193 @@ class VanderbiltKualiScraper {
         return 'Unknown Major';
     }
 
-    printRequirements(requirements) {
-        console.log('\n' + '='.repeat(80));
-        console.log(`📖 ${requirements.major.toUpperCase()} DEGREE REQUIREMENTS`);
-        console.log(`📅 Catalog Year: ${requirements.catalogYear}`);
-        console.log(`💳 Credit Hours: ${requirements.creditHours || 'Not specified'}`);
-        console.log(`🔗 Source: ${requirements.source}`);
-        console.log('='.repeat(80));
+    async saveToDatabase(requirements) {
+        try {
+            console.log('💾 Saving to database...');
 
-        if (requirements.courseRequirements.length > 0) {
-            console.log('\n📚 COURSE REQUIREMENTS FOUND:');
-            requirements.courseRequirements.forEach(course => {
-                console.log(`   • ${course}`);
-            });
+            // Save or update degree requirements
+            const degreeReq = await DegreeRequirement.findOneAndUpdate(
+                { 
+                    major: requirements.major, 
+                    catalogYear: requirements.catalogYear 
+                },
+                requirements,
+                { upsert: true, new: true }
+            );
+
+            console.log(`✅ Saved degree requirements for ${requirements.major}`);
+
+            // Save individual courses
+            let coursesCreated = 0;
+            let coursesUpdated = 0;
+
+            for (const courseReq of requirements.courseRequirements) {
+                try {
+                    const existingCourse = await Course.findOne({ courseCode: courseReq.courseCode });
+                    
+                    if (existingCourse) {
+                        // Add this major to the course if not already included
+                        if (!existingCourse.majors.includes(requirements.major)) {
+                            existingCourse.majors.push(requirements.major);
+                            await existingCourse.save();
+                            coursesUpdated++;
+                        }
+                    } else {
+                        // Create new course
+                        const newCourse = new Course({
+                            courseCode: courseReq.courseCode,
+                            subject: courseReq.subject,
+                            courseNumber: courseReq.courseNumber,
+                            majors: [requirements.major],
+                            lastUpdated: new Date()
+                        });
+                        await newCourse.save();
+                        coursesCreated++;
+                    }
+                } catch (courseError) {
+                    console.error(`⚠️  Error saving course ${courseReq.courseCode}:`, courseError.message);
+                }
+            }
+
+            console.log(`✅ Courses processed: ${coursesCreated} created, ${coursesUpdated} updated`);
+
+            return {
+                degreeRequirement: degreeReq,
+                coursesCreated,
+                coursesUpdated,
+                totalCourses: requirements.courseRequirements.length
+            };
+
+        } catch (error) {
+            console.error('❌ Database save error:', error);
+            throw error;
         }
+    }
 
-        console.log('\n📋 PARSED REQUIREMENTS:');
-        Object.entries(requirements.parsedRequirements).forEach(([key, value]) => {
-            console.log(`\n🔸 ${key.replace(/_/g, ' ').toUpperCase()}:`);
-            if (Array.isArray(value)) {
-                // Table data
-                value.forEach(row => {
-                    console.log(`   ${row.join(' | ')}`);
-                });
-            } else if (value.items) {
-                // List data
-                value.items.forEach(item => {
-                    console.log(`   • ${item}`);
-                });
+    async setupAPI() {
+        this.app = express();
+        this.app.use(cors());
+        this.app.use(express.json());
+
+        // Get all degree requirements
+        this.app.get('/api/degrees', async (req, res) => {
+            try {
+                const degrees = await DegreeRequirement.find()
+                    .select('-rawData') // Exclude raw data for performance
+                    .sort({ major: 1 });
+                res.json(degrees);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
             }
         });
 
-        console.log('\n📄 FULL TEXT CONTENT:');
-        console.log(requirements.rawData.mainText.substring(0, 1000) + '...');
-        console.log('='.repeat(80));
+        // Get specific degree requirements
+        this.app.get('/api/degrees/:major', async (req, res) => {
+            try {
+                const degree = await DegreeRequirement.findOne({ 
+                    major: new RegExp(req.params.major, 'i') 
+                });
+                if (!degree) {
+                    return res.status(404).json({ error: 'Degree not found' });
+                }
+                res.json(degree);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get all courses for a specific major
+        this.app.get('/api/degrees/:major/courses', async (req, res) => {
+            try {
+                const degree = await DegreeRequirement.findOne({ 
+                    major: new RegExp(req.params.major, 'i') 
+                });
+                if (!degree) {
+                    return res.status(404).json({ error: 'Degree not found' });
+                }
+                
+                // Get detailed course information
+                const courseCodes = degree.courseRequirements.map(cr => cr.courseCode);
+                const courses = await Course.find({ 
+                    courseCode: { $in: courseCodes } 
+                });
+
+                res.json({
+                    major: degree.major,
+                    totalCourses: courseCodes.length,
+                    courseRequirements: degree.courseRequirements,
+                    detailedCourses: courses
+                });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get all courses
+        this.app.get('/api/courses', async (req, res) => {
+            try {
+                const { subject, major } = req.query;
+                let query = {};
+                
+                if (subject) {
+                    query.subject = new RegExp(subject, 'i');
+                }
+                if (major) {
+                    query.majors = new RegExp(major, 'i');
+                }
+
+                const courses = await Course.find(query).sort({ courseCode: 1 });
+                res.json(courses);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Trigger scraping for a specific major
+        this.app.post('/api/scrape/:major', async (req, res) => {
+            try {
+                const majorName = req.params.major;
+                const url = MAJOR_URLS[majorName] || req.body.url;
+                
+                if (!url) {
+                    return res.status(400).json({ 
+                        error: 'URL required for unknown major',
+                        availableMajors: Object.keys(MAJOR_URLS)
+                    });
+                }
+
+                const requirements = await this.scrapeMajor(url, majorName);
+                if (!requirements) {
+                    return res.status(500).json({ error: 'Failed to scrape requirements' });
+                }
+
+                const result = await this.saveToDatabase(requirements);
+                res.json({
+                    success: true,
+                    major: majorName,
+                    ...result
+                });
+
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Health check
+        this.app.get('/api/health', (req, res) => {
+            res.json({ 
+                status: 'healthy',
+                database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+                timestamp: new Date().toISOString()
+            });
+        });
+
+        const PORT = process.env.PORT || 3001;
+        this.server = this.app.listen(PORT, () => {
+            console.log(`🌐 API server running on port ${PORT}`);
+        });
     }
 
-    async close() {
-        if (this.browser) {
-            await this.browser.close();
-            console.log('🔒 Browser closed');
-        }
-    }
-
-    // Method to scrape any major by URL
     async scrapeMajor(url, majorName = null) {
         const pageData = await this.scrapePageContent(url);
         if (!pageData) return null;
@@ -349,54 +549,130 @@ class VanderbiltKualiScraper {
         const requirements = this.parseDegreeRequirements(pageData, majorName);
         return requirements;
     }
+
+    async scrapeAllMajors() {
+        console.log('🎯 Starting bulk scraping of all majors...');
+        const results = [];
+
+        for (const [majorName, url] of Object.entries(MAJOR_URLS)) {
+            try {
+                console.log(`\n📚 Scraping ${majorName}...`);
+                const requirements = await this.scrapeMajor(url, majorName);
+                
+                if (requirements) {
+                    const dbResult = await this.saveToDatabase(requirements);
+                    results.push({
+                        major: majorName,
+                        success: true,
+                        ...dbResult
+                    });
+                    console.log(`✅ ${majorName} completed successfully`);
+                } else {
+                    results.push({
+                        major: majorName,
+                        success: false,
+                        error: 'Failed to scrape'
+                    });
+                    console.log(`❌ ${majorName} failed`);
+                }
+
+                // Small delay between requests
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+            } catch (error) {
+                console.error(`💥 Error scraping ${majorName}:`, error.message);
+                results.push({
+                    major: majorName,
+                    success: false,
+                    error: error.message
+                });
+            }
+        }
+
+        return results;
+    }
+
+    async close() {
+        if (this.browser) {
+            await this.browser.close();
+            console.log('🔒 Browser closed');
+        }
+        if (this.server) {
+            this.server.close();
+            console.log('🔒 Server closed');
+        }
+        await mongoose.disconnect();
+        console.log('🔒 Database disconnected');
+    }
 }
 
 // Predefined URLs for common majors
 const MAJOR_URLS = {
     'Computer Science': 'https://www.vanderbilt.edu/catalogs/kuali/undergraduate-25-26.php#/content/681933594c9200f84cd3b942',
-    'Mathematics': 'https://www.vanderbilt.edu/catalogs/kuali/undergraduate-25-26.php#/content/6819335c4c9200f84cd3b96e',
+    'Mathematics': 'https://www.vanderbilt.edu/catalogs/kuali/undergraduate-25-26.php#/content/681933604c9200f84cd3bac5?q=mathematics&&limit=20&skip=0&bc=true&bcCurrent=Mathematics&bcItemType=institutional-information',
     'Biomedical Engineering': 'https://www.vanderbilt.edu/catalogs/kuali/undergraduate-25-26.php#/content/681933644c9200f84cd3b9bc',
     'Chemistry': 'https://www.vanderbilt.edu/catalogs/kuali/undergraduate-25-26.php#/content/681933584c9200f84cd3b91e',
     'Physics': 'https://www.vanderbilt.edu/catalogs/kuali/undergraduate-25-26.php#/content/681933614c9200f84cd3b992',
-    // Add more as needed - you can find these by browsing the catalog
+    'Economics': 'https://www.vanderbilt.edu/catalogs/kuali/undergraduate-25-26.php#/content/681933584c9200f84cd3b920',
+    'Psychology': 'https://www.vanderbilt.edu/catalogs/kuali/undergraduate-25-26.php#/content/681933614c9200f84cd3b994'
 };
 
 // Main execution function
 async function main() {
-    const scraper = new VanderbiltKualiScraper();
+    const scraper = new VanderbiltDegreeScraper();
     
     try {
         await scraper.init();
+        await scraper.setupAPI();
         
-        // Get the major to scrape from command line arguments
         const args = process.argv.slice(2);
-        const majorName = args[0] || 'Computer Science';
+        const command = args[0] || 'api';
         
-        console.log(`🎯 Scraping requirements for: ${majorName}`);
-        
-        let url = MAJOR_URLS[majorName];
-        if (!url) {
-            console.log(`❓ URL for ${majorName} not found. Using Computer Science as example.`);
-            console.log('Available majors:', Object.keys(MAJOR_URLS).join(', '));
-            url = MAJOR_URLS['Computer Science'];
+        if (command === 'scrape-all') {
+            const results = await scraper.scrapeAllMajors();
+            console.log('\n📊 SCRAPING SUMMARY:');
+            results.forEach(result => {
+                console.log(`${result.success ? '✅' : '❌'} ${result.major}: ${result.success ? `${result.totalCourses} courses` : result.error}`);
+            });
+        } else if (command === 'scrape' && args[1]) {
+            const majorName = args[1];
+            const requirements = await scraper.scrapeMajor(MAJOR_URLS[majorName] || args[2], majorName);
+            if (requirements) {
+                await scraper.saveToDatabase(requirements);
+                console.log(`✅ Successfully scraped and saved ${majorName}`);
+            }
+        } else {
+            console.log('🌐 API server started. Available endpoints:');
+            console.log('  GET  /api/degrees - List all degrees');
+            console.log('  GET  /api/degrees/:major - Get specific degree');
+            console.log('  GET  /api/degrees/:major/courses - Get courses for major');
+            console.log('  GET  /api/courses - List all courses');
+            console.log('  POST /api/scrape/:major - Trigger scraping');
+            console.log('  GET  /api/health - Health check');
+            console.log('\n🎯 Usage:');
+            console.log('  node script.js api                    - Start API server');
+            console.log('  node script.js scrape-all            - Scrape all majors');
+            console.log('  node script.js scrape "Major Name"   - Scrape specific major');
         }
         
-        const requirements = await scraper.scrapeMajor(url, majorName);
-        
-        if (requirements) {
-            scraper.printRequirements(requirements);
-            
-            // Optionally save to JSON
-            // const fs = require('fs');
-            // fs.writeFileSync(`${majorName.toLowerCase().replace(/\s+/g, '_')}_requirements.json`, JSON.stringify(requirements, null, 2));
+        // Keep the process running for API mode
+        if (command === 'api') {
+            process.on('SIGINT', async () => {
+                console.log('\n🛑 Shutting down gracefully...');
+                await scraper.close();
+                process.exit(0);
+            });
         } else {
-            console.log('❌ Failed to scrape requirements');
+            // Close for scraping commands
+            setTimeout(async () => {
+                await scraper.close();
+            }, 5000);
         }
         
     } catch (error) {
         console.error('💥 Scraping failed:', error);
-    } finally {
         await scraper.close();
+        process.exit(1);
     }
 }
 
@@ -405,7 +681,4 @@ if (require.main === module) {
     main().catch(console.error);
 }
 
-// Usage examples:
-// node degree-audit-scraper-test.cjs "Computer Science"
-
-module.exports = VanderbiltKualiScraper;
+module.exports = VanderbiltDegreeScraper;
