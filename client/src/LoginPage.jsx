@@ -53,8 +53,12 @@ function LoginPage({ onLogin, onSignup }) {
     <div className="login-container">
       <div className="login-box">
         <div className="login-header">
-          <h1>Vanderbilt Course Planner</h1>
-          <p>Plan your CS courses efficiently with smart recommendations</p>
+        <img 
+          src="/cropped_logo.png?v=3" 
+          alt="Vanderbilt Course Planner" 
+          className="login-logo"
+        />
+          <p>Choose your CS courses efficiently with our recommendations</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">

@@ -26,23 +26,24 @@
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  padding: 40px;
+  padding: 30px 40px;
   width: 100%;
   max-width: 600px;
   text-align: center;
 }
 
-.login-header h1 {
-  color: #333;
-  font-size: 28px;
-  font-weight: 600;
-  margin: 0 0 8px 0;
+.login-logo {
+  max-width: 400px; /* Set to 400px */
+  height: auto;
+  margin: 0 auto 4px auto;
+  display: block;
+  object-fit: contain;
 }
 
 .login-header p {
   color: #666;
   font-size: 16px;
-  margin: 0 0 30px 0;
+  margin: 0 0 20px 0;
   line-height: 1.4;
 }
 
@@ -144,14 +145,14 @@
   }
   
   .login-box {
-    padding: 30px 20px;
+    padding: 25px 20px;
     margin: 10px;
     width: 100%;
     max-width: 550px;
   }
   
-  .login-header h1 {
-    font-size: 24px;
+  .login-logo {
+    max-width: 280px; /* Proportional mobile size */
   }
   
   .login-header p {

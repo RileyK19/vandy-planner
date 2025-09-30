@@ -292,9 +292,13 @@ function App() {
     <div className="app-container">
       <div className="app-header">
         <div>
-          <h1>Vandy Planner</h1>
+          <img 
+            src="/cropped_logo.png?v=3" 
+            alt="Vandy Planner" 
+            className="app-logo"
+          />
           {user && (
-            <p style={{ margin: '0', fontSize: '14px', color: '#666' }}>
+            <p className="welcome-message">
               Welcome, {user.email}
             </p>
           )}

@@ -27,7 +27,7 @@ body {
 .app-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start; /* Changed to flex-start for better alignment */
   margin-bottom: 2rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid #e0e0e0;
@@ -37,6 +37,37 @@ body {
   font-size: 1.8rem;
   font-weight: 600;
   color: #333;
+}
+
+.app-logo {
+  height: 80px; /* Much larger height */
+  width: auto;
+  object-fit: contain;
+  max-width: 400px; /* Much larger max width */
+}
+
+.welcome-message {
+  margin: 8px 0 0 0;
+  font-size: 14px;
+  color: #666;
+  text-align: left;
+  font-weight: 500;
+}
+
+
+/* Responsive logo sizing */
+@media (max-width: 768px) {
+  .app-logo {
+    height: 70px; /* Much larger mobile height */
+    max-width: 300px; /* Much larger mobile width */
+  }
+}
+
+@media (max-width: 480px) {
+  .app-logo {
+    height: 60px; /* Much larger small mobile height */
+    max-width: 250px; /* Much larger small mobile width */
+  }
 }
 
 .info-button {
