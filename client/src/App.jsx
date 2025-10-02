@@ -5,6 +5,7 @@ import { mockClasses } from './mockData.jsx'
 import PlannerCalendar from './PlannerCalendar.jsx'
 import Modal from './Modal.jsx'
 import LoginPage from './LoginPage.jsx'
+import DegreeAudit from './DegreeAudit.jsx'
 // In App.js, replace fetchClassesFromDB() with:
 import { fetchClassesWithRatings, getClassAverageRatings, formatRating } from './api.jsx'
 
@@ -16,7 +17,7 @@ function App() {
   const [authError, setAuthError] = useState('')
   
   // App state
-  const [currentView, setCurrentView] = useState('search') // 'search' or 'planner'
+  const [currentView, setCurrentView] = useState('search') // 'search', 'planner', or 'audit'
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilter, setShowFilter] = useState(false)
   const [selectedFilters, setSelectedFilters] = useState({})
@@ -334,6 +335,21 @@ function App() {
           >
             📅 My Planner ({plannedClasses.length})
           </button>
+          <button
+            onClick={() => setCurrentView('audit')}
+            className={`nav-button ${currentView === 'audit' ? 'active' : ''}`}
+            style={{ 
+              marginRight: '10px', 
+              padding: '8px 16px',
+              backgroundColor: currentView === 'audit' ? '#4CAF50' : '#f0f0f0',
+              color: currentView === 'audit' ? 'white' : 'black',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            🎓 Degree Audit
+          </button>
           {usingMockData && (
             <button
               onClick={refreshData}
@@ -465,12 +481,18 @@ function App() {
             ))}
           </ul>
         </div>
-      ) : (
+      ) : currentView === 'planner' ? (
         // Planner View
         <PlannerCalendar 
           plannedClasses={plannedClasses} 
           onRemoveClass={removeFromPlanner}
           onSavePlan={handleSavePlan}
+        />
+      ) : (
+        // Degree Audit View
+        <DegreeAudit 
+          plannedClasses={plannedClasses}
+          major="Computer Science"
         />
       )}
 
@@ -587,6 +609,7 @@ function App() {
             <li>📄 Click a course to view details</li>
             <li>➕ Add classes to your semester planner</li>
             <li>📅 View your planned classes in calendar format</li>
+            <li>🎓 Check degree requirements and track progress</li>
             <li>💾 Submit your plan to database</li>
             <li>🔄 Refresh to try loading from database</li>
           </ul>

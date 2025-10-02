@@ -247,3 +247,42 @@ export async function savePlannedClassesToDB(plannedClasses, userId = null) {
     throw error
   }
 }
+
+// API function to fetch degree requirements
+export async function fetchDegreeRequirements(major = 'Computer Science') {
+  try {
+    const response = await fetch(`http://localhost:3001/api/degree-requirements?major=${encodeURIComponent(major)}`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch degree requirements: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    // Since your endpoint returns an array with find().toArray(), take the first element
+    if (Array.isArray(data) && data.length > 0) {
+      return data[0];
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error fetching degree requirements:', error);
+    throw error;
+  }
+}
+
+export async function fetchUserTakenCourses(email) {
+  try {
+    const response = await fetch(`http://localhost:3001/api/users/${encodeURIComponent(email)}/courses`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch user courses: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data; // should be an array of course objects
+  } catch (error) {
+    console.error('Error fetching user courses:', error);
+    throw error;
+  }
+}

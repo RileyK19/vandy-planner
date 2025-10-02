@@ -77,6 +77,51 @@ app.get('/api/rmp-ratings', async (req, res) => {
   }
 });
 
+app.get('/api/degree-requirements', async (req, res) => {
+  try {
+    const { major } = req.query;
+    
+    // Query MongoDB for degree requirements
+    const db = mongoose.connection.db;
+    const degreeDb = db.client.db('vanderbilt_courses');
+    const degreeCollection = degreeDb.collection('degree_audits');
+    
+    const degreeReq = await degreeCollection.findOne({ major: major || 'Computer Science' }); // Changed to findOne
+    
+    if (!degreeReq) {
+      return res.status(404).json({ error: 'Degree requirements not found' });
+    }
+    
+    res.json(degreeReq); // Now returns object instead of array
+  } catch (error) {
+    console.error('Error fetching degree requirements:', error);
+    res.status(500).json({ error: 'Failed to fetch degree requirements' });
+  }
+});
+
+app.get('/api/users/:email/courses', async (req, res) => {
+  console.log('HIT: /api/users/:email/courses'); // Add this
+  try {
+    const { email } = req.params;
+
+    const db = mongoose.connection.db;
+    const userDb = db.client.db('vanderbilt_courses');
+    const usersCollection = userDb.collection('Users');
+
+    const user = await usersCollection.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(user.previousCourses || []);
+  } catch (error) {
+    console.error('Error fetching user courses:', error);
+    res.status(500).json({ error: 'Failed to fetch user courses' });
+  }
+});
+
+
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   })
   .catch(err => console.error('MongoDB connection error:', err));
