@@ -14,18 +14,25 @@ class AIDegreeParser {
         this.openaiKey = process.env.OPENAI_API_KEY;
         this.anthropicKey = process.env.ANTHROPIC_API_KEY;
         
-        // MongoDB connection
-        this.mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
-        this.dbName = process.env.DB_NAME || 'university';
+        // MongoDB connection - USE SAME ENV VAR AS OTHER SCRIPT
+        this.mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017';
+        this.dbName = process.env.DB_NAME || 'vanderbilt_courses'; // Match the other script's db name
         this.mongoClient = null;
+        
+        console.log(`MongoDB URI: ${this.mongoUri.replace(/\/\/([^:]+):([^@]+)@/, '//*****:*****@')}`); // Log URI safely
     }
 
     async connectMongo() {
         if (!this.mongoClient) {
             console.log('Connecting to MongoDB...');
-            this.mongoClient = new MongoClient(this.mongoUri);
-            await this.mongoClient.connect();
-            console.log('Connected to MongoDB');
+            try {
+                this.mongoClient = new MongoClient(this.mongoUri);
+                await this.mongoClient.connect();
+                console.log('Connected to MongoDB successfully');
+            } catch (error) {
+                console.error('MongoDB connection failed:', error.message);
+                throw new Error(`Failed to connect to MongoDB at ${this.mongoUri}: ${error.message}`);
+            }
         }
         return this.mongoClient.db(this.dbName);
     }
@@ -50,8 +57,11 @@ class AIDegreeParser {
         const lowerMajor = majorName.toLowerCase();
         
         let bestSection = null;
-        let bestScore = 0;
+        let bestScore = -999999;
         let searchStart = 0;
+        
+        // For Computer Science, use special strict matching
+        const isComputerScience = lowerMajor === 'computer science';
         
         while (true) {
             const majorIndex = lowerCatalog.indexOf(lowerMajor, searchStart);
@@ -64,19 +74,11 @@ class AIDegreeParser {
             
             let score = 0;
             
-            // Check if this is the exact major (not a substring of another major)
-            // Look at context around the match
-            const contextStart = Math.max(0, majorIndex - 50);
-            const contextEnd = Math.min(lowerCatalog.length, majorIndex + lowerMajor.length + 50);
-            const context = lowerCatalog.substring(contextStart, contextEnd);
-            
-            // Penalize if the major name is part of a longer phrase
-            // e.g., "Computer Science" found in "Electrical and Computer Engineering"
+            // Check word boundaries
             const beforeChar = majorIndex > 0 ? lowerCatalog[majorIndex - 1] : ' ';
             const afterChar = majorIndex + lowerMajor.length < lowerCatalog.length ? 
                 lowerCatalog[majorIndex + lowerMajor.length] : ' ';
             
-            // Check if it's a word boundary (not part of a larger word/phrase)
             const isWordBoundary = /[\s\n,.:;()\[\]{}]/.test(beforeChar) && /[\s\n,.:;()\[\]{}]/.test(afterChar);
             if (!isWordBoundary) {
                 console.log(`  Skipping occurrence at position ${majorIndex} - not a word boundary`);
@@ -84,13 +86,73 @@ class AIDegreeParser {
                 continue;
             }
             
-            // Penalize if context suggests it's part of another major name
-            if (context.includes('electrical and computer') && lowerMajor === 'computer science') {
-                console.log(`  Skipping occurrence at position ${majorIndex} - found in ECE context`);
-                searchStart = majorIndex + 1;
-                continue;
+            // SPECIAL HANDLING FOR COMPUTER SCIENCE
+            if (isComputerScience) {
+                // Check header/title area (first 300 chars from match)
+                const headerStart = Math.max(0, majorIndex - 100);
+                const headerEnd = Math.min(lowerCatalog.length, majorIndex + 200);
+                const header = lowerCatalog.substring(headerStart, headerEnd);
+                
+                // HARD REJECT if "Computer Science" appears in ECE title/header
+                if (header.includes('electrical and computer engineering') ||
+                    header.includes('electrical engineering') ||
+                    header.includes('b.e. in') ||
+                    header.includes('bachelor of engineering')) {
+                    console.log(`  HARD REJECT at position ${majorIndex} - ECE in header/title`);
+                    searchStart = majorIndex + 1;
+                    continue;
+                }
+                
+                // Count CS vs ECE course codes
+                const csCourses = (lowerSection.match(/\bcs\s+\d{4}/g) || []).length;
+                const eceCourses = (lowerSection.match(/\bece\s+\d{4}/g) || []).length;
+                
+                console.log(`  CS courses: ${csCourses}, ECE courses: ${eceCourses}`);
+                
+                // If no CS courses at all, reject
+                if (csCourses === 0) {
+                    console.log(`  REJECT at position ${majorIndex} - no CS courses found`);
+                    searchStart = majorIndex + 1;
+                    continue;
+                }
+                
+                // If ECE heavily dominates (more than 2x CS courses), likely ECE section
+                if (eceCourses > csCourses * 2) {
+                    console.log(`  REJECT at position ${majorIndex} - ECE courses dominate (${eceCourses} vs ${csCourses})`);
+                    searchStart = majorIndex + 1;
+                    continue;
+                }
+                
+                // Big boost for CS-specific core courses
+                if (lowerSection.match(/\bcs\s+1101\b/)) {
+                    score += 150;
+                    console.log(`  +150 for CS 1101`);
+                }
+                if (lowerSection.match(/\bcs\s+2201\b/)) {
+                    score += 150;
+                    console.log(`  +150 for CS 2201`);
+                }
+                if (lowerSection.match(/\bcs\s+3251\b/)) score += 80;
+                if (lowerSection.match(/\bcs\s+2212\b/)) score += 80;
+                if (lowerSection.match(/\bcs\s+3250\b/)) score += 80;
+                
+                // Boost for CS course count
+                score += csCourses * 8;
+                console.log(`  +${csCourses * 8} for ${csCourses} CS courses`);
+                
+                // Small penalty for ECE courses (not hard reject, just lower score)
+                score -= eceCourses * 3;
+                if (eceCourses > 0) {
+                    console.log(`  -${eceCourses * 3} for ${eceCourses} ECE courses (electives OK)`);
+                }
+                
+                // Boost for CS-specific keywords
+                if (lowerSection.includes('software')) score += 15;
+                if (lowerSection.includes('algorithm')) score += 15;
+                if (lowerSection.includes('data structures')) score += 20;
             }
             
+            // Standard scoring
             if (lowerSection.includes('major')) score += 3;
             if (lowerSection.includes('bachelor')) score += 3;
             if (lowerSection.includes('degree')) score += 2;
@@ -108,13 +170,12 @@ class AIDegreeParser {
             if (avgLineLength < 30) score -= 5;
             
             // Boost score if section title matches exactly
-            const sectionTitlePattern = new RegExp(`\\b${lowerMajor}\\s+(major|program|degree|bachelor)`, 'i');
-            if (sectionTitlePattern.test(lowerSection)) {
-                score += 10;
-                console.log(`  Found occurrence at position ${majorIndex}, score: ${score} (EXACT MATCH BONUS)`);
-            } else {
-                console.log(`  Found occurrence at position ${majorIndex}, score: ${score}`);
+            const sectionTitlePattern = new RegExp(`\\b${lowerMajor}\\b`, 'i');
+            if (sectionTitlePattern.test(lowerSection.substring(0, 200))) {
+                score += 20;
             }
+            
+            console.log(`  Found occurrence at position ${majorIndex}, score: ${score}`);
             
             if (score > bestScore) {
                 bestScore = score;
@@ -125,8 +186,8 @@ class AIDegreeParser {
         }
         
         if (bestSection) {
-            console.log(`Selected best section with score ${bestScore} (${bestSection.length} characters)`);
-            console.log(`Section starts with: ${bestSection.substring(0, 150).replace(/\n/g, ' ')}...`);
+            console.log(`\n✓ Selected best section with score ${bestScore} (${bestSection.length} characters)`);
+            console.log(`Section starts with: ${bestSection.substring(0, 200).replace(/\n/g, ' ')}...`);
             return bestSection;
         }
         
@@ -140,7 +201,11 @@ class AIDegreeParser {
             throw new Error('OPENAI_API_KEY not found in environment variables');
         }
 
-        const prompt = `You are parsing degree requirements from a university catalog. Extract structured information from the following text about the ${majorName} major.
+        const prompt = `You are parsing degree requirements from a university catalog. Extract structured information from the following text about the ${majorName} major. 
+
+IMPORTANT: This text is ONLY about ${majorName}, not any other major. Do not confuse it with other majors.
+
+If the classes required is open ended, such as electives, leave available classes blank and mark moreClasses.
 
 Return a JSON object with this EXACT structure:
 {
@@ -158,7 +223,8 @@ Return a JSON object with this EXACT structure:
         }
       ],
       "minCourses": <number of courses to choose if elective category, null if all required>,
-      "description": "brief description"
+      "description": "brief description",
+      "moreClassesAvailable": bool
     }
   ]
 }
@@ -266,7 +332,8 @@ Return a JSON object with this EXACT structure:
         }
       ],
       "minCourses": <number of courses to choose if elective category, null if all required>,
-      "description": "brief description"
+      "description": "brief description",
+      "moreClassesAvailable": bool
     }
   ]
 }
@@ -430,6 +497,9 @@ Return only the JSON object, nothing else.`;
                 } else {
                     console.log(`   No classes listed`);
                 }
+                if (category.moreClassesAvailable) {
+                    console.log(`   ⚠️  More classes available in catalog (not listed here)`);
+                }
             });
         }
 
@@ -437,6 +507,73 @@ Return only the JSON object, nothing else.`;
         console.log('Legend: * = Required course');
         console.log('='.repeat(80));
     }
+    
+    async saveCoursesToMongo(catalogText) {
+        const db = await this.connectMongo();
+        const collection = db.collection('cs_courses');
+
+        const coursePattern = /(CS)(\d{4}[A-Z]*)\s*-\s*([^\n]+)\n(?:Course Description\n)?([\s\S]*?)(?=\nCS\d{4}|\n\n[A-Z]{2,5}\d{4}|$)/gi;
+
+        const courses = {};
+        let match;
+
+        while ((match = coursePattern.exec(catalogText)) !== null) {
+            const [fullMatch, dept, number, title, description] = match;
+            const courseCode = `${dept} ${number}`;
+            const cleanDescription = description.trim();
+
+            // Extract credit hours
+            const creditMatch = cleanDescription.match(/\[(\d+(?:\.\d+)?)\]$/);
+            const creditHours = creditMatch ? parseFloat(creditMatch[1]) : null;
+
+            // Extract terms
+            const termMatch = cleanDescription.match(/\b(FALL|SPRING|SUMMER|WINTER)(?:\s*,\s*(FALL|SPRING|SUMMER|WINTER))*\b/i);
+            const terms = termMatch ? termMatch[0].split(',').map(t => t.trim()) : [];
+
+            // Extract prerequisites
+            let prereqText = null;
+            const prereqMatch = cleanDescription.match(/prerequisite[s]?:\s*([^.!?\n]+)/i);
+            if (prereqMatch) {
+                prereqText = prereqMatch[1].trim();
+            }
+
+            // Clean main description
+            const cleanDesc = cleanDescription
+                .replace(/\s*Prerequisite[s]?:\s*[^.]*\./gi, '')
+                .replace(/\s*\b(FALL|SPRING|SUMMER|WINTER).*?\[?\d+\]?\s*$/gi, '')
+                .replace(/\s*\[\d+\]\s*$/g, '')
+                .trim();
+
+            courses[courseCode] = {
+                courseCode,
+                department: dept,
+                number,
+                name: title.trim(),
+                creditHours,
+                description: cleanDesc,
+                prerequisites: prereqText || null,
+                termsOffered: terms,
+                lastUpdated: new Date(),
+                dataSource: 'vanderbilt_catalog_2024_25'
+            };
+        }
+
+        const courseList = Object.values(courses);
+        console.log(`\n📘 Found ${courseList.length} CS courses to insert.`);
+
+        if (courseList.length === 0) {
+            console.warn('⚠️ No CS courses found to insert.');
+            return;
+        }
+
+        console.log('🗑️ Clearing old CS course entries...');
+        const deleteResult = await collection.deleteMany({ department: 'CS' });
+        console.log(`Deleted ${deleteResult.deletedCount} old CS courses.`);
+
+        const insertResult = await collection.insertMany(courseList);
+        console.log(`✅ Inserted ${insertResult.insertedCount} CS courses.`);
+    }
+
 }
 
 // Main execution
@@ -450,25 +587,28 @@ async function main() {
     console.log(`Catalog file: ${catalogPath}\n`);
     
     const parser = new AIDegreeParser(catalogPath, apiProvider);
-    
+
     try {
         const requirements = await parser.parseMajor(majorName);
-        
+
         // Print to console
         parser.printRequirements(requirements);
-        
-        // Save to JSON file
+
+        // Save to JSON
         const fs = require('fs');
         const filename = `${majorName.toLowerCase().replace(/\s+/g, '_')}_requirements.json`;
         fs.writeFileSync(filename, JSON.stringify(requirements, null, 2));
         console.log(`\n📄 Saved to: ${filename}`);
-        
-        // Save to MongoDB
+
+        // Save degree requirements to MongoDB
         await parser.saveToMongo(requirements);
-        
+
+        // Save CS course catalog to MongoDB
+        const catalogText = readFileSync(catalogPath, 'utf8');
+        await parser.saveCoursesToMongo(catalogText);
+
     } catch (error) {
         console.error('Error:', error.message);
-        
         if (error.message.includes('API_KEY')) {
             console.log('\nMake sure to set your API key in .env file:');
             console.log('  OPENAI_API_KEY=your_key_here');
@@ -478,6 +618,7 @@ async function main() {
     } finally {
         await parser.closeMongo();
     }
+
 }
 
 // Usage examples:

@@ -1,148 +1,11 @@
 {
   "major": "Computer Science",
-  "totalCreditHours": 122,
+  "totalCreditHours": null,
   "categories": [
     {
-      "name": "Mathematics",
-      "requiredHours": 18,
+      "name": "Core Requirements",
+      "requiredHours": 25,
       "availableClasses": [
-        {
-          "code": "MATH 1300",
-          "hours": 3,
-          "required": true
-        },
-        {
-          "code": "MATH 1301",
-          "hours": 3,
-          "required": true
-        },
-        {
-          "code": "MATH 2300",
-          "hours": 3,
-          "required": true
-        },
-        {
-          "code": "MATH 2400",
-          "hours": 3,
-          "required": true
-        },
-        {
-          "code": "MATH 2810",
-          "hours": 3,
-          "required": true
-        }
-      ],
-      "minCourses": null,
-      "description": "Required mathematics courses for the major."
-    },
-    {
-      "name": "Basic Science",
-      "requiredHours": 16,
-      "availableClasses": [
-        {
-          "code": "CHEM 1601",
-          "hours": 3,
-          "required": true
-        },
-        {
-          "code": "CHEM 1601L",
-          "hours": 1,
-          "required": true
-        },
-        {
-          "code": "PHYS 1601",
-          "hours": 3,
-          "required": true
-        },
-        {
-          "code": "PHYS 1601L",
-          "hours": 1,
-          "required": true
-        },
-        {
-          "code": "PHYS 1602",
-          "hours": 3,
-          "required": true
-        },
-        {
-          "code": "PHYS 1602L",
-          "hours": 1,
-          "required": true
-        },
-        {
-          "code": "MSE 1500",
-          "hours": 3,
-          "required": true
-        },
-        {
-          "code": "MSE 1500L",
-          "hours": 1,
-          "required": true
-        }
-      ],
-      "minCourses": null,
-      "description": "Required basic science courses for the major."
-    },
-    {
-      "name": "Engineering Fundamentals",
-      "requiredHours": 6,
-      "availableClasses": [
-        {
-          "code": "ES 1401",
-          "hours": 3,
-          "required": true
-        },
-        {
-          "code": "ES 1402",
-          "hours": 3,
-          "required": true
-        },
-        {
-          "code": "ES 1403",
-          "hours": 3,
-          "required": true
-        },
-        {
-          "code": "ES 2100W",
-          "hours": 3,
-          "required": true
-        }
-      ],
-      "minCourses": null,
-      "description": "Required engineering fundamentals courses."
-    },
-    {
-      "name": "Culminating Design Experience",
-      "requiredHours": 7,
-      "availableClasses": [
-        {
-          "code": "ECE 4950",
-          "hours": 3,
-          "required": true
-        },
-        {
-          "code": "ECE 4951",
-          "hours": 3,
-          "required": true
-        },
-        {
-          "code": "ECE 4959",
-          "hours": 1,
-          "required": true
-        }
-      ],
-      "minCourses": null,
-      "description": "Required culminating design experience courses."
-    },
-    {
-      "name": "Electrical and Computer Engineering Core",
-      "requiredHours": 21,
-      "availableClasses": [
-        {
-          "code": "CS 1100",
-          "hours": 3,
-          "required": true
-        },
         {
           "code": "CS 1101",
           "hours": 3,
@@ -151,7 +14,7 @@
         {
           "code": "CS 1104",
           "hours": 3,
-          "required": true
+          "required": false
         },
         {
           "code": "CS 2201",
@@ -159,79 +22,161 @@
           "required": true
         },
         {
-          "code": "CS 2204",
+          "code": "CS 3251",
           "hours": 3,
           "required": true
         },
         {
-          "code": "ECE 2112",
+          "code": "CS 3270",
           "hours": 3,
           "required": true
         },
         {
-          "code": "ECE 2112L",
+          "code": "CS 2281",
+          "hours": 4,
+          "required": true
+        },
+        {
+          "code": "CS 2281L",
           "hours": 1,
           "required": true
         },
         {
-          "code": "ECE 2123",
+          "code": "CS 3281",
           "hours": 3,
           "required": true
         },
         {
-          "code": "ECE 2123L",
-          "hours": 1,
-          "required": true
-        },
-        {
-          "code": "ECE 2214",
+          "code": "CS 2212",
           "hours": 3,
           "required": true
         },
         {
-          "code": "ECE 3235",
+          "code": "CS 3250",
           "hours": 3,
           "required": true
+        }
+      ],
+      "minCourses": null,
+      "description": "Core courses required for the Computer Science major.",
+      "moreClassesAvailable": false
+    },
+    {
+      "name": "Computer Science Depth",
+      "requiredHours": 15,
+      "availableClasses": [],
+      "minCourses": 5,
+      "description": "Courses numbered 3000 or higher in Computer Science.",
+      "moreClassesAvailable": true
+    },
+    {
+      "name": "Computer Science Project",
+      "requiredHours": 3,
+      "availableClasses": [
+        {
+          "code": "CS 3862",
+          "hours": 3,
+          "required": false
         },
         {
-          "code": "ECE 3235L",
+          "code": "CS 3892",
+          "hours": 3,
+          "required": false
+        },
+        {
+          "code": "CS 4239",
+          "hours": 3,
+          "required": false
+        },
+        {
+          "code": "CS 4249",
+          "hours": 3,
+          "required": false
+        },
+        {
+          "code": "CS 4269",
+          "hours": 3,
+          "required": false
+        },
+        {
+          "code": "CS 4279",
+          "hours": 3,
+          "required": false
+        },
+        {
+          "code": "CS 4287",
+          "hours": 3,
+          "required": false
+        },
+        {
+          "code": "CS 4289",
+          "hours": 3,
+          "required": false
+        },
+        {
+          "code": "CS 4359",
+          "hours": 3,
+          "required": false
+        }
+      ],
+      "minCourses": 1,
+      "description": "Project courses to be selected from specified options.",
+      "moreClassesAvailable": true
+    },
+    {
+      "name": "Computer Science Seminar",
+      "requiredHours": 1,
+      "availableClasses": [
+        {
+          "code": "CS 4959",
           "hours": 1,
           "required": true
         }
       ],
       "minCourses": null,
-      "description": "Core courses required for the major."
-    },
-    {
-      "name": "Electrical and Computer Engineering Electives",
-      "requiredHours": 21,
-      "availableClasses": [],
-      "minCourses": 15,
-      "description": "Elective courses from Gateway and Depth courses."
-    },
-    {
-      "name": "Liberal Arts Core",
-      "requiredHours": 18,
-      "availableClasses": [],
-      "minCourses": null,
-      "description": "Courses to fulfill Liberal Arts Core requirements."
+      "description": "Seminar course required for the Computer Science major.",
+      "moreClassesAvailable": false
     },
     {
       "name": "Technical Electives",
-      "requiredHours": 12,
+      "requiredHours": 6,
       "availableClasses": [],
-      "minCourses": 6,
-      "description": "Approved engineering technical electives."
+      "minCourses": 2,
+      "description": "Electives from specified courses within the School of Engineering or College of Arts and Science.",
+      "moreClassesAvailable": true
     },
     {
-      "name": "Open Elective",
-      "requiredHours": 3,
+      "name": "Open Electives",
+      "requiredHours": 18,
       "availableClasses": [],
       "minCourses": null,
-      "description": "Open elective course."
+      "description": "Electives that can be chosen freely.",
+      "moreClassesAvailable": true
+    },
+    {
+      "name": "Computers and Ethics",
+      "requiredHours": 3,
+      "availableClasses": [
+        {
+          "code": "CS 1151",
+          "hours": 3,
+          "required": true
+        }
+      ],
+      "minCourses": null,
+      "description": "Course on ethics in computing.",
+      "moreClassesAvailable": false
+    },
+    {
+      "name": "Writing Component",
+      "requiredHours": 3,
+      "availableClasses": [],
+      "minCourses": 1,
+      "description": "At least one 'W'-designated course or 1111 course in English Language.",
+      "moreClassesAvailable": true
     }
   ],
   "source": "openai_api",
   "catalogYear": "2024-2025",
-  "lastUpdated": "2025-09-30T15:40:58.840Z"
+  "lastUpdated": "2025-09-30T22:23:33.578Z"
 }
