@@ -6,6 +6,7 @@ import PlannerCalendar from './PlannerCalendar.jsx'
 import Modal from './Modal.jsx'
 import LoginPage from './LoginPage.jsx'
 import DegreeAudit from './DegreeAudit.jsx'
+import RecommendMe from './RecommendMe.jsx'
 // In App.js, replace fetchClassesFromDB() with:
 import { fetchClassesWithRatings, getClassAverageRatings, formatRating } from './api.jsx'
 
@@ -17,7 +18,7 @@ function App() {
   const [authError, setAuthError] = useState('')
   
   // App state
-  const [currentView, setCurrentView] = useState('search') // 'search', 'planner', or 'audit'
+  const [currentView, setCurrentView] = useState('search') // 'search', 'planner', 'audit', 'recommend'
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilter, setShowFilter] = useState(false)
   const [selectedFilters, setSelectedFilters] = useState({})
@@ -312,6 +313,21 @@ function App() {
             📅 My Planner ({plannedClasses.length})
           </button>
           <button
+            onClick={() => setCurrentView('recommend')}
+            className={`nav-button ${currentView === 'recommend' ? 'active' : ''}`}
+            style={{ 
+              marginRight: '10px', 
+              padding: '8px 16px',
+              backgroundColor: currentView === 'recommend' ? '#4CAF50' : '#f0f0f0',
+              color: currentView === 'recommend' ? 'white' : 'black',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            ✨ Recommend Me
+          </button>
+          <button
             onClick={() => setCurrentView('audit')}
             className={`nav-button ${currentView === 'audit' ? 'active' : ''}`}
             style={{ 
@@ -463,6 +479,14 @@ function App() {
           plannedClasses={plannedClasses} 
           onRemoveClass={removeFromPlanner}
           onSavePlan={handleSavePlan}
+        />
+      ) : currentView === 'recommend' ? (
+        <RecommendMe 
+          onReset={() => {}}
+          onSubmit={(payload) => {
+            console.log('RecommendMe payload:', payload)
+            alert('Submitting preferences. Recommendation engine not yet wired to backend.')
+          }}
         />
       ) : (
         // Degree Audit View
