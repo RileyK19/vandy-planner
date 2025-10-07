@@ -71,6 +71,12 @@ const userSchema = new mongoose.Schema({
     trim: true,
     minlength: [2, 'Name must be at least 2 characters long']
   },
+  major: {
+    type: String,
+    required: [true, 'Major is required'],
+    trim: true,
+    minlength: [2, 'Major must be at least 2 characters long']
+  },
   year: {
     type: String,
     required: [true, 'Academic year is required'],

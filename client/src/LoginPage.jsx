@@ -14,6 +14,7 @@ function LoginPage({ onLogin, onSignup }) {
   })
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -23,6 +24,15 @@ function LoginPage({ onLogin, onSignup }) {
     }))
     // Clear error when user starts typing
     if (error) setError('')
+    
+    // Real-time password validation for signup
+    if (isSignup && name === 'password') {
+      if (value.length > 0 && value.length < 6) {
+        setPasswordError('Password must be at least 6 characters long')
+      } else {
+        setPasswordError('')
+      }
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -40,6 +50,11 @@ function LoginPage({ onLogin, onSignup }) {
     if (isSignup) {
       if (!formData.name) {
         setError('Please enter your name')
+        setIsLoading(false)
+        return
+      }
+      if (formData.password.length < 6) {
+        setError('Password must be at least 6 characters long')
         setIsLoading(false)
         return
       }
@@ -68,6 +83,7 @@ function LoginPage({ onLogin, onSignup }) {
     setIsSignup(!isSignup)
     setFormData({ email: '', password: '', confirmPassword: '', name: '' })
     setError('')
+    setPasswordError('')
     setShowRegistration(false)
   }
 
@@ -79,6 +95,7 @@ function LoginPage({ onLogin, onSignup }) {
     setShowRegistration(false)
     setFormData({ email: '', password: '', confirmPassword: '', name: '' })
     setError('')
+    setPasswordError('')
   }
 
 
@@ -148,7 +165,9 @@ function LoginPage({ onLogin, onSignup }) {
               onChange={handleInputChange}
               placeholder="Enter your password"
               required
+              className={passwordError ? 'error' : ''}
             />
+            {passwordError && <span className="field-error">{passwordError}</span>}
           </div>
 
           {isSignup && (

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const Step1AcademicYear = ({ data, onUpdate, onNext, onBack, errors }) => {
+const Step2AcademicYear = ({ data, onUpdate, onNext, onBack, errors }) => {
   const [localErrors, setLocalErrors] = useState({});
 
   const academicYears = [
@@ -27,7 +27,7 @@ const Step1AcademicYear = ({ data, onUpdate, onNext, onBack, errors }) => {
   return (
     <div className="step-container">
       <div className="step-header">
-        <h3>Step 1: Academic Year</h3>
+        <h3>Step 2: Academic Year</h3>
         <p>What year are you in your academic journey?</p>
       </div>
 
@@ -63,4 +63,4 @@ const Step1AcademicYear = ({ data, onUpdate, onNext, onBack, errors }) => {
   );
 };
 
-export default Step1AcademicYear;
+export default Step2AcademicYear;

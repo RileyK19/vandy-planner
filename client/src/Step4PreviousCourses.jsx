@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const Step3PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubmitting }) => {
+const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubmitting }) => {
   const [localErrors, setLocalErrors] = useState({});
   const [newCourse, setNewCourse] = useState({
     courseCode: '',
@@ -58,7 +58,7 @@ const Step3PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
   return (
     <div className="step-container">
       <div className="step-header">
-        <h3>Step 3: Previous Courses (Optional)</h3>
+        <h3>Step 4: Previous Courses (Optional)</h3>
         <p>Add courses you've already taken to help with degree planning</p>
       </div>
 
@@ -185,4 +185,4 @@ const Step3PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
   );
 };
 
-export default Step3PreviousCourses;
+export default Step4PreviousCourses;

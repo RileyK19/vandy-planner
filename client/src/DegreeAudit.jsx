@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { fetchDegreeRequirements, fetchUserTakenCourses } from './api.jsx'
 
-function DegreeAudit({ plannedClasses, major = 'Computer Science' }) {
+function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) {
   const [degreeData, setDegreeData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null);
@@ -16,7 +16,7 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science' }) {
       try {
         const [degreeData, takenCourses] = await Promise.all([
           fetchDegreeRequirements(major),
-          fetchUserTakenCourses('mainuser@vanderbilt.edu') // replace with dynamic user later
+          userEmail ? fetchUserTakenCourses(userEmail) : Promise.resolve([])
         ]);
   
         console.log('Degree requirements:', degreeData);
@@ -33,7 +33,7 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science' }) {
     };
   
     loadData();
-  }, [major]);
+  }, [major, userEmail]);
   
 
   const calculateProgress = (category) => {
@@ -84,7 +84,36 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science' }) {
   if (!degreeData) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
-        <p>Unable to load degree requirements.</p>
+        <div style={{
+          background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
+          color: 'white',
+          padding: '30px',
+          borderRadius: '12px',
+          marginBottom: '20px',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+        }}>
+          <h2 style={{ margin: '0 0 15px 0', fontSize: '24px' }}>⚠️ Degree Requirements Not Available</h2>
+          <p style={{ margin: '0 0 10px 0', fontSize: '16px' }}>
+            Degree requirements for <strong>{major}</strong> are not currently available in our database.
+          </p>
+          <p style={{ margin: '0', fontSize: '14px', opacity: 0.9 }}>
+            Currently, only Computer Science degree requirements are available. 
+            We're working on adding more majors!
+          </p>
+        </div>
+        <div style={{
+          background: '#f8f9fa',
+          padding: '20px',
+          borderRadius: '8px',
+          border: '1px solid #e9ecef'
+        }}>
+          <p style={{ margin: '0 0 10px 0', color: '#6c757d' }}>
+            <strong>Available majors:</strong> Computer Science
+          </p>
+          <p style={{ margin: '0', color: '#6c757d', fontSize: '14px' }}>
+            You can still use the course planner and search features for any major.
+          </p>
+        </div>
       </div>
     )
   }

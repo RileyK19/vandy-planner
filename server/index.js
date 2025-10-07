@@ -149,12 +149,12 @@ app.get('/api/users/:email/courses', async (req, res) => {
 // POST /api/auth/register
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password, name, year, dorm, previousCourses = [] } = req.body;
+    const { email, password, name, major, year, dorm, previousCourses = [] } = req.body;
 
     // Validate required fields
-    if (!email || !password || !name || !year || !dorm) {
+    if (!email || !password || !name || !major || !year || !dorm) {
       return res.status(400).json({ 
-        error: 'Missing required fields: email, password, name, year, and dorm are required' 
+        error: 'Missing required fields: email, password, name, major, year, and dorm are required' 
       });
     }
 
@@ -169,6 +169,7 @@ app.post('/api/auth/register', async (req, res) => {
       email,
       password,
       name,
+      major,
       year,
       dorm,
       previousCourses

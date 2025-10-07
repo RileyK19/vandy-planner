@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import Step1AcademicYear from './Step1AcademicYear';
-import Step2DormLocation from './Step2DormLocation';
-import Step3PreviousCourses from './Step3PreviousCourses';
+import Step1Major from './Step1Major';
+import Step2AcademicYear from './Step2AcademicYear';
+import Step3DormLocation from './Step3DormLocation';
+import Step4PreviousCourses from './Step4PreviousCourses';
 import { registerUser } from './api';
 import './LoginPage.css';
 
@@ -11,6 +12,7 @@ const MultiStepRegistration = ({ onRegistrationComplete, onBackToLogin, initialD
     email: initialData.email || '',
     password: initialData.password || '',
     name: initialData.name || '',
+    major: '',
     year: '',
     dorm: '',
     previousCourses: []
@@ -18,7 +20,7 @@ const MultiStepRegistration = ({ onRegistrationComplete, onBackToLogin, initialD
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const totalSteps = 3;
+  const totalSteps = 4;
 
   // Update form data
   const updateFormData = (newData) => {
@@ -68,9 +70,10 @@ const MultiStepRegistration = ({ onRegistrationComplete, onBackToLogin, initialD
         >
           <div className="step-number">{index + 1}</div>
           <div className="step-label">
-            {index === 0 && 'Academic Year'}
-            {index === 1 && 'Dorm Location'}
-            {index === 2 && 'Previous Courses'}
+            {index === 0 && 'Major'}
+            {index === 1 && 'Academic Year'}
+            {index === 2 && 'Dorm Location'}
+            {index === 3 && 'Previous Courses'}
           </div>
         </div>
       ))}
@@ -82,7 +85,7 @@ const MultiStepRegistration = ({ onRegistrationComplete, onBackToLogin, initialD
     switch (currentStep) {
       case 1:
         return (
-          <Step1AcademicYear
+          <Step1Major
             data={formData}
             onUpdate={updateFormData}
             onNext={nextStep}
@@ -92,7 +95,7 @@ const MultiStepRegistration = ({ onRegistrationComplete, onBackToLogin, initialD
         );
       case 2:
         return (
-          <Step2DormLocation
+          <Step2AcademicYear
             data={formData}
             onUpdate={updateFormData}
             onNext={nextStep}
@@ -102,7 +105,17 @@ const MultiStepRegistration = ({ onRegistrationComplete, onBackToLogin, initialD
         );
       case 3:
         return (
-          <Step3PreviousCourses
+          <Step3DormLocation
+            data={formData}
+            onUpdate={updateFormData}
+            onNext={nextStep}
+            onBack={prevStep}
+            errors={errors}
+          />
+        );
+      case 4:
+        return (
+          <Step4PreviousCourses
             data={formData}
             onUpdate={updateFormData}
             onSubmit={handleSubmit}

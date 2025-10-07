@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const Step2DormLocation = ({ data, onUpdate, onNext, onBack, errors }) => {
+const Step3DormLocation = ({ data, onUpdate, onNext, onBack, errors }) => {
   const [localErrors, setLocalErrors] = useState({});
 
   const handleDormChange = (e) => {
@@ -19,7 +19,7 @@ const Step2DormLocation = ({ data, onUpdate, onNext, onBack, errors }) => {
   return (
     <div className="step-container">
       <div className="step-header">
-        <h3>Step 2: Dorm Location</h3>
+        <h3>Step 3: Dorm Location</h3>
         <p>Where do you live on campus?</p>
       </div>
 
@@ -50,4 +50,4 @@ const Step2DormLocation = ({ data, onUpdate, onNext, onBack, errors }) => {
   );
 };
 
-export default Step2DormLocation;
+export default Step3DormLocation;
