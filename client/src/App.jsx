@@ -309,6 +309,9 @@ function App() {
           <button onClick={() => setCurrentView('planner')} className={currentView === 'planner' ? 'active' : ''}>
             📅 My Planner ({plannedClasses.length})
           </button>
+          <button onClick={() => setCurrentView('recommend')} className={currentView === 'recommend' ? 'active' : ''}>
+            ✨ Recommend Me
+          </button>
           <button
             onClick={() => setCurrentView('audit')}
             className={`nav-button ${currentView === 'audit' ? 'active' : ''}`}
