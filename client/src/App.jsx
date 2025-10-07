@@ -6,8 +6,8 @@ import PlannerCalendar from './PlannerCalendar.jsx'
 import Modal from './Modal.jsx'
 import LoginPage from './LoginPage.jsx'
 import DegreeAudit from './DegreeAudit.jsx'
-// In App.js, replace fetchClassesFromDB() with:
 import { fetchClassesWithRatings, getClassAverageRatings, formatRating } from './api.jsx'
+import FourYearPlanner from './FourYearPlanner.jsx'
 
 
 function App() {
@@ -27,6 +27,7 @@ function App() {
   const [plannedClasses, setPlannedClasses] = useState([])
   const [loading, setLoading] = useState(true)
   const [usingMockData, setUsingMockData] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   // Check for existing authentication on mount
   useEffect(() => {
@@ -247,6 +248,25 @@ function App() {
     localStorage.removeItem('plannedClasses')
   }
 
+  const handleSaveFourYearPlan = async (planData) => {
+    try {
+      // Save past courses as completed
+      if (planData.pastCourses.length > 0) {
+        await savePastCoursesToDB(planData.pastCourses)
+      }
+      
+      // Save future courses as planned
+      if (planData.futureCourses.length > 0) {
+        await savePlannedClassesToDB(planData.futureCourses)
+      }
+      
+      console.log('4-year plan saved successfully!')
+    } catch (error) {
+      console.error('Failed to save 4-year plan:', error)
+      throw error
+    }
+  }
+
   // Show login page if not authenticated
   if (!isAuthenticated) {
     return <LoginPage onLogin={handleLogin} onSignup={handleSignup} />
@@ -266,336 +286,282 @@ function App() {
   }
 
   return (
-    <div className="app-container">
-      <div className="app-header">
-        <div>
-          <img 
-            src="/cropped_logo.png?v=3" 
-            alt="Vandy Planner" 
-            className="app-logo"
-          />
-          {user && (
-            <p className="welcome-message">
-              Welcome, {user.email}
-            </p>
-          )}
+    <>
+      <button 
+        className="sidebar-toggle"
+        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+      >
+        {sidebarCollapsed ? '☰' : '✕'}
+      </button>
+      
+      <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
+        <div className="sidebar-header">
+          <img src="/cropped_logo.png?v=3" alt="Vandy Planner" className="sidebar-logo" />
+          {user && <div className="sidebar-user">Welcome, {user.email}</div>}
         </div>
-        <div>
-          <button
-            onClick={() => setCurrentView('search')}
-            className={`nav-button ${currentView === 'search' ? 'active' : ''}`}
-            style={{ 
-              marginRight: '10px', 
-              padding: '8px 16px',
-              backgroundColor: currentView === 'search' ? '#4CAF50' : '#f0f0f0',
-              color: currentView === 'search' ? 'white' : 'black',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
+        
+        <div className="sidebar-nav">
+          <button onClick={() => setCurrentView('search')} className={currentView === 'search' ? 'active' : ''}>
             🔍 Search Classes
           </button>
-          <button
-            onClick={() => setCurrentView('planner')}
-            className={`nav-button ${currentView === 'planner' ? 'active' : ''}`}
-            style={{ 
-              marginRight: '10px', 
-              padding: '8px 16px',
-              backgroundColor: currentView === 'planner' ? '#4CAF50' : '#f0f0f0',
-              color: currentView === 'planner' ? 'white' : 'black',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
+          <button onClick={() => setCurrentView('planner')} className={currentView === 'planner' ? 'active' : ''}>
             📅 My Planner ({plannedClasses.length})
           </button>
-          <button
-            onClick={() => setCurrentView('audit')}
-            className={`nav-button ${currentView === 'audit' ? 'active' : ''}`}
-            style={{ 
-              marginRight: '10px', 
-              padding: '8px 16px',
-              backgroundColor: currentView === 'audit' ? '#4CAF50' : '#f0f0f0',
-              color: currentView === 'audit' ? 'white' : 'black',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
+          <button onClick={() => setCurrentView('audit')} className={currentView === 'audit' ? 'active' : ''}>
             🎓 Degree Audit
           </button>
-          {usingMockData && (
-            <button
-              onClick={refreshData}
-              className="refresh-button"
-              title="Try to load from database"
-              style={{ marginRight: '10px', fontSize: '12px', padding: '5px 10px' }}
-            >
-              🔄 Refresh
-            </button>
-          )}
-          <button
-            onClick={() => setShowInfoModal(true)}
-            className="info-button"
-            aria-label="Show app info"
-            style={{ marginRight: '10px' }}
-          >
-            i
+          <button onClick={() => setCurrentView('fouryear')} className={currentView === 'fouryear' ? 'active' : ''}>
+            🎯 4-Year Plan
           </button>
-          <button
-            onClick={handleLogout}
-            className="logout-button"
-            title="Logout"
-            style={{
-              backgroundColor: '#f44336',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              padding: '8px 16px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
+          {usingMockData && (
+            <button onClick={refreshData}>🔄 Refresh</button>
+          )}
+          <button onClick={() => setShowInfoModal(true)}>ℹ️ About</button>
+          <button onClick={handleLogout} style={{marginTop: 'auto', background: '#f44336', color: 'white'}}>
             🚪 Logout
           </button>
         </div>
       </div>
-
-      {currentView === 'search' ? (
-        // Search View
-        <div>
-          {usingMockData && (
-            <div style={{ 
-              background: '#fff3cd', 
-              border: '1px solid #ffeaa7', 
-              padding: '10px', 
-              margin: '10px 0',
-              borderRadius: '5px',
-              fontSize: '14px'
-            }}>
-              ⚠️ Using sample data - database connection not available. Click refresh to try again.
-            </div>
-          )}
-
-          <input
-            type="text"
-            placeholder="Search classes..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-
-          <button
-            onClick={() => setShowFilter(true)}
-            className="button"
-          >
-            Show Filters
-          </button>
-
-          <div style={{ margin: '10px 0', fontSize: '14px', color: '#666' }}>
-            Showing {filteredClasses.length} of {allClasses.length} classes
-          </div>
-
-          <ul className="class-list">
-            {filteredClasses.length === 0 && <li>No classes found.</li>}
-            {filteredClasses.map((cls) => (
-                <li key={`${cls.id}-${cls.sectionNumber}-${cls.term}`} className="class-item">
-                <div
-                  onClick={() => setInfoClass(cls)}
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') setInfoClass(cls)
-                  }}
-                  aria-label={`Show details for ${cls.code}: ${cls.name}`}
-                  style={{ cursor: 'pointer', flex: 1 }}
-                >
-                  <strong>{cls.code}</strong>: {cls.name}
-                  <span
-                    className="class-status"
-                    style={{ color: cls.active ? 'green' : 'red' }}
-                  >
-                    ({cls.active ? 'Active' : 'Inactive'})
-                  </span>
-                  <div className="class-meta">
-                    Prof: {cls.professors.join(', ')} | Term: {cls.term}
-                    {cls.sectionNumber && ` | Section: ${cls.sectionNumber}`}
-                  </div>
-                  {(() => {
-                    const avg = getClassAverageRatings(cls)
-                    if (!avg?.hasData) return null
-
-                    const quality = formatRating(avg.avgQuality, 'quality')
-                    const difficulty = formatRating(avg.avgDifficulty, 'difficulty')
-
-                    return (
-                        <div style={{ fontSize: '13px', marginTop: '4px' }}>
-                        <span style={{ color: quality.color }}>⭐ Quality: {quality.value}</span> |{' '}
-                        <span style={{ color: difficulty.color }}>💪 Difficulty: {difficulty.value}</span>
-                        </div>
-                    )
-                  })()}
-
-                </div>
-                <button
-                  onClick={() => addToPlanner(cls)}
-                  style={{
-                    backgroundColor: '#4CAF50',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    marginLeft: '10px'
-                  }}
-                  disabled={plannedClasses.some(planned => planned.id === cls.id)}
-                >
-                  {plannedClasses.some(planned => planned.id === cls.id) ? '✓ Added' : '+ Add'}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : currentView === 'planner' ? (
-        // Planner View
-        <PlannerCalendar 
-          plannedClasses={plannedClasses} 
-          onRemoveClass={removeFromPlanner}
-          onSavePlan={handleSavePlan}
-        />
-      ) : (
-        // Degree Audit View
-        <DegreeAudit 
-          plannedClasses={plannedClasses}
-          major="Computer Science"
-        />
-      )}
-
-      {/* Filter Modal */}
-      {showFilter && (
-        <Modal onClose={() => setShowFilter(false)}>
-          <h2>Filters</h2>
-          {filterableKeys.map((key) => (
-            <div key={key} className="filter-section">
-              <strong>{key}</strong>
-              <div className="filter-options">
-                {attributeOptions[key].map((option) => (
-                  <label key={option}>
-                    <input
-                      type="checkbox"
-                      checked={
-                        selectedFilters[key]
-                          ? selectedFilters[key].has(option)
-                          : false
-                      }
-                      onChange={() => toggleFilter(key, option)}
-                    />
-                    {String(option)}
-                  </label>
-                ))}
+      
+      <div className={`app-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+        {currentView === 'search' ? (
+          // Search View
+          <div>
+            {usingMockData && (
+              <div style={{ 
+                background: '#fff3cd', 
+                border: '1px solid #ffeaa7', 
+                padding: '10px', 
+                margin: '10px 0',
+                borderRadius: '5px',
+                fontSize: '14px'
+              }}>
+                ⚠️ Using sample data - database connection not available. Click refresh to try again.
               </div>
-            </div>
-          ))}
-        </Modal>
-      )}
-
-      {/* Info Modal */}
-      {infoClass && (
-        <Modal onClose={() => setInfoClass(null)}>
-          <h2>{infoClass.code}: {infoClass.name}</h2>
-          <p><strong>Subject:</strong> {infoClass.subject}</p>
-          <p><strong>Professors:</strong> {infoClass.professors.join(', ')}</p>
-          <p><strong>Term:</strong> {infoClass.term}</p>
-          {infoClass.sectionNumber && (
-            <p><strong>Section:</strong> {infoClass.sectionNumber}</p>
-          )}
-          {infoClass.sectionType && (
-            <p><strong>Type:</strong> {infoClass.sectionType}</p>
-          )}
-          {infoClass.hours && (
-            <p><strong>Credit Hours:</strong> {infoClass.hours}</p>
-          )}
-          {(() => {
-            const avg = getClassAverageRatings(infoClass)
-            if (!avg?.hasData) return null
-
-            const quality = formatRating(avg.avgQuality, 'quality')
-            const difficulty = formatRating(avg.avgDifficulty, 'difficulty')
-
-            return (
-                <div style={{ marginTop: '10px' }}>
-                <p><strong>RMP Ratings (Avg):</strong></p>
-                <ul style={{ marginLeft: '20px' }}>
-                    <li><strong>Quality:</strong> <span style={{ color: quality.color }}>{quality.value}</span></li>
-                    <li><strong>Difficulty:</strong> <span style={{ color: difficulty.color }}>{difficulty.value}</span></li>
-                </ul>
-                </div>
-            )
-          })()}
-
-          {infoClass.schedule && (
-            <div>
-              <p><strong>Schedule:</strong></p>
-              <ul style={{ marginLeft: '20px' }}>
-                <li><strong>Days:</strong> {Array.isArray(infoClass.schedule.days) ? infoClass.schedule.days.join(', ') : infoClass.schedule.days}</li>
-                <li><strong>Time:</strong> {infoClass.schedule.startTime} - {infoClass.schedule.endTime}</li>
-                {infoClass.schedule.location && <li><strong>Location:</strong> {infoClass.schedule.location}</li>}
-              </ul>
-            </div>
-          )}
-          <p>
-            <strong>Status:</strong>{' '}
-            <span style={{ color: infoClass.active ? 'green' : 'red' }}>
-              {infoClass.active ? 'Active' : 'Inactive'}
-            </span>
-          </p>
-          <div style={{ marginTop: '20px', textAlign: 'center' }}>
+            )}
+  
+            <input
+              type="text"
+              placeholder="Search classes..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+  
             <button
-              onClick={() => {
-                addToPlanner(infoClass)
-                setInfoClass(null)
-              }}
-              style={{
-                backgroundColor: '#4CAF50',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '10px 20px',
-                cursor: 'pointer',
-                fontSize: '16px'
-              }}
-              disabled={plannedClasses.some(planned => planned.id === infoClass.id)}
+              onClick={() => setShowFilter(true)}
+              className="button"
             >
-              {plannedClasses.some(planned => planned.id === infoClass.id) ? '✓ Already Added' : '+ Add to Planner'}
+              Show Filters
             </button>
+  
+            <div style={{ margin: '10px 0', fontSize: '14px', color: '#666' }}>
+              Showing {filteredClasses.length} of {allClasses.length} classes
+            </div>
+  
+            <ul className="class-list">
+              {filteredClasses.length === 0 && <li>No classes found.</li>}
+              {filteredClasses.map((cls) => (
+                  <li key={`${cls.id}-${cls.sectionNumber}-${cls.term}`} className="class-item">
+                  <div
+                    onClick={() => setInfoClass(cls)}
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') setInfoClass(cls)
+                    }}
+                    aria-label={`Show details for ${cls.code}: ${cls.name}`}
+                    style={{ cursor: 'pointer', flex: 1 }}
+                  >
+                    <strong>{cls.code}</strong>: {cls.name}
+                    <span
+                      className="class-status"
+                      style={{ color: cls.active ? 'green' : 'red' }}
+                    >
+                      ({cls.active ? 'Active' : 'Inactive'})
+                    </span>
+                    <div className="class-meta">
+                      Prof: {cls.professors.join(', ')} | Term: {cls.term}
+                      {cls.sectionNumber && ` | Section: ${cls.sectionNumber}`}
+                    </div>
+                    {(() => {
+                      const avg = getClassAverageRatings(cls)
+                      if (!avg?.hasData) return null
+  
+                      const quality = formatRating(avg.avgQuality, 'quality')
+                      const difficulty = formatRating(avg.avgDifficulty, 'difficulty')
+  
+                      return (
+                          <div style={{ fontSize: '13px', marginTop: '4px' }}>
+                          <span style={{ color: quality.color }}>⭐ Quality: {quality.value}</span> |{' '}
+                          <span style={{ color: difficulty.color }}>💪 Difficulty: {difficulty.value}</span>
+                          </div>
+                      )
+                    })()}
+  
+                  </div>
+                  <button
+                    onClick={() => addToPlanner(cls)}
+                    style={{
+                      backgroundColor: '#4CAF50',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                      marginLeft: '10px'
+                    }}
+                    disabled={plannedClasses.some(planned => planned.id === cls.id)}
+                  >
+                    {plannedClasses.some(planned => planned.id === cls.id) ? '✓ Added' : '+ Add'}
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
-        </Modal>
-      )}
-
-      {/* Info Modal (App Info) */}
-      {showInfoModal && (
-        <Modal onClose={() => setShowInfoModal(false)}>
-          <h2>About Vandy Planner</h2>
-          <h3>Eddy You, Kevin Song, Riley Koo || Principles of SWE || 2025 Fall</h3>
-          <p>This tool helps you browse, filter, and explore Vanderbilt courses.</p>
-          <ul>
-            <li>🔍 Search by course code or name</li>
-            <li>🎯 Filter by professor, subject, term, or status</li>
-            <li>📄 Click a course to view details</li>
-            <li>➕ Add classes to your semester planner</li>
-            <li>📅 View your planned classes in calendar format</li>
-            <li>🎓 Check degree requirements and track progress</li>
-            <li>💾 Submit your plan to database</li>
-            <li>🔄 Refresh to try loading from database</li>
-          </ul>
-          <p className="footer-note">
-            Built with ❤️ for CS students
-            {usingMockData ? ' (Currently using sample data)' : ' (Connected to database)'}
-          </p>
-        </Modal>
-      )}
-    </div>
+        ) : currentView === 'planner' ? (
+          // Planner View
+          <PlannerCalendar 
+            plannedClasses={plannedClasses} 
+            onRemoveClass={removeFromPlanner}
+            onSavePlan={handleSavePlan}
+          />
+        ): currentView === 'fouryear' ? (
+          <FourYearPlanner 
+            allClasses={allClasses}
+            onSavePlan={handleSaveFourYearPlan}
+          />
+        ) : (
+          // Degree Audit View
+          <DegreeAudit 
+            plannedClasses={plannedClasses}
+            major="Computer Science"
+          />
+        )} 
+        {/* Filter Modal */}
+        {showFilter && (
+          <Modal onClose={() => setShowFilter(false)}>
+            <h2>Filters</h2>
+            {filterableKeys.map((key) => (
+              <div key={key} className="filter-section">
+                <strong>{key}</strong>
+                <div className="filter-options">
+                  {attributeOptions[key].map((option) => (
+                    <label key={option}>
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedFilters[key]
+                            ? selectedFilters[key].has(option)
+                            : false
+                        }
+                        onChange={() => toggleFilter(key, option)}
+                      />
+                      {String(option)}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </Modal>
+        )}
+  
+        {/* Info Modal */}
+        {infoClass && (
+          <Modal onClose={() => setInfoClass(null)}>
+            <h2>{infoClass.code}: {infoClass.name}</h2>
+            <p><strong>Subject:</strong> {infoClass.subject}</p>
+            <p><strong>Professors:</strong> {infoClass.professors.join(', ')}</p>
+            <p><strong>Term:</strong> {infoClass.term}</p>
+            {infoClass.sectionNumber && (
+              <p><strong>Section:</strong> {infoClass.sectionNumber}</p>
+            )}
+            {infoClass.sectionType && (
+              <p><strong>Type:</strong> {infoClass.sectionType}</p>
+            )}
+            {infoClass.hours && (
+              <p><strong>Credit Hours:</strong> {infoClass.hours}</p>
+            )}
+            {(() => {
+              const avg = getClassAverageRatings(infoClass)
+              if (!avg?.hasData) return null
+  
+              const quality = formatRating(avg.avgQuality, 'quality')
+              const difficulty = formatRating(avg.avgDifficulty, 'difficulty')
+  
+              return (
+                  <div style={{ marginTop: '10px' }}>
+                  <p><strong>RMP Ratings (Avg):</strong></p>
+                  <ul style={{ marginLeft: '20px' }}>
+                      <li><strong>Quality:</strong> <span style={{ color: quality.color }}>{quality.value}</span></li>
+                      <li><strong>Difficulty:</strong> <span style={{ color: difficulty.color }}>{difficulty.value}</span></li>
+                  </ul>
+                  </div>
+              )
+            })()}
+  
+            {infoClass.schedule && (
+              <div>
+                <p><strong>Schedule:</strong></p>
+                <ul style={{ marginLeft: '20px' }}>
+                  <li><strong>Days:</strong> {Array.isArray(infoClass.schedule.days) ? infoClass.schedule.days.join(', ') : infoClass.schedule.days}</li>
+                  <li><strong>Time:</strong> {infoClass.schedule.startTime} - {infoClass.schedule.endTime}</li>
+                  {infoClass.schedule.location && <li><strong>Location:</strong> {infoClass.schedule.location}</li>}
+                </ul>
+              </div>
+            )}
+            <p>
+              <strong>Status:</strong>{' '}
+              <span style={{ color: infoClass.active ? 'green' : 'red' }}>
+                {infoClass.active ? 'Active' : 'Inactive'}
+              </span>
+            </p>
+            <div style={{ marginTop: '20px', textAlign: 'center' }}>
+              <button
+                onClick={() => {
+                  addToPlanner(infoClass)
+                  setInfoClass(null)
+                }}
+                style={{
+                  backgroundColor: '#4CAF50',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '10px 20px',
+                  cursor: 'pointer',
+                  fontSize: '16px'
+                }}
+                disabled={plannedClasses.some(planned => planned.id === infoClass.id)}
+              >
+                {plannedClasses.some(planned => planned.id === infoClass.id) ? '✓ Already Added' : '+ Add to Planner'}
+              </button>
+            </div>
+          </Modal>
+        )}
+  
+        {/* Info Modal (App Info) */}
+        {showInfoModal && (
+          <Modal onClose={() => setShowInfoModal(false)}>
+            <h2>About Vandy Planner</h2>
+            <h3>Eddy You, Kevin Song, Riley Koo || Principles of SWE || 2025 Fall</h3>
+            <p>This tool helps you browse, filter, and explore Vanderbilt courses.</p>
+            <ul>
+              <li>🔍 Search by course code or name</li>
+              <li>🎯 Filter by professor, subject, term, or status</li>
+              <li>📄 Click a course to view details</li>
+              <li>➕ Add classes to your semester planner</li>
+              <li>📅 View your planned classes in calendar format</li>
+              <li>🎓 Check degree requirements and track progress</li>
+              <li>💾 Submit your plan to database</li>
+              <li>🔄 Refresh to try loading from database</li>
+            </ul>
+            <p className="footer-note">
+              Built with ❤️ for CS students
+              {usingMockData ? ' (Currently using sample data)' : ' (Connected to database)'}
+            </p>
+          </Modal>
+        )}
+      </div>
+    </>
   )
 }
 

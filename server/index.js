@@ -313,3 +313,41 @@ app.get('/api/test-users', async (req, res) => {
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   })
   .catch(err => console.error('MongoDB connection error:', err));
+
+  // POST /api/auth/past-courses (protected)
+app.post('/api/auth/past-courses', authenticateToken, async (req, res) => {
+  try {
+    const { courses } = req.body;
+
+    if (!Array.isArray(courses)) {
+      return res.status(400).json({ error: 'Courses array is required' });
+    }
+
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Add courses to user's completedCourses
+    user.completedCourses = user.completedCourses || [];
+    courses.forEach(course => {
+      // Avoid duplicates
+      const exists = user.completedCourses.some(c => 
+        c.id === course.id && c.semester === course.semester
+      );
+      if (!exists) {
+        user.completedCourses.push(course);
+      }
+    });
+
+    await user.save();
+
+    res.json({ 
+      message: 'Past courses saved successfully', 
+      totalCompleted: user.completedCourses.length 
+    });
+  } catch (error) {
+    console.error('Save past courses error:', error);
+    res.status(500).json({ error: 'Failed to save past courses' });
+  }
+});
