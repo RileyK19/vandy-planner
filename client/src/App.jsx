@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import './App.css'
-import { fetchClassesFromDB, savePlannedClassesToDB } from './api.jsx'
+import { fetchClassesFromDB, savePlannedClassesToDB, isAuthenticated, getUserProfile, logoutUser } from './api.jsx'
 import { mockClasses } from './mockData.jsx'
 import PlannerCalendar from './PlannerCalendar.jsx'
 import Modal from './Modal.jsx'
@@ -30,17 +30,19 @@ function App() {
 
   // Check for existing authentication on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('user')
-    if (savedUser) {
-      try {
-        const userData = JSON.parse(savedUser)
-        setUser(userData)
-        setIsAuthenticated(true)
-      } catch (error) {
-        console.error('Error loading user data:', error)
-        localStorage.removeItem('user')
+    const checkAuth = async () => {
+      if (isAuthenticated()) {
+        try {
+          const userData = await getUserProfile()
+          setUser(userData)
+          setIsAuthenticated(true)
+        } catch (error) {
+          console.error('Error loading user data:', error)
+          logoutUser()
+        }
       }
     }
+    checkAuth()
   }, [])
 
   // Load planned classes from localStorage on mount
@@ -225,49 +227,23 @@ function App() {
   }
 
   // Authentication functions
-  const handleLogin = (email, password) => {
+  const handleLogin = (userData) => {
     setAuthError('')
-    
-    // Simple validation - in a real app, this would call an API
-    if (email && password) {
-      const userData = {
-        email: email,
-        id: Date.now().toString(), // Simple ID generation
-        loginTime: new Date().toISOString()
-      }
-      
-      setUser(userData)
-      setIsAuthenticated(true)
-      localStorage.setItem('user', JSON.stringify(userData))
-    } else {
-      setAuthError('Please enter both email and password')
-    }
+    setUser(userData)
+    setIsAuthenticated(true)
   }
 
-  const handleSignup = (email, password) => {
+  const handleSignup = (userData) => {
     setAuthError('')
-    
-    // Simple validation - in a real app, this would call an API
-    if (email && password) {
-      const userData = {
-        email: email,
-        id: Date.now().toString(), // Simple ID generation
-        signupTime: new Date().toISOString()
-      }
-      
-      setUser(userData)
-      setIsAuthenticated(true)
-      localStorage.setItem('user', JSON.stringify(userData))
-    } else {
-      setAuthError('Please enter both email and password')
-    }
+    setUser(userData)
+    setIsAuthenticated(true)
   }
 
   const handleLogout = () => {
+    logoutUser()
     setUser(null)
     setIsAuthenticated(false)
     setPlannedClasses([]) // Clear planned classes on logout
-    localStorage.removeItem('user')
     localStorage.removeItem('plannedClasses')
   }
 

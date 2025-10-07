@@ -286,3 +286,179 @@ export async function fetchUserTakenCourses(email) {
     throw error;
   }
 }
+
+// Authentication API Functions
+
+// Helper function to get auth token from localStorage
+function getAuthToken() {
+  return localStorage.getItem('authToken');
+}
+
+// Helper function to set auth token in localStorage
+function setAuthToken(token) {
+  localStorage.setItem('authToken', token);
+}
+
+// Helper function to remove auth token from localStorage
+function removeAuthToken() {
+  localStorage.removeItem('authToken');
+}
+
+// Helper function to get auth headers
+function getAuthHeaders() {
+  const token = getAuthToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` })
+  };
+}
+
+// Register a new user
+export async function registerUser(userData) {
+  try {
+    const response = await fetch('http://localhost:3001/api/auth/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(userData)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Registration failed');
+    }
+
+    // Store token in localStorage
+    if (data.token) {
+      setAuthToken(data.token);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Registration error:', error);
+    throw error;
+  }
+}
+
+// Login user
+export async function loginUser(email, password) {
+  try {
+    const response = await fetch('http://localhost:3001/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Login failed');
+    }
+
+    // Store token in localStorage
+    if (data.token) {
+      setAuthToken(data.token);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
+  }
+}
+
+// Get user profile (protected)
+export async function getUserProfile() {
+  try {
+    const response = await fetch('http://localhost:3001/api/auth/profile', {
+      method: 'GET',
+      headers: getAuthHeaders()
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        // Token is invalid, remove it
+        removeAuthToken();
+        throw new Error('Session expired. Please login again.');
+      }
+      throw new Error(data.error || 'Failed to fetch profile');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Get profile error:', error);
+    throw error;
+  }
+}
+
+// Save user schedule (protected)
+export async function saveUserSchedule(scheduleName, classes) {
+  try {
+    const response = await fetch('http://localhost:3001/api/auth/save-schedule', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ scheduleName, classes })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        removeAuthToken();
+        throw new Error('Session expired. Please login again.');
+      }
+      throw new Error(data.error || 'Failed to save schedule');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Save schedule error:', error);
+    throw error;
+  }
+}
+
+// Get user schedules (protected)
+export async function getUserSchedules() {
+  try {
+    const response = await fetch('http://localhost:3001/api/auth/schedules', {
+      method: 'GET',
+      headers: getAuthHeaders()
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        removeAuthToken();
+        throw new Error('Session expired. Please login again.');
+      }
+      throw new Error(data.error || 'Failed to fetch schedules');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Get schedules error:', error);
+    throw error;
+  }
+}
+
+// Logout user
+export function logoutUser() {
+  removeAuthToken();
+}
+
+// Check if user is authenticated
+export function isAuthenticated() {
+  return !!getAuthToken();
+}
+
+// Get current auth token
+export function getCurrentToken() {
+  return getAuthToken();
+}
