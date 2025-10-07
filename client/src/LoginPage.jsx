@@ -1,14 +1,20 @@
 import React, { useState } from 'react'
+import MultiStepRegistration from './MultiStepRegistration'
+import { loginUser } from './api'
 import './LoginPage.css'
 
 function LoginPage({ onLogin, onSignup }) {
   const [isSignup, setIsSignup] = useState(false)
+  const [showRegistration, setShowRegistration] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    name: ''
   })
   const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -18,36 +24,95 @@ function LoginPage({ onLogin, onSignup }) {
     }))
     // Clear error when user starts typing
     if (error) setError('')
+    
+    // Real-time password validation for signup
+    if (isSignup && name === 'password') {
+      if (value.length > 0 && value.length < 6) {
+        setPasswordError('Password must be at least 6 characters long')
+      } else {
+        setPasswordError('')
+      }
+    }
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setIsLoading(true)
 
     // Basic validation
     if (!formData.email || !formData.password) {
       setError('Please fill in all fields')
-      return
-    }
-
-    if (isSignup && formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
+      setIsLoading(false)
       return
     }
 
     if (isSignup) {
-      onSignup(formData.email, formData.password)
-    } else {
-      onLogin(formData.email, formData.password)
+      if (!formData.name) {
+        setError('Please enter your name')
+        setIsLoading(false)
+        return
+      }
+      if (formData.password.length < 6) {
+        setError('Password must be at least 6 characters long')
+        setIsLoading(false)
+        return
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match')
+        setIsLoading(false)
+        return
+      }
+      // Start multi-step registration
+      setShowRegistration(true)
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      const result = await loginUser(formData.email, formData.password)
+      onLogin(result.user)
+    } catch (error) {
+      setError(error.message || 'Login failed')
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const handleToggleMode = () => {
     setIsSignup(!isSignup)
-    setFormData({ email: '', password: '', confirmPassword: '' })
+    setFormData({ email: '', password: '', confirmPassword: '', name: '' })
     setError('')
+    setPasswordError('')
+    setShowRegistration(false)
   }
 
+  const handleRegistrationComplete = (user) => {
+    onSignup(user)
+  }
+
+  const handleBackToLogin = () => {
+    setShowRegistration(false)
+    setFormData({ email: '', password: '', confirmPassword: '', name: '' })
+    setError('')
+    setPasswordError('')
+  }
+
+
+  // Show multi-step registration if user clicked signup
+  if (showRegistration) {
+    return (
+      <MultiStepRegistration
+        onRegistrationComplete={handleRegistrationComplete}
+        onBackToLogin={handleBackToLogin}
+        initialData={{
+          email: formData.email,
+          password: formData.password,
+          name: formData.name
+        }}
+      />
+    )
+  }
 
   return (
     <div className="login-container">
@@ -62,6 +127,21 @@ function LoginPage({ onLogin, onSignup }) {
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
+          {isSignup && (
+            <div className="form-group">
+              <label htmlFor="name">Full Name</label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="Enter your full name"
+                required
+              />
+            </div>
+          )}
+
           <div className="form-group">
             <label htmlFor="email">Email</label>
             <input
@@ -85,7 +165,9 @@ function LoginPage({ onLogin, onSignup }) {
               onChange={handleInputChange}
               placeholder="Enter your password"
               required
+              className={passwordError ? 'error' : ''}
             />
+            {passwordError && <span className="field-error">{passwordError}</span>}
           </div>
 
           {isSignup && (
@@ -105,8 +187,8 @@ function LoginPage({ onLogin, onSignup }) {
 
           {error && <div className="error-message">{error}</div>}
 
-          <button type="submit" className="submit-button">
-            {isSignup ? 'Create Account' : 'Sign In'}
+          <button type="submit" className="submit-button" disabled={isLoading}>
+            {isLoading ? 'Loading...' : (isSignup ? 'Continue to Registration' : 'Sign In')}
           </button>
         </form>
 
