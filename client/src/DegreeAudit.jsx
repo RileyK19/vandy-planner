@@ -37,20 +37,32 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
   
 
   const calculateProgress = (category) => {
-    const plannedCodes = plannedClasses.map(c => c.code)
+    // Combine taken courses and planned courses
+    const allCourses = [
+      ...takenCourses.map(tc => ({ 
+        code: tc.courseCode, 
+        name: tc.courseName,
+        hours: 3, // default to 3, adjust if you have hours in DB
+        isTaken: true 
+      })),
+      ...plannedClasses.map(pc => ({ 
+        ...pc, 
+        isTaken: false 
+      }))
+    ];
     
-    // Find matching courses from planned classes
-    const matchingClasses = plannedClasses.filter(planned => {
+    // Find matching courses from all courses (taken + planned)
+    const matchingClasses = allCourses.filter(course => {
       // Check if it's in the available classes list
       const isInAvailable = category.availableClasses.some(
-        avail => avail.code === planned.code
+        avail => avail.code === course.code
       )
       
       if (isInAvailable) return true
       
       // For depth requirements (CS 3000+)
       if (category.name === "Computer Science Depth") {
-        const courseNum = parseInt(planned.code.replace('CS ', ''))
+        const courseNum = parseInt(course.code.replace('CS ', ''))
         return !isNaN(courseNum) && courseNum >= 3000
       }
       

@@ -462,3 +462,29 @@ export function isAuthenticated() {
 export function getCurrentToken() {
   return getAuthToken();
 }
+
+// Save past courses (completed)
+export async function savePastCoursesToDB(courses) {
+  try {
+    const response = await fetch('http://localhost:3001/api/auth/past-courses', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ courses })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        removeAuthToken();
+        throw new Error('Session expired. Please login again.');
+      }
+      throw new Error(data.error || 'Failed to save past courses');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Save past courses error:', error);
+    throw error;
+  }
+}
