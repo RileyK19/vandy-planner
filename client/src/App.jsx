@@ -29,7 +29,7 @@ function App() {
   const [plannedClasses, setPlannedClasses] = useState([])
   const [loading, setLoading] = useState(true)
   const [usingMockData, setUsingMockData] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
 
   // Check for existing authentication on mount
   useEffect(() => {
@@ -289,53 +289,111 @@ function App() {
 
   return (
     <>
-      <button 
-        className="sidebar-toggle"
-        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-      >
-        {sidebarCollapsed ? '☰' : '✕'}
-      </button>
+      {/* Mobile Overlay */}
+      {!sidebarCollapsed && (
+        <div 
+          className="sidebar-overlay"
+          onClick={() => setSidebarCollapsed(true)}
+        />
+      )}
       
-      <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
+      {/* Sidebar */}
+      <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : 'expanded'}`}>
+        {/* Sidebar Header */}
         <div className="sidebar-header">
-          <img src="/cropped_logo.png?v=3" alt="Vandy Planner" className="sidebar-logo" />
-          {user && <div className="sidebar-user">Welcome, {user.email}</div>}
+          <div 
+            className="sidebar-logo-container"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            style={{ cursor: 'pointer' }}
+          >
+            <img src="/cropped_logo.png?v=3" alt="Vandy Planner" className="sidebar-logo" />
+          </div>
+          {!sidebarCollapsed && user && (
+            <div className="sidebar-user">
+              <div className="user-avatar">
+                {user.email.charAt(0).toUpperCase()}
+              </div>
+              <div className="user-info">
+                <div className="user-name">Welcome back!</div>
+                <div className="user-email">{user.email}</div>
+              </div>
+            </div>
+          )}
         </div>
         
-        <div className="sidebar-nav">
-          <button onClick={() => setCurrentView('search')} className={currentView === 'search' ? 'active' : ''}>
-            🔍 Search Classes
-          </button>
-          <button onClick={() => setCurrentView('planner')} className={currentView === 'planner' ? 'active' : ''}>
-            📅 My Planner ({plannedClasses.length})
-          </button>
-          <button onClick={() => setCurrentView('recommend')} className={currentView === 'recommend' ? 'active' : ''}>
-            ✨ Recommend Me
-          </button>
-          <button
-            onClick={() => setCurrentView('audit')}
-            className={`nav-button ${currentView === 'audit' ? 'active' : ''}`}
-            style={{ 
-              marginRight: '10px', 
-              padding: '8px 16px',
-              backgroundColor: currentView === 'audit' ? '#4CAF50' : '#f0f0f0',
-              color: currentView === 'audit' ? 'white' : 'black',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
+        {/* Navigation */}
+        <nav className="sidebar-nav">
+          <div className="nav-section">
+            {!sidebarCollapsed && <div className="nav-section-title">Navigation</div>}
+            <button 
+              onClick={() => setCurrentView('search')} 
+              className={`nav-item ${currentView === 'search' ? 'active' : ''}`}
+              title="Search Classes"
+            >
+              <span className="nav-icon">🔍</span>
+              {!sidebarCollapsed && <span className="nav-text">Search Classes</span>}
+            </button>
+            <button 
+              onClick={() => setCurrentView('planner')} 
+              className={`nav-item ${currentView === 'planner' ? 'active' : ''}`}
+              title="My Planner"
+            >
+              <span className="nav-icon">📅</span>
+              {!sidebarCollapsed && <span className="nav-text">My Planner</span>}
+              {plannedClasses.length > 0 && (
+                <span className="nav-badge">{plannedClasses.length}</span>
+              )}
+            </button>
+            <button 
+              onClick={() => setCurrentView('audit')} 
+              className={`nav-item ${currentView === 'audit' ? 'active' : ''}`}
+              title="Degree Audit"
+            >
+              <span className="nav-icon">🎓</span>
+              {!sidebarCollapsed && <span className="nav-text">Degree Audit</span>}
+            </button>
+            <button 
+              onClick={() => setCurrentView('fouryear')} 
+              className={`nav-item ${currentView === 'fouryear' ? 'active' : ''}`}
+              title="4-Year Plan"
+            >
+              <span className="nav-icon">🎯</span>
+              {!sidebarCollapsed && <span className="nav-text">4-Year Plan</span>}
+            </button>
+          </div>
+          
+          <div className="nav-section">
+            {!sidebarCollapsed && <div className="nav-section-title">Tools</div>}
+            {usingMockData && (
+              <button 
+                onClick={refreshData}
+                className="nav-item"
+                title="Refresh Data"
+              >
+                <span className="nav-icon">🔄</span>
+                {!sidebarCollapsed && <span className="nav-text">Refresh Data</span>}
+              </button>
+            )}
+            <button 
+              onClick={() => setShowInfoModal(true)}
+              className="nav-item"
+              title="About"
+            >
+              <span className="nav-icon">ℹ️</span>
+              {!sidebarCollapsed && <span className="nav-text">About</span>}
+            </button>
+          </div>
+        </nav>
+        
+        {/* Sidebar Footer */}
+        <div className="sidebar-footer">
+          <button 
+            onClick={handleLogout}
+            className="logout-button"
+            title="Logout"
           >
-            🎓 Degree Audit
-          </button>
-          <button onClick={() => setCurrentView('fouryear')} className={currentView === 'fouryear' ? 'active' : ''}>
-            🎯 4-Year Plan
-          </button>
-          {usingMockData && (
-            <button onClick={refreshData}>🔄 Refresh</button>
-          )}
-          <button onClick={() => setShowInfoModal(true)}>ℹ️ About</button>
-          <button onClick={handleLogout} style={{marginTop: 'auto', background: '#f44336', color: 'white'}}>
-            🚪 Logout
+            <span className="nav-icon">🚪</span>
+            {!sidebarCollapsed && <span className="nav-text">Logout</span>}
           </button>
         </div>
       </div>
