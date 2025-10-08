@@ -218,25 +218,23 @@ export function formatRating(rating, type = 'quality') {
 // API function to save planned classes to database
 export async function savePlannedClassesToDB(plannedClasses, userId = null) {
   try {
-    const tempUserId = userId || `temp_user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    // Use the authenticated save-schedule endpoint
+    const scheduleName = `Plan ${new Date().toLocaleDateString()}`
     
-    const planData = {
-      userId: tempUserId,
-      plannedClasses: plannedClasses,
-      totalCredits: plannedClasses.reduce((total, cls) => total + (cls.hours || 0), 0),
-      createdAt: new Date().toISOString(),
-      lastUpdated: new Date().toISOString()
-    }
-
-    const response = await fetch('http://localhost:3001/api/planned-classes', {
+    const response = await fetch('http://localhost:3001/api/auth/save-schedule', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(planData)
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        scheduleName,
+        classes: plannedClasses
+      })
     })
 
     if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        removeAuthToken();
+        throw new Error('Session expired. Please login again.');
+      }
       throw new Error(`Failed to save planned classes: ${response.statusText}`)
     }
 
