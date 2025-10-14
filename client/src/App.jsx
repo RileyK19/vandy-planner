@@ -34,7 +34,7 @@ function App() {
   // Check for existing authentication on mount
   useEffect(() => {
     const checkAuth = async () => {
-      if (isAuthenticated()) {
+      if (isAuthenticated) {
         try {
           const userData = await getUserProfile()
           setUser(userData)
@@ -353,6 +353,14 @@ function App() {
               {!sidebarCollapsed && <span className="nav-text">Degree Audit</span>}
             </button>
             <button 
+              onClick={() => setCurrentView('recommend')} 
+              className={`nav-item ${currentView === 'recommend' ? 'active' : ''}`}
+              title="Recommendation"
+            >
+              <span className="nav-icon">💡</span>
+              {!sidebarCollapsed && <span className="nav-text">4-Year Plan</span>}
+            </button>
+            <button 
               onClick={() => setCurrentView('fouryear')} 
               className={`nav-item ${currentView === 'fouryear' ? 'active' : ''}`}
               title="4-Year Plan"
@@ -501,11 +509,13 @@ function App() {
             onSavePlan={handleSavePlan}
           />
         ) : currentView === 'recommend' ? (
-          <RecommendMe 
-            onReset={() => {}}
-            onSubmit={(payload) => {
-              console.log('RecommendMe payload:', payload)
-              alert('Submitting preferences. Recommendation engine not yet wired to backend.')
+          <RecommendMe
+            knownProfessors={[...new Set(allClasses.flatMap(cls => cls.professors || []))]}
+            major={user?.major || "Computer Science"}
+            userEmail={user?.email}
+            plannedClasses={plannedClasses}
+            onAddToPlanner={(course) => {
+              addToPlanner(course)
             }}
           />
         ): currentView === 'fouryear' ? (

@@ -1,4 +1,6 @@
 // api.jsx - Fixed with direct URLs (like your working version)
+// import { generateRecommendations } from './RecommendationEngine.jsx';
+import { generateRecommendations, enhanceWithGPT } from './RecommendationEngine.jsx';
 
 // Helper function to parse schedule strings from database
 function parseSchedule(scheduleStr) {
@@ -485,4 +487,94 @@ export async function savePastCoursesToDB(courses) {
     console.error('Save past courses error:', error);
     throw error;
   }
+}
+
+// export async function getCourseRecommendations(preferences, major = 'Computer Science', userEmail = null, plannedClasses = []) {
+//   const [allClasses, degreeData, takenCourses] = await Promise.all([
+//     fetchClassesWithRatings(),
+//     fetchDegreeRequirements(major),
+//     userEmail ? fetchUserTakenCourses(userEmail) : Promise.resolve([])
+//   ]);
+
+//   const neededCourses = identifyNeededCoursesHelper(degreeData, takenCourses, plannedClasses);
+  
+//   const recommendations = generateRecommendations({
+//     preferences,
+//     allClasses,
+//     degreeData,
+//     takenCourses,
+//     plannedClasses
+//   });
+
+//   return recommendations.map(rec => ({
+//     ...rec,
+//     recommendationReasons: formatReasons(rec, neededCourses)
+//   }));
+// }
+
+export async function getCourseRecommendations(preferences, major = 'Computer Science', userEmail = null, plannedClasses = []) {
+  const [allClasses, degreeData, takenCourses] = await Promise.all([
+    fetchClassesWithRatings(),
+    fetchDegreeRequirements(major),
+    userEmail ? fetchUserTakenCourses(userEmail) : Promise.resolve([])
+  ]);
+
+  const neededCourses = identifyNeededCoursesHelper(degreeData, takenCourses, plannedClasses);
+  
+  const recommendations = generateRecommendations({
+    preferences,
+    allClasses,
+    degreeData,
+    takenCourses,
+    plannedClasses
+  });
+
+  // Add GPT enhancement
+  const enhanced = await enhanceWithGPT(recommendations, {
+    preferences,
+    degreeData,
+    takenCourses,
+    plannedClasses
+  });
+
+  return enhanced.map(rec => ({
+    ...rec,
+    recommendationReasons: formatReasons(rec, neededCourses)
+  }));
+}
+
+function identifyNeededCoursesHelper(degreeData, takenCourses, plannedClasses) {
+  if (!degreeData?.categories) return { codes: new Set(), priorities: {} };
+  
+  const completed = new Set([
+    ...takenCourses.map(tc => tc.courseCode || tc.code),
+    ...plannedClasses.map(pc => pc.code)
+  ]);
+
+  const needed = { codes: new Set(), priorities: {} };
+  
+  degreeData.categories.forEach(cat => {
+    cat.availableClasses.forEach(cls => {
+      if (!completed.has(cls.code)) {
+        needed.codes.add(cls.code);
+        needed.priorities[cls.code] = cls.required ? 3 : 2;
+      }
+    });
+  });
+  
+  return needed;
+}
+
+function formatReasons(cls, neededCourses) {
+  const reasons = [];
+  if (neededCourses.codes.has(cls.code)) {
+    reasons.push(neededCourses.priorities[cls.code] === 3 ? 'Required for degree' : 'Fulfills degree requirement');
+  }
+  const ratings = Object.values(cls.rmpData || {});
+  if (ratings.length > 0) {
+    const avgQ = ratings.reduce((sum, r) => sum + (r.quality || 0), 0) / ratings.length;
+    if (avgQ >= 4) reasons.push(`Highly rated (${avgQ.toFixed(1)}/5.0)`);
+  }
+  if (cls.schedule?.days) reasons.push(`Meets ${cls.schedule.days.join('/')}`);
+  return reasons;
 }

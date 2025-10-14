@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react'
+import { getCourseRecommendations } from './api.jsx'
 
 function timeOptions(startHour = 7, endHour = 21) {
   const opts = []
@@ -35,7 +36,14 @@ const WEEK_PATTERN_OPTIONS = [
   { label: 'Heavier TR', value: 'heavier_tr', helper: 'Concentrate classes on Tue/Thu.' },
 ]
 
-export default function RecommendMe({ onReset, onSubmit, loading = false, knownProfessors = [] }) {
+export default function RecommendMe({ 
+  knownProfessors = [],
+  major = 'Computer Science',
+  userEmail = null,
+  plannedClasses = [],
+  onAddToPlanner,  // NEW
+  onReset  // Keep if you had it
+}) {
   const [avoidProfessors, setAvoidProfessors] = useState([])
   const [profQuery, setProfQuery] = useState('')
   const [showProfPopover, setShowProfPopover] = useState(false)
@@ -45,6 +53,10 @@ export default function RecommendMe({ onReset, onSubmit, loading = false, knownP
 
   const [workload, setWorkload] = useState('balanced')
   const [weekPattern, setWeekPattern] = useState('balanced_days')
+
+  const [loading, setLoading] = useState(false)
+  const [recommendations, setRecommendations] = useState(null)
+  const [error, setError] = useState(null)
 
   const timeOpts = useMemo(() => timeOptions(7, 21), [])
 
@@ -97,19 +109,53 @@ export default function RecommendMe({ onReset, onSubmit, loading = false, knownP
     if (onReset) onReset()
   }
 
-  function handleSubmit() {
-    const payload = {
-      avoidProfessors,
-      blockedSlots: Array.from(blockedSlots),
-      customRange: null,
-      workload,
-      weekPattern,
+  async function handleSubmit() {
+    setLoading(true)
+    setError(null)
+    
+    try {
+      const payload = {
+        avoidProfessors,
+        blockedSlots: Array.from(blockedSlots),
+        workload,
+        weekPattern,
+      }
+      console.log(payload);
+      
+      const recs = await getCourseRecommendations(payload, major, userEmail, plannedClasses)
+      setRecommendations(recs)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
-    if (onSubmit) onSubmit(payload)
   }
 
   const workloadHelper = WORKLOAD_OPTIONS.find((w) => w.value === workload)?.helper
   const weekPatternHelper = WEEK_PATTERN_OPTIONS.find((w) => w.value === weekPattern)?.helper
+
+  if (recommendations) {
+    return (
+      <div style={{ padding: '20px' }}>
+        <button onClick={handleReset} style={{ marginBottom: '20px' }}>← Back</button>
+        <h2>Your Recommendations ({recommendations.length})</h2>
+        <div style={{ display: 'grid', gap: '16px' }}>
+          {recommendations.map((course, idx) => (
+            <div key={course.id} style={{ border: '1px solid #ddd', padding: '16px', borderRadius: '8px' }}>
+              <h3>#{idx + 1} {course.code} - {course.name}</h3>
+              <p><strong>Match Score:</strong> {course.score}%</p>
+              <ul>
+                {course.recommendationReasons.map((r, i) => <li key={i}>{r}</li>)}
+              </ul>
+              {onAddToPlanner && (
+                <button onClick={() => onAddToPlanner(course)}>+ Add to Planner</button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="card">

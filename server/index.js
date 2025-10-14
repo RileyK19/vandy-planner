@@ -351,3 +351,23 @@ app.post('/api/auth/past-courses', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to save past courses' });
   }
 });
+
+app.get('/api/users/:email/courses', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const db = mongoose.connection.client.db('Users');
+    const usersCollection = db.collection('users');
+    
+    const user = await usersCollection.findOne({ email });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Return the user's past courses (completed courses)
+    res.json(user.pastCourses || []);
+  } catch (error) {
+    console.error('Error fetching user courses:', error);
+    res.status(500).json({ error: 'Failed to fetch user courses' });
+  }
+});
