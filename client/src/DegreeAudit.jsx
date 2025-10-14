@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { fetchDegreeRequirements, fetchUserTakenCourses } from './api.jsx'
+import './colors.css'
 
 function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) {
   const [degreeData, setDegreeData] = useState(null)

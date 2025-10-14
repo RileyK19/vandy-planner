@@ -1,3 +1,5 @@
+@import "./colors.css";
+
 /* Reset styles only for login page */
 .login-container * {
   margin: 0;
@@ -8,7 +10,7 @@
 .login-container {
   min-height: 100vh;
   width: 100vw;
-  background-color: white;
+  background-color: var(--background);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -22,7 +24,7 @@
 }
 
 .login-box {
-  background-color: white;
+  background-color: var(--background);
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -33,7 +35,7 @@
 }
 
 .login-logo {
-  max-width: 400px; /* Set to 400px */
+  max-width: 400px;
   height: auto;
   margin: 0 auto 4px auto;
   display: block;
@@ -57,7 +59,7 @@
 
 .form-group label {
   display: block;
-  color: #333;
+  color: var(--secondary);
   font-weight: 500;
   margin-bottom: 6px;
   font-size: 14px;
@@ -75,8 +77,8 @@
 
 .form-group input:focus {
   outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(117, 171, 208, 0.1);
 }
 
 .error-message {
@@ -91,8 +93,8 @@
 
 .submit-button {
   width: 100%;
-  background-color: #000000;
-  color: white;
+  background-color: var(--secondary);
+  color: var(--background);
   border: none;
   padding: 12px;
   border-radius: 4px;
@@ -104,7 +106,7 @@
 }
 
 .submit-button:hover {
-  background-color: #333333;
+  background-color: var(--highlight);
 }
 
 .submit-button:active {
@@ -125,7 +127,7 @@
 .toggle-button {
   background: none;
   border: none;
-  color: #4CAF50;
+  color: var(--primary);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -135,7 +137,7 @@
 }
 
 .toggle-button:hover {
-  color: #45a049;
+  color: var(--highlight);
 }
 
 /* Responsive design */
@@ -152,7 +154,7 @@
   }
   
   .login-logo {
-    max-width: 280px; /* Proportional mobile size */
+    max-width: 280px;
   }
   
   .login-header p {
@@ -166,12 +168,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--highlight);
   padding: 20px;
 }
 
 .registration-container {
-  background: white;
+  background: var(--background);
   border-radius: 12px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   padding: 25px;
@@ -186,7 +188,7 @@
 }
 
 .registration-header h2 {
-  color: #333;
+  color: var(--secondary);
   margin-bottom: 10px;
   font-size: 28px;
   font-weight: 600;
@@ -223,7 +225,7 @@
   align-items: center;
   position: relative;
   z-index: 2;
-  background: white;
+  background: var(--background);
   padding: 0 20px;
 }
 
@@ -243,13 +245,13 @@
 }
 
 .step.active .step-number {
-  background: #667eea;
-  color: white;
+  background: var(--primary);
+  color: var(--background);
 }
 
 .step.completed .step-number {
-  background: #4CAF50;
-  color: white;
+  background: var(--button);
+  color: var(--background);
 }
 
 .step-label {
@@ -260,11 +262,11 @@
 }
 
 .step.active .step-label {
-  color: #667eea;
+  color: var(--primary);
 }
 
 .step.completed .step-label {
-  color: #4CAF50;
+  color: var(--button);
 }
 
 /* Step Content */
@@ -283,7 +285,7 @@
 }
 
 .step-header h3 {
-  color: #333;
+  color: var(--secondary);
   margin-bottom: 10px;
   font-size: 24px;
   font-weight: 600;
@@ -302,7 +304,7 @@
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  color: #333;
+  color: var(--secondary);
   font-weight: 500;
   font-size: 14px;
 }
@@ -321,7 +323,7 @@
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--primary);
 }
 
 .form-group input.error,
@@ -349,22 +351,22 @@
 }
 
 .previous-courses-section h4 {
-  color: #333;
+  color: var(--secondary);
   margin-bottom: 20px;
   font-size: 18px;
   font-weight: 600;
 }
 
 .course-form {
-  background: #f8f9fa;
+  background: var(--tertiary);
   padding: 20px;
   border-radius: 8px;
   margin-bottom: 20px;
 }
 
 .btn-add-course {
-  background: #667eea;
-  color: white;
+  background: var(--primary);
+  color: var(--background);
   border: none;
   padding: 10px 20px;
   border-radius: 6px;
@@ -375,7 +377,7 @@
 }
 
 .btn-add-course:hover {
-  background: #5a6fd8;
+  background: var(--highlight);
 }
 
 .added-courses {
@@ -392,7 +394,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: white;
+  background: var(--background);
   padding: 15px;
   border-radius: 8px;
   border: 1px solid #e0e0e0;
@@ -407,12 +409,12 @@
 
 .course-code {
   font-weight: 600;
-  color: #667eea;
+  color: var(--primary);
   font-size: 14px;
 }
 
 .course-name {
-  color: #333;
+  color: var(--secondary);
   font-size: 14px;
 }
 
@@ -423,7 +425,7 @@
 
 .course-grade {
   background: #e8f5e8;
-  color: #4CAF50;
+  color: var(--button);
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 12px;
@@ -432,7 +434,7 @@
 
 .btn-remove {
   background: #f44336;
-  color: white;
+  color: var(--background);
   border: none;
   padding: 6px 12px;
   border-radius: 4px;
@@ -468,12 +470,12 @@
 }
 
 .btn-primary {
-  background: #667eea;
-  color: white;
+  background: var(--primary);
+  color: var(--background);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #5a6fd8;
+  background: var(--highlight);
 }
 
 .btn-primary:disabled {

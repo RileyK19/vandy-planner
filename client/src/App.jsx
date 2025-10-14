@@ -358,7 +358,7 @@ function App() {
               title="Recommendation"
             >
               <span className="nav-icon">💡</span>
-              {!sidebarCollapsed && <span className="nav-text">4-Year Plan</span>}
+              {!sidebarCollapsed && <span className="nav-text">Recommendations</span>}
             </button>
             <button 
               onClick={() => setCurrentView('fouryear')} 

@@ -283,7 +283,7 @@ export default function RecommendMe({
           onClick={handleSubmit}
           disabled={loading}
         >
-          {loading ? 'Loading…' : 'Get Course Recommendations'}
+          {loading ? 'Querying AI...' : 'Get Course Recommendations'}
         </button>
       </div>
     </div>
