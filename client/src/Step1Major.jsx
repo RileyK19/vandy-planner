@@ -1,8 +1,19 @@
 import React, { useState } from 'react';
 
+/**
+ * Step1Major - First step of user registration
+ * Handles major selection with validation and navigation
+ * 
+ * @param {Object} data - Current form data from parent
+ * @param {Function} onUpdate - Callback to update form data
+ * @param {Function} onNext - Callback to proceed to next step
+ * @param {Function} onBack - Callback to return to previous step
+ * @param {Object} errors - Error state from parent
+ */
 const Step1Major = ({ data, onUpdate, onNext, onBack, errors }) => {
-  const [localErrors, setLocalErrors] = useState({});
+  const [localErrors, setLocalErrors] = useState({}); // Local validation errors
 
+  // Available major options for selection
   const majors = [
     'Computer Science',
     'Computer Engineering',
@@ -24,11 +35,19 @@ const Step1Major = ({ data, onUpdate, onNext, onBack, errors }) => {
     'Other'
   ];
 
+  /**
+   * Handles major selection change
+   * Updates parent form data and clears any validation errors
+   */
   const handleMajorChange = (major) => {
     onUpdate({ major });
     setLocalErrors({});
   };
 
+  /**
+   * Validates major selection before proceeding to next step
+   * Shows error if no major is selected
+   */
   const handleNext = () => {
     if (!data.major) {
       setLocalErrors({ major: 'Please select your major' });

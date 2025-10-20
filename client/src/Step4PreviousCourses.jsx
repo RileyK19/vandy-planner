@@ -1,7 +1,21 @@
 import React, { useState } from 'react';
 
+/**
+ * Step4PreviousCourses - Final step of user registration
+ * Handles optional previous course entry with add/remove functionality
+ * Allows users to skip this step or complete registration
+ * 
+ * @param {Object} data - Current form data from parent
+ * @param {Function} onUpdate - Callback to update form data
+ * @param {Function} onSubmit - Callback to complete registration
+ * @param {Function} onBack - Callback to return to previous step
+ * @param {Object} errors - Error state from parent
+ * @param {Boolean} isSubmitting - Loading state for final submission
+ */
 const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubmitting }) => {
-  const [localErrors, setLocalErrors] = useState({});
+  const [localErrors, setLocalErrors] = useState({}); // Local validation errors
+  
+  // Form state for adding new courses
   const [newCourse, setNewCourse] = useState({
     courseCode: '',
     courseName: '',
@@ -10,6 +24,10 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
     completedAt: ''
   });
 
+  /**
+   * Adds a new course to the previous courses list
+   * Validates all required fields and converts completion date to Date object
+   */
   const handleAddCourse = () => {
     if (!newCourse.courseCode || !newCourse.courseName || !newCourse.term || !newCourse.grade) {
       setLocalErrors({ course: 'Please fill in all course fields' });
@@ -23,13 +41,14 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
 
     const course = {
       ...newCourse,
-      completedAt: new Date(newCourse.completedAt)
+      completedAt: new Date(newCourse.completedAt) // Convert string to Date object
     };
 
     onUpdate({
       previousCourses: [...(data.previousCourses || []), course]
     });
 
+    // Reset form after successful addition
     setNewCourse({
       courseCode: '',
       courseName: '',
@@ -40,19 +59,29 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
     setLocalErrors({});
   };
 
+  /**
+   * Removes a course from the previous courses list by index
+   */
   const handleRemoveCourse = (index) => {
     const updatedCourses = data.previousCourses.filter((_, i) => i !== index);
     onUpdate({ previousCourses: updatedCourses });
   };
 
+  /**
+   * Skips course entry and proceeds to registration completion
+   */
   const handleSkip = () => {
     onSubmit();
   };
 
+  /**
+   * Completes registration with current course data
+   */
   const handleComplete = () => {
     onSubmit();
   };
 
+  // Available grade options for course entry
   const gradeOptions = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-', 'F', 'P', 'NP', 'W'];
 
   return (

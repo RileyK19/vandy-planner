@@ -1,8 +1,19 @@
 import React, { useState } from 'react';
 
+/**
+ * Step2AcademicYear - Second step of user registration
+ * Handles academic year selection with validation and navigation
+ * 
+ * @param {Object} data - Current form data from parent
+ * @param {Function} onUpdate - Callback to update form data
+ * @param {Function} onNext - Callback to proceed to next step
+ * @param {Function} onBack - Callback to return to previous step
+ * @param {Object} errors - Error state from parent
+ */
 const Step2AcademicYear = ({ data, onUpdate, onNext, onBack, errors }) => {
-  const [localErrors, setLocalErrors] = useState({});
+  const [localErrors, setLocalErrors] = useState({}); // Local validation errors
 
+  // Available academic year options
   const academicYears = [
     'Freshman',
     'Sophomore', 
@@ -11,11 +22,19 @@ const Step2AcademicYear = ({ data, onUpdate, onNext, onBack, errors }) => {
     'Graduate'
   ];
 
+  /**
+   * Handles academic year selection change
+   * Updates parent form data and clears any validation errors
+   */
   const handleYearChange = (year) => {
     onUpdate({ year });
     setLocalErrors({});
   };
 
+  /**
+   * Validates academic year selection before proceeding to next step
+   * Shows error if no year is selected
+   */
   const handleNext = () => {
     if (!data.year) {
       setLocalErrors({ year: 'Please select your academic year' });

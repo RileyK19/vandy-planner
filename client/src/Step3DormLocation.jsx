@@ -1,13 +1,31 @@
 import React, { useState } from 'react';
 
+/**
+ * Step3DormLocation - Third step of user registration
+ * Handles dorm location input with validation and navigation
+ * 
+ * @param {Object} data - Current form data from parent
+ * @param {Function} onUpdate - Callback to update form data
+ * @param {Function} onNext - Callback to proceed to next step
+ * @param {Function} onBack - Callback to return to previous step
+ * @param {Object} errors - Error state from parent
+ */
 const Step3DormLocation = ({ data, onUpdate, onNext, onBack, errors }) => {
-  const [localErrors, setLocalErrors] = useState({});
+  const [localErrors, setLocalErrors] = useState({}); // Local validation errors
 
+  /**
+   * Handles dorm location input change
+   * Updates parent form data and clears any validation errors
+   */
   const handleDormChange = (e) => {
     onUpdate({ dorm: e.target.value });
     setLocalErrors({});
   };
 
+  /**
+   * Validates dorm location input before proceeding to next step
+   * Requires at least 2 characters to prevent empty or single-character entries
+   */
   const handleNext = () => {
     if (!data.dorm || data.dorm.trim().length < 2) {
       setLocalErrors({ dorm: 'Please enter your dorm location (at least 2 characters)' });

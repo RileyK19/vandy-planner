@@ -3,19 +3,32 @@ import MultiStepRegistration from './MultiStepRegistration'
 import { loginUser } from './api'
 import './LoginPage.css'
 
+/**
+ * LoginPage - Handles user authentication and signup flow
+ * Manages login/signup toggle, form validation, and triggers multi-step registration
+ */
 function LoginPage({ onLogin, onSignup }) {
-  const [isSignup, setIsSignup] = useState(false)
-  const [showRegistration, setShowRegistration] = useState(false)
+  // UI state management
+  const [isSignup, setIsSignup] = useState(false) // Toggle between login/signup modes
+  const [showRegistration, setShowRegistration] = useState(false) // Controls multi-step registration visibility
+  
+  // Form data state
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     confirmPassword: '',
     name: ''
   })
-  const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [passwordError, setPasswordError] = useState('')
+  
+  // Error and loading states
+  const [error, setError] = useState('') // General error messages
+  const [isLoading, setIsLoading] = useState(false) // Loading state for API calls
+  const [passwordError, setPasswordError] = useState('') // Real-time password validation
 
+  /**
+   * Handles form input changes with real-time validation
+   * Clears errors when user starts typing and validates password strength
+   */
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({
@@ -35,6 +48,11 @@ function LoginPage({ onLogin, onSignup }) {
     }
   }
 
+  /**
+   * Handles form submission for both login and signup
+   * For signup: validates form and triggers multi-step registration
+   * For login: authenticates user via API
+   */
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -48,6 +66,7 @@ function LoginPage({ onLogin, onSignup }) {
     }
 
     if (isSignup) {
+      // Signup validation
       if (!formData.name) {
         setError('Please enter your name')
         setIsLoading(false)
@@ -69,6 +88,7 @@ function LoginPage({ onLogin, onSignup }) {
       return
     }
 
+    // Login flow
     try {
       const result = await loginUser(formData.email, formData.password)
       onLogin(result.user)
@@ -79,6 +99,10 @@ function LoginPage({ onLogin, onSignup }) {
     }
   }
 
+  /**
+   * Toggles between login and signup modes
+   * Resets form data and clears all error states
+   */
   const handleToggleMode = () => {
     setIsSignup(!isSignup)
     setFormData({ email: '', password: '', confirmPassword: '', name: '' })
@@ -87,10 +111,18 @@ function LoginPage({ onLogin, onSignup }) {
     setShowRegistration(false)
   }
 
+  /**
+   * Callback when multi-step registration completes successfully
+   * Passes user data to parent component
+   */
   const handleRegistrationComplete = (user) => {
     onSignup(user)
   }
 
+  /**
+   * Returns user from registration back to login form
+   * Resets all form state
+   */
   const handleBackToLogin = () => {
     setShowRegistration(false)
     setFormData({ email: '', password: '', confirmPassword: '', name: '' })
@@ -99,7 +131,7 @@ function LoginPage({ onLogin, onSignup }) {
   }
 
 
-  // Show multi-step registration if user clicked signup
+  // Conditional rendering: Show multi-step registration if user clicked signup
   if (showRegistration) {
     return (
       <MultiStepRegistration

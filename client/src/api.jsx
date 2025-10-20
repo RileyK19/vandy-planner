@@ -292,22 +292,34 @@ export async function fetchUserTakenCourses(email) {
 
 // Authentication API Functions
 
-// Helper function to get auth token from localStorage
+/**
+ * Helper function to get auth token from localStorage
+ * Returns null if no token exists
+ */
 function getAuthToken() {
   return localStorage.getItem('authToken');
 }
 
-// Helper function to set auth token in localStorage
+/**
+ * Helper function to set auth token in localStorage
+ * Stores JWT token for authenticated requests
+ */
 function setAuthToken(token) {
   localStorage.setItem('authToken', token);
 }
 
-// Helper function to remove auth token from localStorage
+/**
+ * Helper function to remove auth token from localStorage
+ * Used during logout or when token is invalid
+ */
 function removeAuthToken() {
   localStorage.removeItem('authToken');
 }
 
-// Helper function to get auth headers
+/**
+ * Helper function to get auth headers for API requests
+ * Includes Content-Type and Authorization Bearer token if available
+ */
 function getAuthHeaders() {
   const token = getAuthToken();
   return {
@@ -316,7 +328,17 @@ function getAuthHeaders() {
   };
 }
 
-// Register a new user
+/**
+ * Register a new user with complete profile data
+ * Sends user data from multi-step registration to backend
+ * Automatically stores JWT token on successful registration
+ * 
+ * @param {Object} userData - Complete user profile data including:
+ *   - email, password, name (from login form)
+ *   - major, year, dorm (from registration steps)
+ *   - previousCourses (optional array of course objects)
+ * @returns {Object} Registration response with user data and token
+ */
 export async function registerUser(userData) {
   try {
     const response = await fetch('http://localhost:3001/api/auth/register', {
@@ -333,7 +355,7 @@ export async function registerUser(userData) {
       throw new Error(data.error || 'Registration failed');
     }
 
-    // Store token in localStorage
+    // Store token in localStorage for future authenticated requests
     if (data.token) {
       setAuthToken(data.token);
     }
@@ -345,7 +367,14 @@ export async function registerUser(userData) {
   }
 }
 
-// Login user
+/**
+ * Login user with email and password
+ * Authenticates user credentials and stores JWT token
+ * 
+ * @param {string} email - User's email address
+ * @param {string} password - User's password
+ * @returns {Object} Login response with user data and token
+ */
 export async function loginUser(email, password) {
   try {
     const response = await fetch('http://localhost:3001/api/auth/login', {
@@ -362,7 +391,7 @@ export async function loginUser(email, password) {
       throw new Error(data.error || 'Login failed');
     }
 
-    // Store token in localStorage
+    // Store token in localStorage for future authenticated requests
     if (data.token) {
       setAuthToken(data.token);
     }
@@ -451,17 +480,30 @@ export async function getUserSchedules() {
   }
 }
 
-// Logout user
+/**
+ * Logout user by removing stored authentication token
+ * Clears localStorage and effectively ends user session
+ */
 export function logoutUser() {
   removeAuthToken();
 }
 
-// Check if user is authenticated
+/**
+ * Check if user is currently authenticated
+ * Returns true if valid token exists in localStorage
+ * 
+ * @returns {boolean} Authentication status
+ */
 export function isAuthenticated() {
   return !!getAuthToken();
 }
 
-// Get current auth token
+/**
+ * Get current authentication token from localStorage
+ * Returns null if no token exists
+ * 
+ * @returns {string|null} Current auth token
+ */
 export function getCurrentToken() {
   return getAuthToken();
 }
