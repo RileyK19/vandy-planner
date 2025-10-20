@@ -138,6 +138,7 @@ app.get('/api/users/:email/courses', async (req, res) => {
     }
 
     res.json(user.previousCourses || []);
+    console.log(reg.json);
   } catch (error) {
     console.error('Error fetching user courses:', error);
     res.status(500).json({ error: 'Failed to fetch user courses' });

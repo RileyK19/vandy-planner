@@ -596,7 +596,7 @@ export async function enhanceWithGPT(recommendations, context) {
   const { preferences, degreeData, takenCourses, plannedClasses } = context;
   
   // Get API key from Vite env variable
-  const apiKey = import.meta.env.OPENAI_API_KEY;
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
   
   console.log('API key check:', apiKey ? `✓ Found` : '✗ Missing');
   

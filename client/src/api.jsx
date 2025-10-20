@@ -547,9 +547,42 @@ export async function savePastCoursesToDB(courses) {
 // }
 
 
+const recommendationCache = new Map();
+
+function makeCacheKey(preferences, major) {
+  // Sort preference keys for consistent key string
+  const prefKeys = Object.keys(preferences).sort();
+  const prefString = prefKeys.map(key => `${key}:${JSON.stringify(preferences[key])}`).join('|');
+  return `${major}::${prefString}`;
+}
+
 export async function getCourseRecommendations(preferences, major, userEmail, plannedClasses) {
   try {
-    console.log('🎯 Fetching recommendations for:', { major, userEmail, planType: preferences.planType });
+    const cacheKey = makeCacheKey(preferences, major);
+
+    if (recommendationCache.has(cacheKey)) {
+      console.log('⚡ Returning cached recommendations for:', { major, preferences });
+      return recommendationCache.get(cacheKey);
+    }
+
+    console.log('🎯 Fetching new recommendations for:', { major, preferences });
+
+    const recommendationResult = await _getCourseRecommendationsInternal(preferences, major, userEmail, plannedClasses);
+
+    recommendationCache.set(cacheKey, recommendationResult);
+    console.log('⚡ Cached recommendations for:', { major, preferences });
+
+    return recommendationResult;
+
+  } catch (error) {
+    console.error('❌ Error getting recommendations:', error);
+    throw error;
+  }
+}
+
+async function _getCourseRecommendationsInternal(preferences, major, userEmail, plannedClasses) {
+  try {
+    console.log('🎯 Starting internal recommendation generation:', { major, userEmail, planType: preferences.planType });
 
     // 1. Fetch user's taken courses
     let takenCourses = [];
@@ -562,13 +595,13 @@ export async function getCourseRecommendations(preferences, major, userEmail, pl
       }
     }
 
-    // 2. USE YOUR EXISTING fetchClassesFromDB function
+    // 2. Fetch all classes from DB
     const allClasses = await fetchClassesFromDB();
     if (!allClasses || allClasses.length === 0) {
       throw new Error('No classes available');
     }
     console.log('✓ All classes:', allClasses.length);
-    console.log('✓ Sample class:', allClasses[0]); // Debug log
+    console.log('✓ Sample class:', allClasses[0]);
 
     // 3. Fetch degree requirements
     let degreeData = null;
@@ -601,7 +634,7 @@ export async function getCourseRecommendations(preferences, major, userEmail, pl
       console.warn('⚠️ Error loading prerequisites:', err.message);
     }
 
-    // 5. Route to appropriate engine based on planType
+    // 5. Route based on planType
     if (preferences.planType === 'four_year') {
       console.log('🎓 Generating 4-year plan...');
       
@@ -616,8 +649,7 @@ export async function getCourseRecommendations(preferences, major, userEmail, pl
 
       console.log('✓ Generated 4-year plan:', plan.semesters.length, 'semesters');
 
-      // Optional: Enhance with GPT (can be slow for 8 semesters)
-      // Comment to stop want GPT insights for the 4-year plan
+      // Enhance with GPT (optional)
       try {
         plan.semesters = await enhanceSemestersWithGPT(plan.semesters, {
           preferences,
@@ -633,7 +665,6 @@ export async function getCourseRecommendations(preferences, major, userEmail, pl
       return plan;
 
     } else {
-      // 5. Generate 1-semester recommendations
       console.log('📚 Generating 1-semester recommendations...');
       
       const recommendations = generateRecommendations({
@@ -647,7 +678,6 @@ export async function getCourseRecommendations(preferences, major, userEmail, pl
 
       console.log('✓ Generated recommendations:', recommendations.length);
 
-      // 6. Enhance with GPT (optional - disable temporarily if needed)
       try {
         const enhanced = await enhanceWithGPT(recommendations, {
           preferences,
@@ -663,10 +693,11 @@ export async function getCourseRecommendations(preferences, major, userEmail, pl
     }
 
   } catch (error) {
-    console.error('❌ Error getting recommendations:', error);
+    console.error('❌ Internal error generating recommendations:', error);
     throw error;
   }
 }
+
 
 /**
  * Optional: Enhance 4-year plan semesters with GPT insights
