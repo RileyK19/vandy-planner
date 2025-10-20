@@ -371,3 +371,109 @@ app.get('/api/users/:email/courses', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch user courses' });
   }
 });
+
+// Get prerequisites for a specific course
+app.get('/api/courses/:courseCode/prerequisites', async (req, res) => {
+  try {
+    const { courseCode } = req.params;
+    const db = mongoose.connection.client.db('Users');
+    const prerequisitesCollection = db.collection('prerequisites');
+    
+    const prereqData = await prerequisitesCollection.findOne({ 
+      courseId: courseCode.toUpperCase() 
+    });
+    
+    if (!prereqData) {
+      return res.json({ 
+        courseId: courseCode,
+        hasPrerequisites: false,
+        prerequisites: []
+      });
+    }
+    
+    res.json({
+      courseId: prereqData.courseId,
+      hasPrerequisites: true,
+      prerequisiteText: prereqData.prerequisiteText,
+      prerequisiteType: prereqData.prerequisiteType,
+      prerequisiteCourses: prereqData.prerequisiteCourses || [],
+      lastUpdated: prereqData.lastUpdated
+    });
+  } catch (error) {
+    console.error('Error fetching prerequisites:', error);
+    res.status(500).json({ error: 'Failed to fetch prerequisites' });
+  }
+});
+
+// Get prerequisites for multiple courses (batch request)
+app.post('/api/courses/prerequisites/batch', async (req, res) => {
+  try {
+    const { courseCodes } = req.body;
+    
+    if (!Array.isArray(courseCodes) || courseCodes.length === 0) {
+      return res.status(400).json({ error: 'courseCodes must be a non-empty array' });
+    }
+    
+    const db = mongoose.connection.client.db('Users');
+    const prerequisitesCollection = db.collection('prerequisites');
+    
+    const upperCaseCodes = courseCodes.map(code => code.toUpperCase());
+    
+    const prerequisites = await prerequisitesCollection
+      .find({ courseId: { $in: upperCaseCodes } })
+      .toArray();
+    
+    // Create a map for easy lookup
+    const prereqMap = {};
+    prerequisites.forEach(prereq => {
+      prereqMap[prereq.courseId] = {
+        hasPrerequisites: true,
+        prerequisiteText: prereq.prerequisiteText,
+        prerequisiteType: prereq.prerequisiteType,
+        prerequisiteCourses: prereq.prerequisiteCourses || [],
+        lastUpdated: prereq.lastUpdated
+      };
+    });
+    
+    // Fill in courses without prerequisites
+    courseCodes.forEach(code => {
+      const upperCode = code.toUpperCase();
+      if (!prereqMap[upperCode]) {
+        prereqMap[upperCode] = {
+          hasPrerequisites: false,
+          prerequisites: []
+        };
+      }
+    });
+    
+    res.json(prereqMap);
+  } catch (error) {
+    console.error('Error fetching batch prerequisites:', error);
+    res.status(500).json({ error: 'Failed to fetch prerequisites' });
+  }
+});
+
+// Get degree requirements by major (add after your other endpoints)
+app.get('/api/degree-requirements/:major', async (req, res) => {
+  try {
+    const { major } = req.params;
+    const db = mongoose.connection.client.db('Users');
+    const degreeRequirementsCollection = db.collection('degree_requirements');
+    
+    let degreeData = await degreeRequirementsCollection.findOne({ 
+      major: { $regex: new RegExp(`^${major}$`, 'i') }
+    });
+    
+    if (!degreeData) {
+      return res.status(404).json({ 
+        error: 'Degree requirements not found',
+        major: major
+      });
+    }
+    
+    res.json(degreeData);
+  } catch (error) {
+    console.error('Error fetching degree requirements:', error);
+    res.status(500).json({ error: 'Failed to fetch degree requirements' });
+  }
+});

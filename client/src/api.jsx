@@ -1,6 +1,9 @@
 // api.jsx - Fixed with direct URLs (like your working version)
 // import { generateRecommendations } from './RecommendationEngine.jsx';
-import { generateRecommendations, enhanceWithGPT } from './RecommendationEngine.jsx';
+import { generateRecommendations, enhanceWithGPT } from './RecommendationEngine.jsx'
+import { generateFourYearPlan } from './RecommendationEngineFourYear.jsx'
+
+const API_BASE_URL = 'http://localhost:3001/api';
 
 // Helper function to parse schedule strings from database
 function parseSchedule(scheduleStr) {
@@ -512,35 +515,188 @@ export async function savePastCoursesToDB(courses) {
 //   }));
 // }
 
-export async function getCourseRecommendations(preferences, major = 'Computer Science', userEmail = null, plannedClasses = []) {
-  const [allClasses, degreeData, takenCourses] = await Promise.all([
-    fetchClassesWithRatings(),
-    fetchDegreeRequirements(major),
-    userEmail ? fetchUserTakenCourses(userEmail) : Promise.resolve([])
-  ]);
+// export async function getCourseRecommendations(preferences, major = 'Computer Science', userEmail = null, plannedClasses = []) {
+//   const [allClasses, degreeData, takenCourses] = await Promise.all([
+//     fetchClassesWithRatings(),
+//     fetchDegreeRequirements(major),
+//     userEmail ? fetchUserTakenCourses(userEmail) : Promise.resolve([])
+//   ]);
 
-  const neededCourses = identifyNeededCoursesHelper(degreeData, takenCourses, plannedClasses);
+//   const neededCourses = identifyNeededCoursesHelper(degreeData, takenCourses, plannedClasses);
   
-  const recommendations = generateRecommendations({
-    preferences,
-    allClasses,
-    degreeData,
-    takenCourses,
-    plannedClasses
-  });
+//   const recommendations = generateRecommendations({
+//     preferences,
+//     allClasses,
+//     degreeData,
+//     takenCourses,
+//     plannedClasses
+//   });
 
-  // Add GPT enhancement
-  const enhanced = await enhanceWithGPT(recommendations, {
-    preferences,
-    degreeData,
-    takenCourses,
-    plannedClasses
-  });
+//   // Add GPT enhancement
+//   const enhanced = await enhanceWithGPT(recommendations, {
+//     preferences,
+//     degreeData,
+//     takenCourses,
+//     plannedClasses
+//   });
 
-  return enhanced.map(rec => ({
-    ...rec,
-    recommendationReasons: formatReasons(rec, neededCourses)
-  }));
+//   return enhanced.map(rec => ({
+//     ...rec,
+//     recommendationReasons: formatReasons(rec, neededCourses)
+//   }));
+// }
+
+
+export async function getCourseRecommendations(preferences, major, userEmail, plannedClasses) {
+  try {
+    console.log('🎯 Fetching recommendations for:', { major, userEmail, planType: preferences.planType });
+
+    // 1. Fetch user's taken courses
+    let takenCourses = [];
+    if (userEmail) {
+      try {
+        takenCourses = await fetchUserTakenCourses(userEmail);
+        console.log('✓ Taken courses:', takenCourses.length);
+      } catch (err) {
+        console.warn('⚠️ Could not fetch taken courses:', err.message);
+      }
+    }
+
+    // 2. USE YOUR EXISTING fetchClassesFromDB function
+    const allClasses = await fetchClassesFromDB();
+    if (!allClasses || allClasses.length === 0) {
+      throw new Error('No classes available');
+    }
+    console.log('✓ All classes:', allClasses.length);
+    console.log('✓ Sample class:', allClasses[0]); // Debug log
+
+    // 3. Fetch degree requirements
+    let degreeData = null;
+    try {
+      const degreeResponse = await fetch(
+        `http://localhost:3001/api/degree-requirements/${encodeURIComponent(major)}`
+      );
+      
+      if (!degreeResponse.ok) {
+        if (degreeResponse.status === 404) {
+          console.warn(`⚠️ No degree requirements found for "${major}". Continuing without degree filtering.`);
+        } else {
+          throw new Error(`Failed to fetch degree requirements: ${degreeResponse.statusText}`);
+        }
+      } else {
+        degreeData = await degreeResponse.json();
+        console.log('✓ Degree data loaded');
+      }
+    } catch (err) {
+      console.warn('⚠️ Error loading degree requirements:', err.message);
+    }
+
+    // 4. Fetch prerequisites for all courses
+    let prerequisitesMap = {};
+    try {
+      const allCourseCodes = allClasses.map(cls => cls.code);
+      prerequisitesMap = await fetchBatchPrerequisites(allCourseCodes);
+      console.log('✓ Prerequisites loaded:', Object.keys(prerequisitesMap).length);
+    } catch (err) {
+      console.warn('⚠️ Error loading prerequisites:', err.message);
+    }
+
+    // 5. Route to appropriate engine based on planType
+    if (preferences.planType === 'four_year') {
+      console.log('🎓 Generating 4-year plan...');
+      
+      const plan = generateFourYearPlan({
+        preferences,
+        allClasses,
+        degreeData,
+        takenCourses,
+        plannedClasses,
+        prerequisitesMap
+      });
+
+      console.log('✓ Generated 4-year plan:', plan.semesters.length, 'semesters');
+
+      // Optional: Enhance with GPT (can be slow for 8 semesters)
+      // Comment to stop want GPT insights for the 4-year plan
+      try {
+        plan.semesters = await enhanceSemestersWithGPT(plan.semesters, {
+          preferences,
+          degreeData,
+          takenCourses,
+          plannedClasses
+        });
+        console.log('🤖 Enhanced 4-year plan with GPT');
+      } catch (err) {
+        console.warn('⚠️ GPT enhancement failed for 4-year plan:', err.message);
+      }
+
+      return plan;
+
+    } else {
+      // 5. Generate 1-semester recommendations
+      console.log('📚 Generating 1-semester recommendations...');
+      
+      const recommendations = generateRecommendations({
+        preferences,
+        allClasses,
+        degreeData,
+        takenCourses,
+        plannedClasses,
+        prerequisitesMap
+      });
+
+      console.log('✓ Generated recommendations:', recommendations.length);
+
+      // 6. Enhance with GPT (optional - disable temporarily if needed)
+      try {
+        const enhanced = await enhanceWithGPT(recommendations, {
+          preferences,
+          degreeData,
+          takenCourses,
+          plannedClasses
+        });
+        return enhanced;
+      } catch (err) {
+        console.warn('⚠️ GPT enhancement failed, returning basic recommendations:', err.message);
+        return recommendations;
+      }
+    }
+
+  } catch (error) {
+    console.error('❌ Error getting recommendations:', error);
+    throw error;
+  }
+}
+
+/**
+ * Optional: Enhance 4-year plan semesters with GPT insights
+ * WARNING: This can be slow and expensive (8 GPT calls)
+ */
+async function enhanceSemestersWithGPT(semesters, context) {
+  const semestersToEnhance = semesters.filter(sem => sem.courses.length > 0);
+  
+  console.log(`🤖 Enhancing ${semestersToEnhance.length} semesters with GPT...`);
+  
+  // Process one at a time to avoid rate limits
+  for (let i = 0; i < semestersToEnhance.length; i++) {
+    const semester = semestersToEnhance[i];
+    
+    try {
+      console.log(`  Enhancing ${semester.name}...`);
+      const enhanced = await enhanceWithGPT(semester.courses, context);
+      semester.courses = enhanced;
+      
+      // Small delay between requests
+      if (i < semestersToEnhance.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    } catch (err) {
+      console.warn(`  ⚠️ Failed to enhance ${semester.name}:`, err.message);
+      // Continue with non-enhanced courses
+    }
+  }
+  
+  return semesters;
 }
 
 function identifyNeededCoursesHelper(degreeData, takenCourses, plannedClasses) {
@@ -577,4 +733,55 @@ function formatReasons(cls, neededCourses) {
   }
   if (cls.schedule?.days) reasons.push(`Meets ${cls.schedule.days.join('/')}`);
   return reasons;
+}
+
+
+/**
+ * Fetch prerequisites for a single course
+ */
+export async function fetchCoursePrerequisites(courseCode) {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/courses/${encodeURIComponent(courseCode)}/prerequisites`
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch prerequisites: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching prerequisites:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch prerequisites for multiple courses in one request
+ */
+export async function fetchBatchPrerequisites(courseCodes) {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/courses/prerequisites/batch`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ courseCodes }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch batch prerequisites: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching batch prerequisites:', error);
+    // Return empty map so recommendations still work without prerequisites
+    return {};
+  }
 }

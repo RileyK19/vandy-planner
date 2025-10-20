@@ -7,134 +7,79 @@
  * @param {Array} plannedClasses - Courses already in planner
  * @returns {Array} Recommended courses sorted by score
  */
-export function generateRecommendations({
-    preferences,
-    allClasses,
-    degreeData,
-    takenCourses = [],
-    plannedClasses = []
-  }) {
-    // Step 1: Filter out courses that are already taken or planned
-    const takenCodes = new Set(takenCourses.map(c => c.courseCode || c.code));
-    const plannedCodes = new Set(plannedClasses.map(c => c.code));
+// export function generateRecommendations({
+//     preferences,
+//     allClasses,
+//     degreeData,
+//     takenCourses = [],
+//     plannedClasses = []
+//   }) {
+//     // Step 1: Filter out courses that are already taken or planned
+//     const takenCodes = new Set(takenCourses.map(c => c.courseCode || c.code));
+//     const plannedCodes = new Set(plannedClasses.map(c => c.code));
     
-    const availableClasses = allClasses.filter(cls => 
-      !takenCodes.has(cls.code) && 
-      !plannedCodes.has(cls.code) &&
-      cls.active
-    );
+//     const availableClasses = allClasses.filter(cls => 
+//       !takenCodes.has(cls.code) && 
+//       !plannedCodes.has(cls.code) &&
+//       cls.active
+//     );
   
-    // Step 2: Identify needed courses from degree requirements
-    const neededCourses = identifyNeededCourses(degreeData, takenCourses, plannedClasses);
+//     // Step 2: Identify needed courses from degree requirements
+//     const neededCourses = identifyNeededCourses(degreeData, takenCourses, plannedClasses);
   
-    // Step 3: Score each available class
-    const scoredClasses = availableClasses.map(cls => ({
-      ...cls,
-      score: calculateCourseScore(cls, preferences, neededCourses)
-    }));
+//     // Step 3: Score each available class
+//     const scoredClasses = availableClasses.map(cls => ({
+//       ...cls,
+//       score: calculateCourseScore(cls, preferences, neededCourses)
+//     }));
   
-    // Step 4: Sort by score and return top recommendations
-    return scoredClasses
-      .filter(cls => cls.score > 0) // Only return classes with positive scores
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 20); // Top 20 recommendations
-  }
+//     // Step 4: Sort by score and return top recommendations
+//     return scoredClasses
+//       .filter(cls => cls.score > 0) // Only return classes with positive scores
+//       .sort((a, b) => b.score - a.score)
+//       .slice(0, 20); // Top 20 recommendations
+//   }
   
   /**
    * Identify which courses the student still needs based on degree requirements
    */
-  function identifyNeededCourses(degreeData, takenCourses, plannedClasses) {
-    if (!degreeData || !degreeData.categories) {
-      return { codes: new Set(), categories: {} };
-    }
-  
-    const allCompleted = [
-      ...takenCourses.map(tc => tc.courseCode || tc.code),
-      ...plannedClasses.map(pc => pc.code)
-    ];
-    const completedSet = new Set(allCompleted);
-  
-    const needed = {
-      codes: new Set(),
-      categories: {},
-      priorities: {} // Store priority levels for each course
-    };
-  
-    degreeData.categories.forEach(category => {
-      const categoryNeeds = {
-        name: category.name,
-        requiredHours: category.requiredHours,
-        minCourses: category.minCourses,
-        earnedHours: 0,
-        availableCourses: []
-      };
-  
-      // Calculate earned hours in this category
-      category.availableClasses.forEach(cls => {
-        if (completedSet.has(cls.code)) {
-          categoryNeeds.earnedHours += cls.hours || 3;
-        }
-      });
-  
-      // Identify still-needed courses
-      if (categoryNeeds.earnedHours < category.requiredHours) {
-        category.availableClasses.forEach(cls => {
-          if (!completedSet.has(cls.code)) {
-            needed.codes.add(cls.code);
-            categoryNeeds.availableCourses.push(cls.code);
-            
-            // Set priority: required courses are highest priority
-            needed.priorities[cls.code] = cls.required ? 3 : 
-              (category.minCourses ? 2 : 1);
-          }
-        });
-      }
-  
-      if (categoryNeeds.availableCourses.length > 0) {
-        needed.categories[category.name] = categoryNeeds;
-      }
-    });
-  
-    return needed;
+/**
+ * Calculate a score for a course based on user preferences and needs
+ */
+function calculateCourseScore(cls, preferences, neededCourses, prerequisitesMap) {
+  let score = 0;
+
+  // Factor 1: Is this course needed for degree? (0-50 points)
+  if (neededCourses.codes.has(cls.code)) {
+    const priority = neededCourses.priorities[cls.code] || 1;
+    score += 30 + (priority * 10); // 40-50 points for required, 30-40 for electives
+  } else {
+    // Not in degree requirements, but could be useful elective
+    score += 10;
   }
-  
-  /**
-   * Calculate a score for a course based on user preferences and needs
-   */
-  function calculateCourseScore(cls, preferences, neededCourses) {
-    let score = 0;
-  
-    // Factor 1: Is this course needed for degree? (0-50 points)
-    if (neededCourses.codes.has(cls.code)) {
-      const priority = neededCourses.priorities[cls.code] || 1;
-      score += 30 + (priority * 10); // 40-50 points for required, 30-40 for electives
-    } else {
-      // Not in degree requirements, but could be useful elective
-      score += 10;
-    }
-  
-    // Factor 2: Professor preferences (0-25 points)
-    const profScore = calculateProfessorScore(cls, preferences);
-    score += profScore;
-  
-    // Factor 3: Time slot preferences (0-20 points)
-    const timeScore = calculateTimeScore(cls, preferences);
-    score += timeScore;
-  
-    // Factor 4: Workload difficulty preference (0-15 points)
-    const difficultyScore = calculateDifficultyScore(cls, preferences);
-    score += difficultyScore;
-  
-    // Factor 5: Week pattern preference (0-10 points)
-    const patternScore = calculatePatternScore(cls, preferences);
-    score += patternScore;
-  
-    // Factor 6: RMP ratings bonus (-10 to +10 points)
-    const ratingScore = calculateRatingScore(cls);
-    score += ratingScore;
-  
-    return Math.round(score);
-  }
+
+  // Factor 2: Professor preferences (0-25 points)
+  const profScore = calculateProfessorScore(cls, preferences);
+  score += profScore;
+
+  // Factor 3: Time slot preferences (0-20 points)
+  const timeScore = calculateTimeScore(cls, preferences);
+  score += timeScore;
+
+  // Factor 4: Workload difficulty preference (0-15 points)
+  const difficultyScore = calculateDifficultyScore(cls, preferences);
+  score += difficultyScore;
+
+  // Factor 5: Week pattern preference (0-10 points)
+  const patternScore = calculatePatternScore(cls, preferences);
+  score += patternScore;
+
+  // Factor 6: RMP ratings bonus (-10 to +10 points)
+  const ratingScore = calculateRatingScore(cls);
+  score += ratingScore;
+
+  return Math.round(score);
+}
   
   /**
    * Score based on professor preferences
@@ -491,40 +436,211 @@ export function generateRecommendations({
 //   }
 // }
 
+/**
+ * Main function to generate course recommendations
+ * @param {Object} preferences - User preferences from RecommendMe form
+ * @param {Array} allClasses - All available classes from database
+ * @param {Object} degreeData - Degree requirements data
+ * @param {Array} takenCourses - Courses user has already taken
+ * @param {Array} plannedClasses - Courses already in planner
+ * @param {Object} prerequisitesMap - Map of courseCode -> prerequisite data
+ * @returns {Array} Recommended courses sorted by score
+ */
+export function generateRecommendations({
+  preferences,
+  allClasses,
+  degreeData,
+  takenCourses = [],
+  plannedClasses = [],
+  prerequisitesMap = {}
+}) {
+  console.log('🎯 Starting recommendation generation...');
+  console.log('🎯 Starting recommendation generation...');
+console.log('📊 Input stats:', {
+  totalClasses: allClasses.length,
+  takenCourses: takenCourses.length,
+  plannedClasses: plannedClasses.length,
+  prerequisitesMap: Object.keys(prerequisitesMap).length
+});
+
+// Step 1: Filter out courses that are already taken or planned
+const takenCodes = new Set(takenCourses.map(c => c.courseCode || c.code));
+const plannedCodes = new Set(plannedClasses.map(c => c.code));
+
+console.log('📝 Taken courses:', Array.from(takenCodes));
+console.log('📅 Planned courses:', Array.from(plannedCodes));
+
+// Step 1.5: Filter out courses where prerequisites aren't met
+const completedCourses = new Set([...takenCodes, ...plannedCodes]);
+console.log('✅ Completed courses total:', completedCourses.size);
+
+let filteredByTaken = 0;
+let filteredByPlanned = 0;
+let filteredByActive = 0;
+let filteredByPrereqs = 0;
+
+const availableClasses = allClasses.filter(cls => {
+  // Already taken or planned
+  if (takenCodes.has(cls.code)) {
+    filteredByTaken++;
+    return false;
+  }
+  
+  if (plannedCodes.has(cls.code)) {
+    filteredByPlanned++;
+    return false;
+  }
+  
+  // // Not active
+  // if (!cls.active) {
+  //   filteredByActive++;
+  //   return false;
+  // }
+  
+  // Check prerequisites
+  const prereqData = prerequisitesMap[cls.code];
+  if (prereqData && prereqData.hasPrerequisites) {
+    const meetsPrereqs = checkPrerequisites(prereqData, completedCourses);
+    if (!meetsPrereqs) {
+      console.log(`  ✗ ${cls.code} - Prerequisites not met`);
+      filteredByPrereqs++;
+      return false;
+    }
+  }
+  
+  return true;
+});
+
+console.log('🔍 Filtering results:', {
+  filteredByTaken,
+  filteredByPlanned,
+  filteredByActive,
+  filteredByPrereqs,
+  remaining: availableClasses.length
+});
+  console.log('🔍 Filtering results:', {
+    filteredByTaken,
+    filteredByPlanned,
+    filteredByActive,
+    filteredByPrereqs,
+    remaining: availableClasses.length
+  });
+  
+  console.log(`✓ Available classes after filtering: ${availableClasses.length}`);
+  
+  // Show a sample of what's left
+  if (availableClasses.length > 0) {
+    console.log('Sample available courses:', availableClasses.slice(0, 5).map(c => c.code));
+  } else {
+    console.warn('⚠️ NO CLASSES AVAILABLE! Check the filtering logic above.');
+  }
+
+  // Step 2: Identify needed courses from degree requirements
+  const neededCourses = identifyNeededCourses(degreeData, takenCourses, plannedClasses);
+
+  // Step 3: Score each available class
+  const scoredClasses = availableClasses.map(cls => ({
+    ...cls,
+    score: calculateCourseScore(cls, preferences, neededCourses, prerequisitesMap),
+    prerequisiteInfo: prerequisitesMap[cls.code] || { hasPrerequisites: false }
+  }));
+
+  // Step 4: Sort by score and return top recommendations
+  return scoredClasses
+    .filter(cls => cls.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 20);
+}
+
+/**
+ * Check if a student has met the prerequisites for a course
+ */
+function checkPrerequisites(prereqData, completedCourses) {
+  if (!prereqData.hasPrerequisites || !prereqData.prerequisiteCourses || prereqData.prerequisiteCourses.length === 0) {
+    return true;
+  }
+  
+  const { prerequisiteType, prerequisiteCourses } = prereqData;
+  
+  switch (prerequisiteType) {
+    case 'none':
+      return true;
+      
+    case 'or':
+      // Student needs at least ONE of the prerequisites
+      return prerequisiteCourses.some(prereq => 
+        completedCourses.has(prereq)
+      );
+      
+    case 'and':
+    case 'single':
+    default:
+      // Student needs ALL prerequisites
+      return prerequisiteCourses.every(prereq => 
+        completedCourses.has(prereq)
+      );
+  }
+}
+
+// Keep all your other existing functions (identifyNeededCourses, calculateCourseScore, etc.)
 export async function enhanceWithGPT(recommendations, context) {
   console.log('🤖 Starting GPT enhancement...');
   console.log('Input recommendations:', recommendations.length);
+  
+  // If no recommendations, skip GPT
+  if (!recommendations || recommendations.length === 0) {
+    console.log('⚠️ No recommendations to enhance');
+    return recommendations;
+  }
   
   const { preferences, degreeData, takenCourses, plannedClasses } = context;
   
   // Get API key from Vite env variable
   const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
   
-  console.log('API key check:', apiKey ? '✓ Found' : '✗ Missing');
+  console.log('API key check:', apiKey ? `✓ Found` : '✗ Missing');
   
-  if (!apiKey || apiKey === 'sk-your-actual-key-here') {
-    console.warn('⚠️ No valid OpenAI API key found, skipping GPT enhancement');
+  if (!apiKey || apiKey === 'sk-your-actual-key-here' || apiKey.length < 20) {
+    console.warn('⚠️ No valid OpenAI API key found, returning basic recommendations');
     return recommendations;
   }
   
   const topCourses = recommendations.slice(0, 10);
   console.log('Sending top', topCourses.length, 'courses to GPT');
+  console.log('Course codes:', topCourses.map(c => c.code).join(', '));
   
   const prompt = `You are a course advisor. Re-rank these ${topCourses.length} courses for a ${degreeData?.major || 'Computer Science'} student.
 
-Student wants: ${preferences.workload} workload, ${preferences.weekPattern} week pattern.
-Avoiding: ${preferences.avoidProfessors.join(', ') || 'No one'}
+Student Preferences:
+- Workload: ${preferences.workload}
+- Week Pattern: ${preferences.weekPattern}
+- Avoiding Professors: ${preferences.avoidProfessors?.join(', ') || 'None'}
+- Blocked Time Slots: ${preferences.blockedSlots?.join(', ') || 'None'}
 
-Courses:
-${topCourses.map((c, i) => `${i + 1}. ${c.code} - ${c.name} (Score: ${c.score})`).join('\n')}
+Top Courses (by algorithm score):
+${topCourses.map((c, i) => {
+  const professors = c.professors?.join(', ') || 'TBA';
+  const schedule = c.schedule ? `${c.schedule.days?.join('/')} ${c.schedule.startTime}-${c.schedule.endTime}` : 'TBA';
+  return `${i + 1}. ${c.code} - ${c.name}
+   Score: ${c.score} | Professors: ${professors} | Schedule: ${schedule}`;
+}).join('\n\n')}
 
-Return JSON array of top 10:
-[{"courseCode": "CS 1101", "rank": 1, "confidence": "high", "reasoning": "Perfect for workload", "warning": null}]`;
+IMPORTANT: You must return ALL ${topCourses.length} courses using their EXACT course codes above.
+
+Return a JSON array with this exact format:
+[
+  {
+    "courseCode": "exact code from above",
+    "rank": 1,
+    "confidence": "high",
+    "reasoning": "Brief reason why this is ranked here",
+    "warning": null
+  }
+]`;
 
   console.log('Making API call to OpenAI...');
 
   try {
-    // Add timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000); 
 
@@ -539,12 +655,12 @@ Return JSON array of top 10:
         messages: [
           { 
             role: 'system', 
-            content: 'You are an academic advisor. Return only valid JSON array.' 
+            content: 'You are an academic advisor. Return ONLY a valid JSON array using the EXACT course codes provided. No other text.' 
           },
           { role: 'user', content: prompt }
         ],
-        temperature: 0.7,
-        max_tokens: 1000
+        temperature: 0.3,  // Lower temperature for more accurate course codes
+        max_tokens: 2000
       }),
       signal: controller.signal
     });
@@ -555,6 +671,7 @@ Return JSON array of top 10:
     if (!response.ok) {
       const error = await response.json();
       console.error('API Error:', error);
+      console.log('⚠️ Falling back to basic recommendations');
       return recommendations;
     }
 
@@ -563,6 +680,11 @@ Return JSON array of top 10:
     
     if (data.error) {
       console.error('OpenAI API error:', data.error.message);
+      return recommendations;
+    }
+
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error('Unexpected API response structure:', data);
       return recommendations;
     }
 
@@ -575,14 +697,23 @@ Return JSON array of top 10:
     try {
       gptRankings = JSON.parse(cleanedText);
       console.log('✓ Parsed GPT rankings:', gptRankings.length);
+      console.log('GPT returned codes:', gptRankings.map(r => r.courseCode).join(', '));
     } catch (parseError) {
       console.error('JSON Parse Error:', parseError.message);
-      console.log('Failed to parse:', cleanedText.substring(0, 200));
+      console.log('Failed to parse:', cleanedText);
+      return recommendations;
+    }
+
+    if (!Array.isArray(gptRankings) || gptRankings.length === 0) {
+      console.warn('⚠️ GPT returned invalid or empty array');
       return recommendations;
     }
 
     const enhancedRecs = gptRankings.map(gptRec => {
-      const originalCourse = recommendations.find(c => c.code === gptRec.courseCode);
+      const originalCourse = recommendations.find(c => 
+        c.code.toUpperCase() === gptRec.courseCode.toUpperCase()
+      );
+      
       if (!originalCourse) {
         console.warn('Could not find course:', gptRec.courseCode);
         return null;
@@ -599,14 +730,75 @@ Return JSON array of top 10:
     }).filter(Boolean);
 
     console.log(`✅ GPT enhanced ${enhancedRecs.length} recommendations`);
+    
+    if (enhancedRecs.length === 0) {
+      console.warn('⚠️ No courses matched, returning original recommendations');
+      return recommendations;
+    }
+    
     return enhancedRecs;
 
   } catch (error) {
     if (error.name === 'AbortError') {
-      console.error('⏱️ GPT request timed out after 30 seconds');
+      console.error('⏱️ GPT request timed out after 60 seconds');
     } else {
       console.error('❌ GPT enhancement failed:', error.message);
     }
     return recommendations;
   }
+}
+
+function identifyNeededCourses(degreeData, takenCourses, plannedClasses) {
+  if (!degreeData || !degreeData.categories) {
+    return { codes: new Set(), categories: {}, priorities: {} };
+  }
+
+  const allCompleted = [
+    ...takenCourses.map(tc => tc.courseCode || tc.code),
+    ...plannedClasses.map(pc => pc.code)
+  ];
+  const completedSet = new Set(allCompleted);
+
+  const needed = {
+    codes: new Set(),
+    categories: {},
+    priorities: {} // Store priority levels for each course
+  };
+
+  degreeData.categories.forEach(category => {
+    const categoryNeeds = {
+      name: category.name,
+      requiredHours: category.requiredHours,
+      minCourses: category.minCourses,
+      earnedHours: 0,
+      availableCourses: []
+    };
+
+    // Calculate earned hours in this category
+    category.availableClasses.forEach(cls => {
+      if (completedSet.has(cls.code)) {
+        categoryNeeds.earnedHours += cls.hours || 3;
+      }
+    });
+
+    // Identify still-needed courses
+    if (categoryNeeds.earnedHours < category.requiredHours) {
+      category.availableClasses.forEach(cls => {
+        if (!completedSet.has(cls.code)) {
+          needed.codes.add(cls.code);
+          categoryNeeds.availableCourses.push(cls.code);
+          
+          // Set priority: required courses are highest priority
+          needed.priorities[cls.code] = cls.required ? 3 : 
+            (category.minCourses ? 2 : 1);
+        }
+      });
+    }
+
+    if (categoryNeeds.availableCourses.length > 0) {
+      needed.categories[category.name] = categoryNeeds;
+    }
+  });
+
+  return needed;
 }
