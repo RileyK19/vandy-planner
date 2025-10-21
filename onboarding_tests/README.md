@@ -45,3 +45,9 @@ npm run test:verbose  # Run tests with verbose output
 - `package.json` - Dependencies and test scripts
 - `jest.setup.js` - Jest configuration
 - `api.js` - Mock API functions
+
+## Functional Tests
+
+https://vandy-planner.vercel.app/
+
+Try to create a user and log in and log out
