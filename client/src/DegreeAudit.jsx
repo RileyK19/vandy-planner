@@ -7,7 +7,9 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null);
   const [takenCourses, setTakenCourses] = useState([]);
-
+  const [expandedCategories, setExpandedCategories] = useState(new Set());
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [showCoursesModal, setShowCoursesModal] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -24,7 +26,6 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
         console.log('Taken courses:', takenCourses);
   
         setDegreeData(degreeData);
-        // Set the takenCourses state here (you’ll need to add one)
         setTakenCourses(takenCourses);
       } catch (err) {
         setError(err.message);
@@ -35,6 +36,26 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
   
     loadData();
   }, [major, userEmail]);
+
+  const toggleCategory = (categoryName) => {
+    const newExpanded = new Set(expandedCategories);
+    if (newExpanded.has(categoryName)) {
+      newExpanded.delete(categoryName);
+    } else {
+      newExpanded.add(categoryName);
+    }
+    setExpandedCategories(newExpanded);
+  };
+
+  const openCoursesModal = (category) => {
+    setSelectedCategory(category);
+    setShowCoursesModal(true);
+  };
+
+  const closeCoursesModal = () => {
+    setShowCoursesModal(false);
+    setSelectedCategory(null);
+  };
   
 
   const calculateProgress = (category) => {
@@ -88,44 +109,90 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
 
   if (loading) {
     return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        <p>Loading degree requirements...</p>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '400px',
+        flexDirection: 'column',
+        gap: '20px'
+      }}>
+        <div style={{
+          width: '50px',
+          height: '50px',
+          border: '4px solid #f3f3f3',
+          borderTop: '4px solid #667eea',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }} />
+        <p style={{ 
+          fontSize: '18px', 
+          color: '#666',
+          margin: 0
+        }}>Loading your degree requirements...</p>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     )
   }
 
   if (!degreeData) {
     return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
+      <div style={{ padding: '40px 20px', maxWidth: '800px', margin: '0 auto' }}>
         <div style={{
           background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
           color: 'white',
-          padding: '30px',
-          borderRadius: '12px',
-          marginBottom: '20px',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+          padding: '40px',
+          borderRadius: '16px',
+          marginBottom: '30px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          textAlign: 'center'
         }}>
-          <h2 style={{ margin: '0 0 15px 0', fontSize: '24px' }}>⚠️ Degree Requirements Not Available</h2>
-          <p style={{ margin: '0 0 10px 0', fontSize: '16px' }}>
+          <div style={{ fontSize: '48px', marginBottom: '20px' }}>⚠️</div>
+          <h2 style={{ margin: '0 0 20px 0', fontSize: '28px', fontWeight: '600' }}>
+            Degree Requirements Not Available
+          </h2>
+          <p style={{ margin: '0 0 15px 0', fontSize: '18px', opacity: 0.9 }}>
             Degree requirements for <strong>{major}</strong> are not currently available in our database.
           </p>
-          <p style={{ margin: '0', fontSize: '14px', opacity: 0.9 }}>
+          <p style={{ margin: '0', fontSize: '16px', opacity: 0.8 }}>
             Currently, only Computer Science degree requirements are available. 
             We're working on adding more majors!
           </p>
         </div>
+        
         <div style={{
-          background: '#f8f9fa',
-          padding: '20px',
-          borderRadius: '8px',
-          border: '1px solid #e9ecef'
+          background: 'white',
+          padding: '30px',
+          borderRadius: '12px',
+          border: '1px solid #e9ecef',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.05)'
         }}>
-          <p style={{ margin: '0 0 10px 0', color: '#6c757d' }}>
-            <strong>Available majors:</strong> Computer Science
-          </p>
-          <p style={{ margin: '0', color: '#6c757d', fontSize: '14px' }}>
-            You can still use the course planner and search features for any major.
-          </p>
+          <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '20px' }}>
+            📚 Available Features
+          </h3>
+          <div style={{ display: 'grid', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ color: '#4CAF50', fontSize: '20px' }}>✅</span>
+              <span style={{ color: '#666' }}>Course search and filtering for any major</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ color: '#4CAF50', fontSize: '20px' }}>✅</span>
+              <span style={{ color: '#666' }}>Semester planning and calendar view</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ color: '#4CAF50', fontSize: '20px' }}>✅</span>
+              <span style={{ color: '#666' }}>RateMyProfessor integration</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ color: '#ff9800', fontSize: '20px' }}>⚠️</span>
+              <span style={{ color: '#666' }}>Degree audit available for Computer Science only</span>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -133,244 +200,615 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
 
   const totalEarned = plannedClasses.reduce((sum, c) => sum + (c.hours || 3), 0)
   const totalRequired = degreeData.categories.reduce((sum, cat) => sum + cat.requiredHours, 0)
+  const overallProgress = Math.min((totalEarned / totalRequired) * 100, 100)
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ 
+      padding: '24px', 
+      maxWidth: '1400px', 
+      margin: '0 auto',
+      background: '#f8fafc',
+      minHeight: '100vh'
+    }}>
+      {/* Header Section */}
       <div style={{ 
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         color: 'white',
-        padding: '30px',
-        borderRadius: '12px',
-        marginBottom: '30px',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+        padding: '40px',
+        borderRadius: '20px',
+        marginBottom: '32px',
+        boxShadow: '0 8px 32px rgba(102, 126, 234, 0.3)',
+        position: 'relative',
+        overflow: 'hidden'
       }}>
-        <h1 style={{ margin: '0 0 10px 0', fontSize: '32px' }}>🎓 Degree Audit</h1>
-        <h2 style={{ margin: '0 0 15px 0', fontSize: '24px', opacity: 0.9 }}>{degreeData.major}</h2>
-        <p style={{ margin: '0', fontSize: '14px', opacity: 0.8 }}>
-          Catalog Year: {degreeData.catalogYear}
-        </p>
-        <div style={{ 
-          marginTop: '20px', 
-          padding: '15px', 
-          background: 'rgba(255,255,255,0.2)',
-          borderRadius: '8px'
-        }}>
-          <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-            Total Progress: {totalEarned} / {totalRequired} hours
+        <div style={{
+          position: 'absolute',
+          top: '-50px',
+          right: '-50px',
+          width: '200px',
+          height: '200px',
+          background: 'rgba(255,255,255,0.1)',
+          borderRadius: '50%'
+        }} />
+        <div style={{
+          position: 'absolute',
+          bottom: '-30px',
+          left: '-30px',
+          width: '150px',
+          height: '150px',
+          background: 'rgba(255,255,255,0.05)',
+          borderRadius: '50%'
+        }} />
+        
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+            <div style={{ fontSize: '48px' }}>🎓</div>
+            <div>
+              <h1 style={{ margin: '0 0 8px 0', fontSize: '36px', fontWeight: '700' }}>
+                Degree Audit
+              </h1>
+              <h2 style={{ margin: '0', fontSize: '24px', opacity: 0.9, fontWeight: '400' }}>
+                {degreeData.major}
+              </h2>
+            </div>
           </div>
+          
+          <p style={{ margin: '0 0 24px 0', fontSize: '16px', opacity: 0.8 }}>
+            Catalog Year: {degreeData.catalogYear}
+          </p>
+          
           <div style={{ 
-            width: '100%', 
-            height: '20px', 
-            background: 'rgba(255,255,255,0.3)',
-            borderRadius: '10px',
-            marginTop: '10px',
-            overflow: 'hidden'
+            background: 'rgba(255,255,255,0.15)',
+            backdropFilter: 'blur(10px)',
+            padding: '24px',
+            borderRadius: '16px',
+            border: '1px solid rgba(255,255,255,0.2)'
           }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <div style={{ fontSize: '24px', fontWeight: '700', marginBottom: '4px' }}>
+                  Overall Progress
+                </div>
+                <div style={{ fontSize: '18px', opacity: 0.9 }}>
+                  {totalEarned} of {totalRequired} credit hours
+                </div>
+              </div>
+              <div style={{ 
+                fontSize: '32px', 
+                fontWeight: '700',
+                background: 'rgba(255,255,255,0.2)',
+                padding: '12px 20px',
+                borderRadius: '12px'
+              }}>
+                {Math.round(overallProgress)}%
+              </div>
+            </div>
+            
             <div style={{ 
-              width: `${Math.min((totalEarned / totalRequired) * 100, 100)}%`,
-              height: '100%',
-              background: '#4CAF50',
-              transition: 'width 0.3s ease'
-            }} />
+              width: '100%', 
+              height: '12px', 
+              background: 'rgba(255,255,255,0.2)',
+              borderRadius: '6px',
+              overflow: 'hidden'
+            }}>
+              <div style={{ 
+                width: `${overallProgress}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #4CAF50 0%, #45a049 100%)',
+                transition: 'width 0.8s ease',
+                borderRadius: '6px'
+              }} />
+            </div>
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gap: '20px' }}>
+      {/* Categories Grid */}
+      <div style={{ 
+        display: 'grid', 
+        gap: '24px',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))'
+      }}>
         {degreeData.categories.map((category, idx) => {
           const progress = calculateProgress(category)
           const percentComplete = Math.min((progress.earnedHours / category.requiredHours) * 100, 100)
+          const isExpanded = expandedCategories.has(category.name)
           
           return (
             <div 
               key={idx}
               style={{
-                border: '2px solid #e0e0e0',
-                borderRadius: '12px',
-                padding: '20px',
                 background: 'white',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                transition: 'box-shadow 0.2s',
+                borderRadius: '16px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                overflow: 'hidden',
+                transition: 'all 0.3s ease',
+                border: progress.isComplete ? '2px solid #4CAF50' : '2px solid transparent'
               }}
             >
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'flex-start',
-                marginBottom: '15px'
-              }}>
-                <div>
-                  <h3 style={{ 
-                    margin: '0 0 8px 0', 
-                    fontSize: '20px',
-                    color: '#333'
+              {/* Category Header */}
+              <div 
+                style={{
+                  padding: '24px',
+                  cursor: 'pointer',
+                  background: progress.isComplete 
+                    ? 'linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%)'
+                    : 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
+                  borderBottom: '1px solid #e9ecef'
+                }}
+                onClick={() => toggleCategory(category.name)}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                      <div style={{ fontSize: '24px' }}>
+                        {progress.isComplete ? '✅' : '📚'}
+                      </div>
+                      <h3 style={{ 
+                        margin: '0', 
+                        fontSize: '20px',
+                        color: '#2d3748',
+                        fontWeight: '600'
+                      }}>
+                        {category.name}
+                      </h3>
+                    </div>
+                    <p style={{ 
+                      margin: '0 0 16px 0', 
+                      color: '#718096', 
+                      fontSize: '14px',
+                      lineHeight: '1.5'
+                    }}>
+                      {category.description}
+                    </p>
+                    
+                    {/* Progress Bar */}
+                    <div style={{ 
+                      width: '100%', 
+                      height: '8px', 
+                      background: '#e2e8f0',
+                      borderRadius: '4px',
+                      overflow: 'hidden',
+                      marginBottom: '12px'
+                    }}>
+                      <div style={{ 
+                        width: `${percentComplete}%`,
+                        height: '100%',
+                        background: progress.isComplete 
+                          ? 'linear-gradient(90deg, #4CAF50 0%, #45a049 100%)'
+                          : 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                        transition: 'width 0.6s ease'
+                      }} />
+                    </div>
+                  </div>
+                  
+                  <div style={{ 
+                    textAlign: 'right',
+                    minWidth: '100px',
+                    marginLeft: '20px'
                   }}>
-                    {progress.isComplete ? '✅ ' : '⏳ '}
-                    {category.name}
-                  </h3>
-                  <p style={{ 
-                    margin: '0 0 8px 0', 
-                    color: '#666', 
-                    fontSize: '14px' 
-                  }}>
-                    {category.description}
-                  </p>
+                    <div style={{ 
+                      fontSize: '28px', 
+                      fontWeight: '700',
+                      color: progress.isComplete ? '#2e7d32' : '#4a5568',
+                      marginBottom: '4px'
+                    }}>
+                      {progress.earnedHours}/{category.requiredHours}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#a0aec0', fontWeight: '500' }}>
+                      CREDIT HOURS
+                    </div>
+                    {category.minCourses && (
+                      <div style={{ 
+                        fontSize: '14px', 
+                        color: '#718096', 
+                        marginTop: '8px',
+                        padding: '4px 8px',
+                        background: '#f7fafc',
+                        borderRadius: '6px'
+                      }}>
+                        {progress.earnedCourses}/{category.minCourses} courses
+                      </div>
+                    )}
+                  </div>
                 </div>
+                
                 <div style={{ 
-                  textAlign: 'right',
-                  minWidth: '120px'
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  marginTop: '16px'
                 }}>
                   <div style={{ 
-                    fontSize: '24px', 
-                    fontWeight: 'bold',
-                    color: progress.isComplete ? '#4CAF50' : '#666'
+                    fontSize: '14px', 
+                    color: progress.isComplete ? '#2e7d32' : '#4a5568',
+                    fontWeight: '500'
                   }}>
-                    {progress.earnedHours} / {category.requiredHours}
+                    {progress.isComplete ? '✅ Complete' : `${Math.round(percentComplete)}% Complete`}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#999' }}>
-                    hours
+                  
+                  {/* Action Buttons */}
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    {category.availableClasses.length > 0 && (
+                      <button
+                        onClick={() => openCoursesModal(category)}
+                        style={{
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '8px 16px',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.transform = 'translateY(-1px)';
+                          e.target.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.transform = 'translateY(0)';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                      >
+                        📋 View Courses ({category.availableClasses.length})
+                      </button>
+                    )}
+                    
+                    {progress.matchingClasses.length > 0 && (
+                      <div style={{ 
+                        fontSize: '12px',
+                        color: '#4a5568',
+                        background: '#f7fafc',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        border: '1px solid #e2e8f0'
+                      }}>
+                        {progress.matchingClasses.length} planned
+                      </div>
+                    )}
                   </div>
-                  {category.minCourses && (
-                    <div style={{ fontSize: '14px', color: '#666', marginTop: '5px' }}>
-                      {progress.earnedCourses} / {category.minCourses} courses
-                    </div>
-                  )}
                 </div>
               </div>
-
-              {/* Progress Bar */}
-              <div style={{ 
-                width: '100%', 
-                height: '12px', 
-                background: '#f0f0f0',
-                borderRadius: '6px',
-                marginBottom: '15px',
-                overflow: 'hidden'
-              }}>
-                <div style={{ 
-                  width: `${percentComplete}%`,
-                  height: '100%',
-                  background: progress.isComplete 
-                    ? '#4CAF50' 
-                    : 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
-                  transition: 'width 0.3s ease'
-                }} />
-              </div>
-
-              {/* Required Courses */}
-              {category.availableClasses.length > 0 && (
-                <div style={{ marginTop: '15px' }}>
-                  <h4 style={{ 
-                    margin: '0 0 10px 0', 
-                    fontSize: '16px',
-                    color: '#333'
-                  }}>
-                    {category.moreClassesAvailable ? 'Example Courses:' : 'Required Courses:'}
-                  </h4>
-                  <div style={{ display: 'grid', gap: '8px' }}>
-                    {category.availableClasses.map((cls, clsIdx) => {
-                      const isTaken = progress.matchingClasses.some(
-                        taken => taken.code === cls.code
-                      )
-                      
-                      return (
-                        <div 
-                          key={clsIdx}
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            padding: '10px',
-                            background: isTaken ? '#e8f5e9' : '#f9f9f9',
-                            borderRadius: '6px',
-                            border: `1px solid ${isTaken ? '#4CAF50' : '#e0e0e0'}`
-                          }}
-                        >
-                          <div>
-                            <span style={{ 
-                              fontWeight: 'bold',
-                              color: isTaken ? '#2e7d32' : '#333'
-                            }}>
-                              {isTaken ? '✓ ' : ''}{cls.code}
-                            </span>
-                            {cls.required && (
-                              <span style={{ 
-                                marginLeft: '8px',
-                                fontSize: '11px',
-                                background: '#ff9800',
-                                color: 'white',
-                                padding: '2px 6px',
-                                borderRadius: '3px'
-                              }}>
-                                REQUIRED
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ 
-                            fontSize: '14px',
-                            color: '#666'
-                          }}>
-                            {cls.hours} {cls.hours === 1 ? 'hour' : 'hours'}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  {category.moreClassesAvailable && (
-                    <p style={{ 
-                      marginTop: '10px',
-                      fontSize: '13px',
-                      color: '#666',
-                      fontStyle: 'italic'
-                    }}>
-                      * Additional courses available - check course catalog
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Completed courses from this category */}
-              {progress.matchingClasses.length > 0 && (
-                <div style={{ 
-                  marginTop: '15px',
-                  padding: '12px',
-                  background: '#f0f7ff',
-                  borderRadius: '6px',
-                  borderLeft: '4px solid #2196F3'
-                }}>
-                  <h4 style={{ 
-                    margin: '0 0 8px 0', 
-                    fontSize: '14px',
-                    color: '#1976d2'
-                  }}>
-                    📚 Planned Courses ({progress.matchingClasses.length}):
-                  </h4>
-                  <div style={{ fontSize: '13px', color: '#555' }}>
-                    {progress.matchingClasses.map(c => c.code).join(', ')}
-                  </div>
-                </div>
-              )}
             </div>
           )
         })}
       </div>
 
+      {/* Footer Notes */}
       <div style={{ 
-        marginTop: '30px',
-        padding: '20px',
-        background: '#fff3e0',
-        borderRadius: '8px',
-        border: '1px solid #ffb74d'
+        marginTop: '40px',
+        padding: '24px',
+        background: 'white',
+        borderRadius: '16px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+        border: '1px solid #e9ecef'
       }}>
-        <h3 style={{ margin: '0 0 10px 0', color: '#e65100' }}>📋 Important Notes</h3>
-        <ul style={{ margin: '0', paddingLeft: '20px', color: '#666' }}>
-          <li>This audit is based on your planned classes in the planner.</li>
-          <li>Add classes to your planner to see them reflected here.</li>
-          <li>Some categories allow flexible course selection - consult your advisor.</li>
-          <li>Prerequisites and co-requisites are not validated in this view.</li>
-          <li>Official degree audits should be obtained from your academic advisor.</li>
-        </ul>
+        <h3 style={{ 
+          margin: '0 0 16px 0', 
+          color: '#2d3748',
+          fontSize: '18px',
+          fontWeight: '600',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          📋 Important Information
+        </h3>
+        <div style={{ 
+          display: 'grid', 
+          gap: '12px',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <span style={{ color: '#4CAF50', fontSize: '16px', marginTop: '2px' }}>💡</span>
+            <span style={{ color: '#4a5568', fontSize: '14px', lineHeight: '1.5' }}>
+              This audit reflects your planned classes from the course planner
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <span style={{ color: '#4CAF50', fontSize: '16px', marginTop: '2px' }}>➕</span>
+            <span style={{ color: '#4a5568', fontSize: '14px', lineHeight: '1.5' }}>
+              Add classes to your planner to see them reflected here
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <span style={{ color: '#ff9800', fontSize: '16px', marginTop: '2px' }}>⚠️</span>
+            <span style={{ color: '#4a5568', fontSize: '14px', lineHeight: '1.5' }}>
+              Some categories allow flexible course selection - consult your advisor
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <span style={{ color: '#ff9800', fontSize: '16px', marginTop: '2px' }}>📚</span>
+            <span style={{ color: '#4a5568', fontSize: '14px', lineHeight: '1.5' }}>
+              Prerequisites and co-requisites are not validated in this view
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <span style={{ color: '#2196F3', fontSize: '16px', marginTop: '2px' }}>🎓</span>
+            <span style={{ color: '#4a5568', fontSize: '14px', lineHeight: '1.5' }}>
+              Official degree audits should be obtained from your academic advisor
+            </span>
+          </div>
+        </div>
       </div>
+
+      {/* Courses Modal */}
+      {showCoursesModal && selectedCategory && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '20px',
+            maxWidth: '800px',
+            width: '100%',
+            maxHeight: '80vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            overflow: 'hidden'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '24px',
+              borderBottom: '1px solid #e9ecef',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h2 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: '600' }}>
+                    📋 {selectedCategory.name}
+                  </h2>
+                  <p style={{ margin: '0', fontSize: '16px', opacity: 0.9 }}>
+                    {selectedCategory.moreClassesAvailable ? 'Example Courses' : 'Required Courses'}
+                  </p>
+                </div>
+                <button
+                  onClick={closeCoursesModal}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontSize: '24px',
+                    width: '40px',
+                    height: '40px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'background 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.3)'}
+                  onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content - Scrollable */}
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '24px'
+            }}>
+              {/* Course List */}
+              <div style={{ 
+                display: 'grid', 
+                gap: '16px',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))'
+              }}>
+                {selectedCategory.availableClasses.map((cls, clsIdx) => {
+                  const progress = calculateProgress(selectedCategory);
+                  const isTaken = progress.matchingClasses.some(
+                    taken => taken.code === cls.code
+                  )
+                  
+                  return (
+                    <div 
+                      key={clsIdx}
+                      style={{
+                        padding: '20px',
+                        background: isTaken ? '#f0fff4' : '#f8fafc',
+                        borderRadius: '12px',
+                        border: `2px solid ${isTaken ? '#4CAF50' : '#e2e8f0'}`,
+                        transition: 'all 0.2s ease',
+                        position: 'relative'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <span style={{ 
+                              fontWeight: '600',
+                              color: isTaken ? '#2e7d32' : '#2d3748',
+                              fontSize: '18px'
+                            }}>
+                              {cls.code}
+                            </span>
+                            {isTaken && (
+                              <span style={{ 
+                                fontSize: '18px',
+                                color: '#4CAF50'
+                              }}>✓</span>
+                            )}
+                            {cls.required && (
+                              <span style={{ 
+                                fontSize: '10px',
+                                background: '#ff9800',
+                                color: 'white',
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                fontWeight: '600',
+                                textTransform: 'uppercase'
+                              }}>
+                                Required
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ 
+                            fontSize: '14px',
+                            color: '#718096',
+                            marginBottom: '8px',
+                            lineHeight: '1.4'
+                          }}>
+                            {cls.hours} {cls.hours === 1 ? 'credit hour' : 'credit hours'}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {isTaken && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '12px',
+                          right: '12px',
+                          background: '#4CAF50',
+                          color: 'white',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '500'
+                        }}>
+                          PLANNED
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Additional Info */}
+              {selectedCategory.moreClassesAvailable && (
+                <div style={{ 
+                  marginTop: '24px',
+                  padding: '16px',
+                  background: '#fff3cd',
+                  borderRadius: '12px',
+                  border: '1px solid #ffeaa7'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '20px' }}>💡</span>
+                    <h4 style={{ margin: '0', fontSize: '16px', color: '#856404', fontWeight: '600' }}>
+                      Additional Courses Available
+                    </h4>
+                  </div>
+                  <p style={{ 
+                    margin: '0',
+                    fontSize: '14px',
+                    color: '#856404',
+                    lineHeight: '1.5'
+                  }}>
+                    The courses shown above are examples. Additional courses may be available to fulfill this requirement. 
+                    Please check the course catalog or consult with your academic advisor for the complete list of options.
+                  </p>
+                </div>
+              )}
+
+              {/* Your Progress in This Category */}
+              {(() => {
+                const progress = calculateProgress(selectedCategory);
+                if (progress.matchingClasses.length > 0) {
+                  return (
+                    <div style={{ 
+                      marginTop: '24px',
+                      padding: '20px',
+                      background: 'linear-gradient(135deg, #e6f3ff 0%, #f0f8ff 100%)',
+                      borderRadius: '12px',
+                      border: '1px solid #b3d9ff'
+                    }}>
+                      <h4 style={{ 
+                        margin: '0 0 16px 0', 
+                        fontSize: '18px',
+                        color: '#1976d2',
+                        fontWeight: '600',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        🎯 Your Progress ({progress.matchingClasses.length} courses)
+                      </h4>
+                      <div style={{ 
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '8px'
+                      }}>
+                        {progress.matchingClasses.map((course, courseIdx) => (
+                          <span 
+                            key={courseIdx}
+                            style={{
+                              background: course.isTaken ? '#e8f5e9' : '#fff3e0',
+                              color: course.isTaken ? '#2e7d32' : '#e65100',
+                              padding: '8px 12px',
+                              borderRadius: '20px',
+                              fontSize: '14px',
+                              fontWeight: '500',
+                              border: `1px solid ${course.isTaken ? '#4CAF50' : '#ffb74d'}`
+                            }}
+                          >
+                            {course.isTaken ? '✓ ' : '📅 '}{course.code}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '20px 24px',
+              borderTop: '1px solid #e9ecef',
+              background: '#f8fafc',
+              display: 'flex',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={closeCoursesModal}
+                style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '12px 24px',
+                  fontSize: '16px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.transform = 'translateY(-1px)';
+                  e.target.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = 'none';
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -3,7 +3,12 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
+import { createRequire } from 'module';
 import User from './models/User.js';
+
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
 
 dotenv.config();
 const app = express();
@@ -13,6 +18,22 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Configure multer for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'), false);
+    }
+  }
+});
 
 // JWT Authentication Middleware
 const authenticateToken = (req, res, next) => {
@@ -32,6 +53,55 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Function to parse course information from transcript text
+function parseTranscriptCourses(text) {
+  const courses = [];
+  
+  // Split text into lines for better parsing
+  const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // Pattern for Vanderbilt transcript format where term, code, title, credits, and grade run together
+    // Example: Fall 2024CS 2201Program Design and Data Structures3A
+    // Pattern: (Term Year)(Subject Code)(Course Number)(Course Title)(Credits)(Grade)
+    const coursePattern = /^(Fall|Spring|Summer|Winter)\s+(\d{4})([A-Z]{2,4})\s+(\d{4})(.+?)(\d)([A-Z][+\-]?)$/i;
+    const match = line.match(coursePattern);
+    
+    if (match) {
+      try {
+        const [, season, year, subject, courseNumber, courseName, credits, grade] = match;
+        const course = {
+          courseCode: `${subject} ${courseNumber}`,
+          courseName: courseName.trim(),
+          grade: grade,
+          term: `${season} ${year}`,
+          completedAt: new Date() // Default to current date
+        };
+        
+        // Validate course data
+        if (course.courseCode && course.courseCode.length >= 3 && 
+            course.grade && course.term) {
+          courses.push(course);
+          console.log('Successfully parsed course:', course.courseCode, course.courseName);
+        }
+      } catch (error) {
+        console.error('Error parsing course line:', line, error);
+      }
+    }
+  }
+  
+  // Remove duplicates based on course code and term
+  const uniqueCourses = courses.filter((course, index, self) => 
+    index === self.findIndex(c => 
+      c.courseCode === course.courseCode && c.term === course.term
+    )
+  );
+  
+  return uniqueCourses;
+}
+
 // Connect to MongoDB first, then define routes and start server
 mongoose.connect(process.env.MONGO_URI, {
   dbName: 'Users' // Use the Users database
@@ -42,6 +112,63 @@ mongoose.connect(process.env.MONGO_URI, {
     // Define routes AFTER MongoDB connection
     app.get('/', (req, res) => {
       res.send('API is running...');
+    });
+
+    // POST /api/parse-transcript - Parse PDF transcript to extract courses
+    app.post('/api/parse-transcript', upload.single('transcript'), async (req, res) => {
+      try {
+        console.log('=== PDF Upload Request Received ===');
+        
+        if (!req.file) {
+          console.log('ERROR: No file in request');
+          return res.status(400).json({ error: 'No PDF file uploaded' });
+        }
+
+        console.log('File details:', {
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        });
+
+        // Parse PDF text
+        console.log('Starting PDF parsing...');
+        console.log('Buffer type:', typeof req.file.buffer, 'Buffer length:', req.file.buffer.length);
+        
+        const pdfData = await pdfParse(req.file.buffer);
+        console.log('PDF data object:', Object.keys(pdfData));
+        
+        const text = pdfData.text;
+
+        console.log('PDF text extracted successfully, length:', text.length);
+        console.log('Full extracted text:\n', text);
+
+        // Parse courses from the text
+        const courses = parseTranscriptCourses(text);
+
+        console.log('Parsed courses:', courses.length);
+        console.log('Course details:', JSON.stringify(courses, null, 2));
+
+        if (courses.length === 0) {
+          return res.status(400).json({ 
+            error: 'No courses found in the transcript. The transcript format may not be supported. Please add courses manually or contact support.',
+            extractedText: text.substring(0, 500) // Send a preview to help debug
+          });
+        }
+
+        res.json({
+          success: true,
+          courses: courses,
+          message: `Successfully parsed ${courses.length} courses from transcript`
+        });
+
+      } catch (error) {
+        console.error('PDF parsing error:', error);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ 
+          error: 'Failed to process transcript PDF. Please try again or contact support.',
+          details: error.message
+        });
+      }
     });
 
 app.get('/api/test-db', async (req, res) => {
@@ -122,28 +249,7 @@ app.get('/api/degree-requirements', async (req, res) => {
   }
 });
 
-app.get('/api/users/:email/courses', async (req, res) => {
-  console.log('HIT: /api/users/:email/courses'); // Add this
-  try {
-    const { email } = req.params;
-
-    const db = mongoose.connection.db;
-    const userDb = db.client.db('vanderbilt_courses');
-    const usersCollection = userDb.collection('Users');
-
-    const user = await usersCollection.findOne({ email });
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    res.json(user.previousCourses || []);
-    console.log(reg.json);
-  } catch (error) {
-    console.error('Error fetching user courses:', error);
-    res.status(500).json({ error: 'Failed to fetch user courses' });
-  }
-});
+// Removed duplicate endpoint - using the one below
 
 // Authentication Routes
 
@@ -356,17 +462,19 @@ app.post('/api/auth/past-courses', authenticateToken, async (req, res) => {
 app.get('/api/users/:email/courses', async (req, res) => {
   try {
     const { email } = req.params;
-    const db = mongoose.connection.client.db('Users');
-    const usersCollection = db.collection('users');
+    console.log('Fetching courses for user:', email);
     
-    const user = await usersCollection.findOne({ email });
+    // Use the User model to fetch from the correct database
+    const user = await User.findOne({ email: email.toLowerCase() });
     
     if (!user) {
+      console.log('User not found:', email);
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // Return the user's past courses (completed courses)
-    res.json(user.pastCourses || []);
+    console.log('Found user, previousCourses:', user.previousCourses);
+    // Return the user's previous courses (from registration or PDF upload)
+    res.json(user.previousCourses || []);
   } catch (error) {
     console.error('Error fetching user courses:', error);
     res.status(500).json({ error: 'Failed to fetch user courses' });

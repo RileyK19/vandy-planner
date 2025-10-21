@@ -93,7 +93,7 @@ function extractInstructorNames(instructors) {
 export async function fetchClassesFromDB() {
   try {
     // Use direct URL like your working version
-    const response = await fetch('http://localhost:3001/api/classes');
+    const response = await fetch('/api/classes');
     
     if (!response.ok) {
       throw new Error('Failed to fetch classes from database')
@@ -124,7 +124,7 @@ export async function fetchClassesFromDB() {
 // Fetch RMP ratings data
 export async function fetchRMPData() {
   try {
-    const response = await fetch('http://localhost:3001/api/rmp-ratings');
+    const response = await fetch('/api/rmp-ratings');
     
     if (!response.ok) {
       console.warn('RMP data not available');
@@ -226,7 +226,7 @@ export async function savePlannedClassesToDB(plannedClasses, userId = null) {
     // Use the authenticated save-schedule endpoint
     const scheduleName = `Plan ${new Date().toLocaleDateString()}`
     
-    const response = await fetch('http://localhost:3001/api/auth/save-schedule', {
+    const response = await fetch('/api/auth/save-schedule', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({
@@ -254,7 +254,7 @@ export async function savePlannedClassesToDB(plannedClasses, userId = null) {
 // API function to fetch degree requirements
 export async function fetchDegreeRequirements(major = 'Computer Science') {
   try {
-    const response = await fetch(`http://localhost:3001/api/degree-requirements?major=${encodeURIComponent(major)}`);
+    const response = await fetch(`/api/degree-requirements?major=${encodeURIComponent(major)}`);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch degree requirements: ${response.statusText}`);
@@ -276,7 +276,7 @@ export async function fetchDegreeRequirements(major = 'Computer Science') {
 
 export async function fetchUserTakenCourses(email) {
   try {
-    const response = await fetch(`http://localhost:3001/api/users/${encodeURIComponent(email)}/courses`);
+    const response = await fetch(`/api/users/${encodeURIComponent(email)}/courses`);
 
     if (!response.ok) {
       throw new Error(`Failed to fetch user courses: ${response.statusText}`);
@@ -341,7 +341,7 @@ function getAuthHeaders() {
  */
 export async function registerUser(userData) {
   try {
-    const response = await fetch('http://localhost:3001/api/auth/register', {
+    const response = await fetch('/api/auth/register', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -377,7 +377,7 @@ export async function registerUser(userData) {
  */
 export async function loginUser(email, password) {
   try {
-    const response = await fetch('http://localhost:3001/api/auth/login', {
+    const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -406,7 +406,7 @@ export async function loginUser(email, password) {
 // Get user profile (protected)
 export async function getUserProfile() {
   try {
-    const response = await fetch('http://localhost:3001/api/auth/profile', {
+    const response = await fetch('/api/auth/profile', {
       method: 'GET',
       headers: getAuthHeaders()
     });
@@ -432,7 +432,7 @@ export async function getUserProfile() {
 // Save user schedule (protected)
 export async function saveUserSchedule(scheduleName, classes) {
   try {
-    const response = await fetch('http://localhost:3001/api/auth/save-schedule', {
+    const response = await fetch('/api/auth/save-schedule', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ scheduleName, classes })
@@ -458,7 +458,7 @@ export async function saveUserSchedule(scheduleName, classes) {
 // Get user schedules (protected)
 export async function getUserSchedules() {
   try {
-    const response = await fetch('http://localhost:3001/api/auth/schedules', {
+    const response = await fetch('/api/auth/schedules', {
       method: 'GET',
       headers: getAuthHeaders()
     });
@@ -511,7 +511,7 @@ export function getCurrentToken() {
 // Save past courses (completed)
 export async function savePastCoursesToDB(courses) {
   try {
-    const response = await fetch('http://localhost:3001/api/auth/past-courses', {
+    const response = await fetch('/api/auth/past-courses', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ courses })

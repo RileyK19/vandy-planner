@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDropzone } from 'react-dropzone';
 
 /**
  * Step4PreviousCourses - Final step of user registration
@@ -14,6 +15,8 @@ import React, { useState } from 'react';
  */
 const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubmitting }) => {
   const [localErrors, setLocalErrors] = useState({}); // Local validation errors
+  const [isProcessingPDF, setIsProcessingPDF] = useState(false); // PDF processing state
+  const [pdfError, setPdfError] = useState(''); // PDF processing errors
   
   // Form state for adding new courses
   const [newCourse, setNewCourse] = useState({
@@ -81,6 +84,69 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
     onSubmit();
   };
 
+  /**
+   * Processes uploaded PDF transcript to extract course information
+   */
+  const processTranscriptPDF = async (file) => {
+    setIsProcessingPDF(true);
+    setPdfError('');
+    
+    try {
+      const formData = new FormData();
+      formData.append('transcript', file);
+      
+      const response = await fetch('/api/parse-transcript', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to process PDF: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      
+      // Add parsed courses to the form data
+      if (result.courses && result.courses.length > 0) {
+        const existingCourses = data.previousCourses || [];
+        const allCourses = [...existingCourses, ...result.courses];
+        
+        onUpdate({ previousCourses: allCourses });
+        
+        // Show success message
+        console.log(`Successfully parsed ${result.courses.length} courses from transcript`);
+      } else {
+        setPdfError('No courses found in the uploaded transcript. Please check the file format.');
+      }
+      
+    } catch (error) {
+      console.error('PDF processing error:', error);
+      setPdfError(error.message || 'Failed to process transcript. Please try again.');
+    } finally {
+      setIsProcessingPDF(false);
+    }
+  };
+
+  /**
+   * Dropzone configuration for PDF uploads
+   */
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: {
+      'application/pdf': ['.pdf']
+    },
+    maxFiles: 1,
+    onDrop: (acceptedFiles) => {
+      if (acceptedFiles.length > 0) {
+        processTranscriptPDF(acceptedFiles[0]);
+      }
+    },
+    disabled: isProcessingPDF
+  });
+
   // Available grade options for course entry
   const gradeOptions = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-', 'F', 'P', 'NP', 'W'];
 
@@ -89,6 +155,48 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
       <div className="step-header">
         <h3>Step 4: Previous Courses (Optional)</h3>
         <p>Add courses you've already taken to help with degree planning</p>
+      </div>
+
+      {/* PDF Upload Section */}
+      <div className="pdf-upload-section">
+        <h4>Upload Transcript PDF</h4>
+        <p>Drop your transcript PDF here to automatically extract course information</p>
+        
+        <div 
+          {...getRootProps()} 
+          className={`pdf-dropzone ${isDragActive ? 'drag-active' : ''} ${isProcessingPDF ? 'processing' : ''}`}
+        >
+          <input {...getInputProps()} />
+          {isProcessingPDF ? (
+            <div className="processing-indicator">
+              <div className="spinner"></div>
+              <p>Processing transcript...</p>
+            </div>
+          ) : (
+            <div className="dropzone-content">
+              <div className="upload-icon">📄</div>
+              {isDragActive ? (
+                <p>Drop your PDF transcript here...</p>
+              ) : (
+                <div>
+                  <p>Drag & drop your transcript PDF here, or click to select</p>
+                  <p className="file-hint">Supported format: PDF files only</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        
+        {pdfError && (
+          <div className="pdf-error">
+            <span className="error-icon">⚠️</span>
+            {pdfError}
+          </div>
+        )}
+      </div>
+
+      <div className="divider">
+        <span>OR</span>
       </div>
 
       <div className="previous-courses-section">
