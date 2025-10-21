@@ -589,30 +589,30 @@ export async function savePastCoursesToDB(courses) {
 // }
 
 
-const recommendationCache = new Map();
+// const recommendationCache = new Map();
 
-function makeCacheKey(preferences, major) {
-  // Sort preference keys for consistent key string
-  const prefKeys = Object.keys(preferences).sort();
-  const prefString = prefKeys.map(key => `${key}:${JSON.stringify(preferences[key])}`).join('|');
-  return `${major}::${prefString}`;
-}
+// function makeCacheKey(preferences, major) {
+//   // Sort preference keys for consistent key string
+//   const prefKeys = Object.keys(preferences).sort();
+//   const prefString = prefKeys.map(key => `${key}:${JSON.stringify(preferences[key])}`).join('|');
+//   return `${major}::${prefString}`;
+// }
 
 export async function getCourseRecommendations(preferences, major, userEmail, plannedClasses) {
   try {
-    const cacheKey = makeCacheKey(preferences, major);
+    // const cacheKey = makeCacheKey(preferences, major);
 
-    if (recommendationCache.has(cacheKey)) {
-      console.log('⚡ Returning cached recommendations for:', { major, preferences });
-      return recommendationCache.get(cacheKey);
-    }
+    // if (recommendationCache.has(cacheKey)) {
+    //   console.log('⚡ Returning cached recommendations for:', { major, preferences });
+    //   return recommendationCache.get(cacheKey);
+    // }
 
     console.log('🎯 Fetching new recommendations for:', { major, preferences });
 
     const recommendationResult = await _getCourseRecommendationsInternal(preferences, major, userEmail, plannedClasses);
 
-    recommendationCache.set(cacheKey, recommendationResult);
-    console.log('⚡ Cached recommendations for:', { major, preferences });
+    // recommendationCache.set(cacheKey, recommendationResult);
+    // console.log('⚡ Cached recommendations for:', { major, preferences });
 
     return recommendationResult;
 

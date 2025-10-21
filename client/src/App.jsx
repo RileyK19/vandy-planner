@@ -14,7 +14,7 @@ import FourYearPlanner from './FourYearPlanner.jsx'
 
 function App() {
   // Authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [user, setUser] = useState(null)
   const [authError, setAuthError] = useState('')
   
@@ -34,11 +34,11 @@ function App() {
   // Check for existing authentication on mount
   useEffect(() => {
     const checkAuth = async () => {
-      if (isAuthenticated) {
+      if (isLoggedIn) {
         try {
           const userData = await getUserProfile()
           setUser(userData)
-          setIsAuthenticated(true)
+          setIsLoggedIn(true)
         } catch (error) {
           console.error('Error loading user data:', error)
           logoutUser()
@@ -233,19 +233,19 @@ function App() {
   const handleLogin = (userData) => {
     setAuthError('')
     setUser(userData)
-    setIsAuthenticated(true)
+    setIsLoggedIn(true)
   }
 
   const handleSignup = (userData) => {
     setAuthError('')
     setUser(userData)
-    setIsAuthenticated(true)
+    setIsLoggedIn(true)
   }
 
   const handleLogout = () => {
     logoutUser()
     setUser(null)
-    setIsAuthenticated(false)
+    setIsLoggedIn(false)
     setPlannedClasses([]) // Clear planned classes on logout
     localStorage.removeItem('plannedClasses')
   }
@@ -270,7 +270,7 @@ function App() {
   }
 
   // Show login page if not authenticated
-  if (!isAuthenticated) {
+  if (!isLoggedIn) {
     return <LoginPage onLogin={handleLogin} onSignup={handleSignup} />
   }
 
