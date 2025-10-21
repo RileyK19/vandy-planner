@@ -611,8 +611,8 @@ export async function getCourseRecommendations(preferences, major, userEmail, pl
 
     const recommendationResult = await _getCourseRecommendationsInternal(preferences, major, userEmail, plannedClasses);
 
-    recommendationCache.set(cacheKey, recommendationResult);
-    console.log('⚡ Cached recommendations for:', { major, preferences });
+    // recommendationCache.set(cacheKey, recommendationResult);
+    // console.log('⚡ Cached recommendations for:', { major, preferences });
 
     return recommendationResult;
 
