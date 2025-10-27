@@ -58,11 +58,11 @@ function calculateCourseScore(cls, preferences, neededCourses, prerequisitesMap)
     score += 10;
   }
 
-  // Factor 2: Professor preferences (0-25 points)
+  // Factor 2: Professor preferences (0-30 points) - increased weight
   const profScore = calculateProfessorScore(cls, preferences);
   score += profScore;
 
-  // Factor 3: Time slot preferences (0-20 points)
+  // Factor 3: Time slot preferences (0-25 points) - increased weight
   const timeScore = calculateTimeScore(cls, preferences);
   score += timeScore;
 
@@ -74,7 +74,7 @@ function calculateCourseScore(cls, preferences, neededCourses, prerequisitesMap)
   const patternScore = calculatePatternScore(cls, preferences);
   score += patternScore;
 
-  // Factor 6: RMP ratings bonus (-10 to +10 points)
+  // Factor 6: RMP ratings bonus (-15 to +20 points) - increased range
   const ratingScore = calculateRatingScore(cls);
   score += ratingScore;
 
@@ -82,13 +82,13 @@ function calculateCourseScore(cls, preferences, neededCourses, prerequisitesMap)
 }
   
   /**
-   * Score based on professor preferences
+   * Score based on professor preferences - NOW WITH GRANULAR RATING SCORING
    */
   function calculateProfessorScore(cls, preferences) {
     const { avoidProfessors = [] } = preferences;
     
     if (!cls.professors || cls.professors.length === 0) {
-      return 12; // Neutral score if no professor info
+      return 15; // Neutral score if no professor info
     }
   
     // Check if any professor should be avoided
@@ -103,15 +103,19 @@ function calculateCourseScore(cls, preferences, neededCourses, prerequisitesMap)
       return -50; // Heavy penalty - effectively filters out
     }
   
-    // Bonus for highly rated professors
+    // Granular bonus for highly rated professors using continuous scaling
     const avgRating = getAverageRating(cls);
-    if (avgRating && avgRating.quality >= 4.0) {
-      return 25; // Bonus for great professors
-    } else if (avgRating && avgRating.quality >= 3.5) {
-      return 20;
+    if (avgRating && avgRating.quality) {
+      const quality = avgRating.quality;
+      
+      // Continuous scaling: 2.0 rating = 5 points, 5.0 rating = 30 points
+      // Formula: (quality - 2.0) * (25 / 3) + 5
+      // This gives us: 2.0=5, 3.5=17, 4.0=22, 4.5=27, 5.0=30
+      const profBonus = Math.max(5, Math.min(30, (quality - 2.0) * (25 / 3) + 5));
+      return Math.round(profBonus);
     }
   
-    return 15; // Default score
+    return 15; // Default score if no rating data
   }
   
   /**
@@ -121,7 +125,7 @@ function calculateCourseScore(cls, preferences, neededCourses, prerequisitesMap)
     const { blockedSlots = [] } = preferences;
     
     if (!cls.schedule || !cls.schedule.startTime) {
-      return 10; // Neutral if no schedule info
+      return 12; // Neutral if no schedule info
     }
   
     const startHour = parseInt(cls.schedule.startTime.split(':')[0]);
@@ -151,50 +155,66 @@ function calculateCourseScore(cls, preferences, neededCourses, prerequisitesMap)
       return -40; // Heavy penalty for blocked times
     }
   
-    // Bonus for preferred times (assuming most prefer mid-morning to early afternoon)
-    if (startHour >= 10 && startHour <= 14) {
-      return 20;
-    } else if (startHour >= 9 && startHour <= 15) {
-      return 15;
+    // Continuous bonus scaling for preferred times
+    // Peak time is 11:00-13:00 (score 25)
+    // Scores decrease as time moves away from peak
+    let score = 12; // Base score
+    if (startHour >= 9 && startHour < 14) {
+      // Peak hours 10am-2pm get maximum bonus
+      if (startHour === 11 || startHour === 12) {
+        score = 25; // Maximum for 11am and 12pm
+      } else if (startHour === 10 || startHour === 13) {
+        score = 23; // Very good for 10am and 1pm
+      } else if (startHour === 9) {
+        score = 20; // Good for 9am
+      } else {
+        score = 18; // Good for 9:30am start times
+      }
+    } else if (startHour >= 8 && startHour < 15) {
+      // Extended good hours get moderate bonus
+      score = 15;
     }
   
-    return 10;
+    return score;
   }
   
   /**
-   * Score based on workload difficulty preference
+   * Score based on workload difficulty preference - NOW WITH GRANULAR SCORING
    */
   function calculateDifficultyScore(cls, preferences) {
     const { workload = 'balanced' } = preferences;
     
     const avgRating = getAverageRating(cls);
     if (!avgRating || !avgRating.difficulty) {
-      return 7; // Neutral if no difficulty data
+      return 8; // Neutral if no difficulty data
     }
   
     const difficulty = avgRating.difficulty;
   
     switch (workload) {
       case 'challenging':
-        // Prefer harder classes (difficulty > 3.5)
-        if (difficulty >= 4.0) return 15;
-        if (difficulty >= 3.5) return 12;
-        if (difficulty >= 3.0) return 8;
-        return 5;
+        // Prefer harder classes using continuous scaling
+        // Difficulty 2.0 = 5 points, 4.5 = 15 points
+        // Formula: (difficulty - 2.0) * (10 / 2.5) + 5
+        // This gives: 2.0=5, 3.0=9, 4.0=13, 4.5=15
+        const hardScore = Math.max(5, Math.min(15, (difficulty - 2.0) * (10 / 2.5) + 5));
+        return Math.round(hardScore);
         
       case 'easier':
-        // Prefer easier classes (difficulty < 2.5)
-        if (difficulty <= 2.0) return 15;
-        if (difficulty <= 2.5) return 12;
-        if (difficulty <= 3.0) return 8;
-        return 5;
+        // Prefer easier classes using inverted continuous scaling
+        // Difficulty 1.0 = 15 points, 4.0 = 5 points
+        // Formula: -1.5 * difficulty + 16.5 (but clamp to 5-15)
+        const easyScore = Math.max(5, Math.min(15, -1.5 * difficulty + 16.5));
+        return Math.round(easyScore);
         
       case 'balanced':
       default:
-        // Prefer moderate difficulty (2.5-3.5)
-        if (difficulty >= 2.5 && difficulty <= 3.5) return 15;
-        if (difficulty >= 2.0 && difficulty <= 4.0) return 10;
-        return 7;
+        // Prefer moderate difficulty (2.5-3.5) using bell curve
+        // Peak at 3.0 gets 15 points, drops off as you move away
+        // Score = 15 - 3 * (|difficulty - 3.0|)
+        const distanceFromIdeal = Math.abs(difficulty - 3.0);
+        const balancedScore = Math.max(5, Math.min(15, 15 - (distanceFromIdeal * 3)));
+        return Math.round(balancedScore);
     }
   }
   
@@ -232,7 +252,7 @@ function calculateCourseScore(cls, preferences, neededCourses, prerequisitesMap)
   }
   
   /**
-   * Score based on RMP ratings
+   * Score based on RMP ratings - NOW WITH CONTINUOUS GRANULAR SCORING
    */
   function calculateRatingScore(cls) {
     const avgRating = getAverageRating(cls);
@@ -243,13 +263,12 @@ function calculateCourseScore(cls, preferences, neededCourses, prerequisitesMap)
   
     const quality = avgRating.quality;
     
-    // Quality-based scoring
-    if (quality >= 4.5) return 10;
-    if (quality >= 4.0) return 7;
-    if (quality >= 3.5) return 4;
-    if (quality >= 3.0) return 0;
-    if (quality >= 2.5) return -3;
-    return -7; // Below 2.5
+    // Continuous scaling: 1.0 rating = -15 points, 5.0 rating = 20 points
+    // Formula: (quality - 1.0) * (35 / 4) - 15
+    // This gives us: 1.0=-15, 2.0=-6, 3.0=3, 3.5=7, 4.0=11, 4.5=15, 5.0=20
+    // This means a 4.9 rating gets ~19 points, 4.1 gets ~12 points (not just 10 for all >= 4.0)
+    const ratingScore = Math.max(-15, Math.min(20, (quality - 1.0) * (35 / 4) - 15));
+    return Math.round(ratingScore);
   }
   
   /**
