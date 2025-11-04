@@ -649,7 +649,7 @@ async function _getCourseRecommendationsInternal(preferences, major, userEmail, 
     let degreeData = null;
     try {
       const degreeResponse = await fetch(
-        `http://localhost:3001/api/degree-requirements/${encodeURIComponent(major)}`
+        `/api/degree-requirements/${encodeURIComponent(major)}`
       );
       
       if (!degreeResponse.ok) {
@@ -815,7 +815,7 @@ function formatReasons(cls, neededCourses) {
 export async function fetchCoursePrerequisites(courseCode) {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/courses/${encodeURIComponent(courseCode)}/prerequisites`
+      `/api/courses/${encodeURIComponent(courseCode)}/prerequisites`
     );
 
     if (!response.ok) {
@@ -836,7 +836,7 @@ export async function fetchCoursePrerequisites(courseCode) {
 export async function fetchBatchPrerequisites(courseCodes) {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/courses/prerequisites/batch`,
+      `/api/courses/prerequisites/batch`,
       {
         method: 'POST',
         headers: {
