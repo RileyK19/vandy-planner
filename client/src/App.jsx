@@ -29,7 +29,7 @@ function App() {
   const [plannedClasses, setPlannedClasses] = useState([])
   const [loading, setLoading] = useState(true)
   const [usingMockData, setUsingMockData] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   // Check for existing authentication on mount
   useEffect(() => {
@@ -306,7 +306,24 @@ function App() {
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             style={{ cursor: 'pointer' }}
           >
-            <img src="/cropped_logo.png?v=3" alt="Vandy Planner" className="sidebar-logo" />
+            {/* Hamburger Menu Icon */}
+            <button 
+              className="hamburger-menu"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSidebarCollapsed(!sidebarCollapsed);
+              }}
+              aria-label="Toggle sidebar"
+            >
+              <span></span>
+              <span></span>
+              <span></span>
+            </button>
+            
+            {!sidebarCollapsed && (
+              <img src="/cropped_logo.png?v=3" alt="Vandy Planner" className="sidebar-logo" />
+              )
+            }
           </div>
           {!sidebarCollapsed && user && (
             <div className="sidebar-user">
