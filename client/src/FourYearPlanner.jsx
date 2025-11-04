@@ -1,83 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
-const FourYearPlanner = ({ allClasses, onSavePlan }) => {
-  const [startYear, setStartYear] = useState(2024);
-  const [currentSemester, setCurrentSemester] = useState('Fall 2024');
-  const [semesterPlans, setSemesterPlans] = useState({});
-  const [selectedSemester, setSelectedSemester] = useState(null);
-  const [showClassSelector, setShowClassSelector] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan }) => {
   const [saving, setSaving] = useState(false);
 
-  // Generate 4 years of semesters
-  const generateSemesters = () => {
+  // Get current and future semesters (no summer, chronologically ordered)
+  // Hardcoded to start from Fall 2025
+  const getAvailableSemesters = () => {
     const semesters = [];
-    const terms = ['Fall', 'Spring', 'Summer'];
+    const startYear = 2025;
     
-    for (let i = 0; i < 4; i++) {
-      const year = startYear + i;
-      terms.forEach(term => {
-        semesters.push(`${term} ${year}`);
-      });
+    // Start with Fall 2025
+    semesters.push({ term: 'Fall', year: 2025, label: 'Fall 2025' });
+    
+    // Generate next 4 years of semesters (Spring and Fall only)
+    for (let i = 1; i < 8; i++) { // 8 semesters = 4 years
+      const year = startYear + Math.floor((i+1) / 2);
+      const term = i % 2 === 1 ? 'Spring' : 'Fall';
+      semesters.push({ term, year, label: `${term} ${year}` });
     }
+    
     return semesters;
   };
 
-  const semesters = generateSemesters();
-
-  // Determine if a semester is in the past
-  const isPastSemester = (semester) => {
-    const [term, yearStr] = semester.split(' ');
-    const year = parseInt(yearStr);
-    const [currentTerm, currentYearStr] = currentSemester.split(' ');
-    const currentYear = parseInt(currentYearStr);
-
-    if (year < currentYear) return true;
-    if (year > currentYear) return false;
-
-    const termOrder = { 'Spring': 0, 'Summer': 1, 'Fall': 2 };
-    return termOrder[term] < termOrder[currentTerm];
-  };
-
-  // Load saved data from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('fourYearPlan');
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        setSemesterPlans(data.semesterPlans || {});
-        setStartYear(data.startYear || 2024);
-        setCurrentSemester(data.currentSemester || 'Fall 2024');
-      } catch (error) {
-        console.error('Error loading saved plan:', error);
-      }
-    }
-  }, []);
-
-  // Save to localStorage whenever plan changes
-  useEffect(() => {
-    const planData = {
-      semesterPlans,
-      startYear,
-      currentSemester
-    };
-    localStorage.setItem('fourYearPlan', JSON.stringify(planData));
-  }, [semesterPlans, startYear, currentSemester]);
-
-  const addClassToSemester = (semester, classItem) => {
-    setSemesterPlans(prev => ({
-      ...prev,
-      [semester]: [...(prev[semester] || []), classItem]
-    }));
-    setShowClassSelector(false);
-    setSearchTerm('');
-  };
+  const semesters = getAvailableSemesters();
 
   const removeClassFromSemester = (semester, classId) => {
-    setSemesterPlans(prev => ({
-      ...prev,
-      [semester]: (prev[semester] || []).filter(cls => cls.id !== classId)
-    }));
+    const updated = {
+      ...semesterPlans,
+      [semester]: (semesterPlans[semester] || []).filter(cls => cls.id !== classId)
+    };
+    onUpdateSemesterPlans(updated);
   };
 
   const getTotalCredits = (semester) => {
@@ -88,8 +40,6 @@ const FourYearPlanner = ({ allClasses, onSavePlan }) => {
   const handleSaveToDatabase = async () => {
     setSaving(true);
     try {
-      // Separate past and future courses
-      const pastCourses = [];
       const futureCourses = [];
 
       Object.entries(semesterPlans).forEach(([semester, classes]) => {
@@ -97,20 +47,12 @@ const FourYearPlanner = ({ allClasses, onSavePlan }) => {
           ...cls,
           semester
         }));
-
-        if (isPastSemester(semester)) {
-          pastCourses.push(...coursesWithSemester);
-        } else {
-          futureCourses.push(...coursesWithSemester);
-        }
+        futureCourses.push(...coursesWithSemester);
       });
 
-      // Save using the provided callback
       await onSavePlan({
-        pastCourses,
+        pastCourses: [],
         futureCourses,
-        startYear,
-        currentSemester
       });
 
       alert('4-year plan saved successfully!');
@@ -122,90 +64,92 @@ const FourYearPlanner = ({ allClasses, onSavePlan }) => {
     }
   };
 
-  // const filteredClasses = allClasses.filter(cls => 
-  //   cls.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  //   cls.name.toLowerCase().includes(searchTerm.toLowerCase())
-  // );
-  const filteredClasses = allClasses;
+  // Calculate total planned credits
+  const totalCredits = Object.values(semesterPlans).reduce((total, classes) => {
+    return total + classes.reduce((sum, cls) => sum + (cls.hours || 3), 0);
+  }, 0);
+
+  const totalClasses = Object.values(semesterPlans).reduce((total, classes) => {
+    return total + classes.length;
+  }, 0);
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>4-Year Semester Planner</h2>
+      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <label style={{ marginRight: '10px' }}>
-            Start Year:
-            <input
-              type="number"
-              value={startYear}
-              onChange={(e) => setStartYear(parseInt(e.target.value))}
-              style={{ marginLeft: '5px', padding: '5px', width: '80px' }}
-            />
-          </label>
-          <label style={{ marginRight: '10px' }}>
-            Current Semester:
-            <select
-              value={currentSemester}
-              onChange={(e) => setCurrentSemester(e.target.value)}
-              style={{ marginLeft: '5px', padding: '5px' }}
-            >
-              {semesters.map(sem => (
-                <option key={sem} value={sem}>{sem}</option>
-              ))}
-            </select>
-          </label>
-          <button
-            onClick={handleSaveToDatabase}
-            disabled={saving}
-            style={{
-              backgroundColor: '#4CAF50',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              padding: '10px 20px',
-              cursor: saving ? 'not-allowed' : 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            {saving ? '💾 Saving...' : '💾 Save to Database'}
-          </button>
+          <h2>Long Term Plan</h2>
+          <p style={{ color: '#666', fontSize: '14px', margin: '5px 0 0 0' }}>
+            View and manage your course plan for the next 4 years • Starting Fall 2025
+          </p>
         </div>
+        <button
+          onClick={handleSaveToDatabase}
+          disabled={saving}
+          style={{
+            backgroundColor: '#4CAF50',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            padding: '10px 20px',
+            cursor: saving ? 'not-allowed' : 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}
+        >
+          {saving ? '💾 Saving...' : '💾 Save to Database'}
+        </button>
       </div>
+
+      {totalClasses === 0 && (
+        <div style={{
+          backgroundColor: '#e3f2fd',
+          border: '2px solid #2196F3',
+          borderRadius: '8px',
+          padding: '20px',
+          textAlign: 'center',
+          marginBottom: '20px'
+        }}>
+          <h3 style={{ margin: '0 0 10px 0', color: '#1976D2' }}>📅 Your 4-Year Plan is Empty</h3>
+          <p style={{ margin: '0', color: '#666' }}>
+            Go to the <strong>Search Classes</strong> page and click the <strong>🎯 4-Year Plan</strong> button 
+            next to any course to add it to a semester!
+          </p>
+        </div>
+      )}
 
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', 
+        gridTemplateColumns: 'repeat(4, 1fr)', 
         gap: '20px',
         marginBottom: '20px'
       }}>
         {semesters.map(semester => {
-          const isPast = isPastSemester(semester);
-          const classes = semesterPlans[semester] || [];
-          const totalCredits = getTotalCredits(semester);
+          const classes = semesterPlans[semester.label] || [];
+          const totalCredits = getTotalCredits(semester.label);
 
           return (
             <div
-              key={semester}
+              key={semester.label}
               style={{
-                border: isPast ? '2px solid #2196F3' : '2px solid #FF9800',
+                border: '2px solid #FF9800',
                 borderRadius: '8px',
                 padding: '15px',
-                backgroundColor: isPast ? '#E3F2FD' : '#FFF3E0',
+                backgroundColor: '#FFF3E0',
                 minHeight: '200px'
               }}
             >
               <div style={{ marginBottom: '10px' }}>
                 <h3 style={{ margin: '0 0 5px 0', fontSize: '18px' }}>
-                  {semester}
+                  {semester.label}
                   <span style={{ 
                     fontSize: '12px', 
                     marginLeft: '8px',
                     padding: '2px 6px',
                     borderRadius: '4px',
-                    backgroundColor: isPast ? '#2196F3' : '#FF9800',
+                    backgroundColor: '#FF9800',
                     color: 'white'
                   }}>
-                    {isPast ? '📚 Past' : '📅 Future'}
+                    📅 Planned
                   </span>
                 </h3>
                 <div style={{ fontSize: '13px', color: '#666' }}>
@@ -214,160 +158,61 @@ const FourYearPlanner = ({ allClasses, onSavePlan }) => {
               </div>
 
               <div style={{ marginBottom: '10px' }}>
-                {classes.map(cls => (
-                  <div
-                    key={cls.id}
-                    style={{
-                      backgroundColor: 'white',
-                      padding: '8px',
-                      marginBottom: '8px',
-                      borderRadius: '4px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      fontSize: '13px'
-                    }}
-                  >
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 'bold' }}>{cls.code}</div>
-                      <div style={{ fontSize: '11px', color: '#666' }}>
-                        {cls.name}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#888' }}>
-                        {cls.hours || 3} credits
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => removeClassFromSemester(semester, cls.id)}
+                {classes.length === 0 ? (
+                  <div style={{ 
+                    padding: '20px', 
+                    textAlign: 'center', 
+                    color: '#999',
+                    fontSize: '13px'
+                  }}>
+                    No classes planned yet
+                  </div>
+                ) : (
+                  classes.map(cls => (
+                    <div
+                      key={cls.id}
                       style={{
-                        backgroundColor: '#f44336',
-                        color: 'white',
-                        border: 'none',
+                        backgroundColor: 'white',
+                        padding: '8px',
+                        marginBottom: '8px',
                         borderRadius: '4px',
-                        padding: '4px 8px',
-                        cursor: 'pointer',
-                        fontSize: '12px'
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        fontSize: '13px'
                       }}
                     >
-                      ✕
-                    </button>
-                  </div>
-                ))}
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 'bold' }}>{cls.code}</div>
+                        <div style={{ fontSize: '11px', color: '#666' }}>
+                          {cls.name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#888' }}>
+                          {cls.hours || 3} credits
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removeClassFromSemester(semester.label, cls.id)}
+                        style={{
+                          backgroundColor: '#f44336',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '4px 8px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
-
-              <button
-                onClick={() => {
-                  setSelectedSemester(semester);
-                  setShowClassSelector(true);
-                }}
-                style={{
-                  width: '100%',
-                  backgroundColor: '#4CAF50',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '8px',
-                  cursor: 'pointer',
-                  fontSize: '13px'
-                }}
-              >
-                + Add Class
-              </button>
             </div>
           );
         })}
       </div>
-
-      {/* Class Selector Modal */}
-      {showClassSelector && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '20px',
-            maxWidth: '600px',
-            width: '90%',
-            maxHeight: '80vh',
-            overflow: 'auto'
-          }}>
-            <h3>Add Class to {selectedSemester}</h3>
-            
-            <input
-              type="text"
-              placeholder="Search classes..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px',
-                marginBottom: '15px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '14px'
-              }}
-            />
-
-            <div style={{ maxHeight: '400px', overflow: 'auto' }}>
-              {filteredClasses.length === 0 && (
-                <p style={{ textAlign: 'center', color: '#666' }}>No classes found</p>
-              )}
-              {filteredClasses.map(cls => (
-                <div
-                  key={cls.id}
-                  onClick={() => addClassToSemester(selectedSemester, cls)}
-                  style={{
-                    padding: '10px',
-                    marginBottom: '8px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.2s'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                >
-                  <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
-                    {cls.code}: {cls.name}
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#666' }}>
-                    {cls.professors?.join(', ')} | {cls.hours || 3} credits
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => {
-                setShowClassSelector(false);
-                setSearchTerm('');
-              }}
-              style={{
-                marginTop: '15px',
-                width: '100%',
-                backgroundColor: '#666',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '10px',
-                cursor: 'pointer'
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Summary Section */}
       <div style={{
@@ -377,24 +222,28 @@ const FourYearPlanner = ({ allClasses, onSavePlan }) => {
         borderRadius: '8px'
       }}>
         <h3>Summary</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
           <div>
-            <h4 style={{ marginBottom: '10px', color: '#2196F3' }}>📚 Completed (Past)</h4>
-            <p>Classes: {Object.entries(semesterPlans)
-              .filter(([sem]) => isPastSemester(sem))
-              .reduce((sum, [, classes]) => sum + classes.length, 0)}</p>
-            <p>Credits: {Object.entries(semesterPlans)
-              .filter(([sem]) => isPastSemester(sem))
-              .reduce((sum, [, classes]) => sum + classes.reduce((s, c) => s + (c.hours || 3), 0), 0)}</p>
+            <h4 style={{ marginBottom: '10px', color: '#FF9800' }}>📅 Total Planned</h4>
+            <p style={{ margin: '5px 0' }}>Classes: <strong>{totalClasses}</strong></p>
+            <p style={{ margin: '5px 0' }}>Credits: <strong>{totalCredits}</strong></p>
           </div>
           <div>
-            <h4 style={{ marginBottom: '10px', color: '#FF9800' }}>📅 Planned (Future)</h4>
-            <p>Classes: {Object.entries(semesterPlans)
-              .filter(([sem]) => !isPastSemester(sem))
-              .reduce((sum, [, classes]) => sum + classes.length, 0)}</p>
-            <p>Credits: {Object.entries(semesterPlans)
-              .filter(([sem]) => !isPastSemester(sem))
-              .reduce((sum, [, classes]) => sum + classes.reduce((s, c) => s + (c.hours || 3), 0), 0)}</p>
+            <h4 style={{ marginBottom: '10px', color: '#2196F3' }}>📊 By Semester</h4>
+            {semesters.map(semester => {
+              const classes = semesterPlans[semester.label] || [];
+              if (classes.length === 0) return null;
+              return (
+                <p key={semester.label} style={{ fontSize: '14px', margin: '5px 0' }}>
+                  <strong>{semester.label}:</strong> {classes.length} classes, {getTotalCredits(semester.label)} credits
+                </p>
+              );
+            })}
+            {totalClasses === 0 && (
+              <p style={{ fontSize: '14px', margin: '5px 0', color: '#999' }}>
+                No classes planned yet
+              </p>
+            )}
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { fetchDegreeRequirements, fetchUserTakenCourses } from './api.jsx'
 import './colors.css'
 
-function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) {
+function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, semesterPlans = {} }) {
   const [degreeData, setDegreeData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null);
@@ -57,24 +57,48 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
     setSelectedCategory(null);
   };
   
-
   const calculateProgress = (category) => {
-    // Combine taken courses and planned courses
+    // Get all courses from 4-year plan (semesterPlans)
+    const fourYearPlanCourses = Object.values(semesterPlans).flat().map(course => ({
+      code: course.code,
+      name: course.name,
+      hours: course.hours || 3,
+      isTaken: false,
+      isFromFourYearPlan: true
+    }));
+
+    // Combine taken courses, planned courses, and 4-year plan courses
     const allCourses = [
       ...takenCourses.map(tc => ({ 
         code: tc.courseCode, 
         name: tc.courseName,
-        hours: 3, // default to 3, adjust if you have hours in DB
-        isTaken: true 
+        hours: tc.hours || 3,
+        isTaken: true,
+        isFromFourYearPlan: false
       })),
       ...plannedClasses.map(pc => ({ 
-        ...pc, 
-        isTaken: false 
-      }))
+        code: pc.code,
+        name: pc.name,
+        hours: pc.hours || 3,
+        isTaken: false,
+        isFromFourYearPlan: false
+      })),
+      ...fourYearPlanCourses
     ];
+
+    // Remove duplicates (prefer taken over planned)
+    const uniqueCourses = [];
+    const seenCodes = new Set();
     
-    // Find matching courses from all courses (taken + planned)
-    const matchingClasses = allCourses.filter(course => {
+    for (const course of allCourses) {
+      if (!seenCodes.has(course.code)) {
+        uniqueCourses.push(course);
+        seenCodes.add(course.code);
+      }
+    }
+    
+    // Find matching courses
+    const matchingClasses = uniqueCourses.filter(course => {
       // Check if it's in the available classes list
       const isInAvailable = category.availableClasses.some(
         avail => avail.code === course.code
@@ -90,7 +114,7 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
       
       // For open electives, count everything not already counted
       if (category.name === "Open Electives") {
-        return true // All courses count as open electives
+        return true
       }
       
       return false
@@ -198,7 +222,13 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
     )
   }
 
-  const totalEarned = plannedClasses.reduce((sum, c) => sum + (c.hours || 3), 0)
+  // Calculate total from all sources
+  const totalEarned = [
+    ...takenCourses.map(tc => tc.hours || 3),
+    ...plannedClasses.map(pc => pc.hours || 3),
+    ...Object.values(semesterPlans).flat().map(course => course.hours || 3)
+  ].reduce((sum, hours) => sum + hours, 0);
+  
   const totalRequired = degreeData.categories.reduce((sum, cat) => sum + cat.requiredHours, 0)
   const overallProgress = Math.min((totalEarned / totalRequired) * 100, 100)
 
@@ -431,7 +461,10 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     {category.availableClasses.length > 0 && (
                       <button
-                        onClick={() => openCoursesModal(category)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openCoursesModal(category);
+                        }}
                         style={{
                           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                           color: 'white',
@@ -507,13 +540,13 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
             <span style={{ color: '#4CAF50', fontSize: '16px', marginTop: '2px' }}>💡</span>
             <span style={{ color: '#4a5568', fontSize: '14px', lineHeight: '1.5' }}>
-              This audit reflects your planned classes from the course planner
+              This audit reflects courses from your planner and 4-year plan
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
             <span style={{ color: '#4CAF50', fontSize: '16px', marginTop: '2px' }}>➕</span>
             <span style={{ color: '#4a5568', fontSize: '14px', lineHeight: '1.5' }}>
-              Add classes to your planner to see them reflected here
+              Add classes to your planner or 4-year plan to see them reflected here
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
@@ -537,7 +570,7 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
         </div>
       </div>
 
-      {/* Courses Modal */}
+      {/* Courses Modal - Same as before */}
       {showCoursesModal && selectedCategory && (
         <div style={{
           position: 'fixed',
@@ -563,7 +596,6 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
             boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
             overflow: 'hidden'
           }}>
-            {/* Modal Header */}
             <div style={{
               padding: '24px',
               borderBottom: '1px solid #e9ecef',
@@ -603,13 +635,11 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
               </div>
             </div>
 
-            {/* Modal Content - Scrollable */}
             <div style={{
               flex: 1,
               overflowY: 'auto',
               padding: '24px'
             }}>
-              {/* Course List */}
               <div style={{ 
                 display: 'grid', 
                 gap: '16px',
@@ -617,9 +647,10 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
               }}>
                 {selectedCategory.availableClasses.map((cls, clsIdx) => {
                   const progress = calculateProgress(selectedCategory);
-                  const isTaken = progress.matchingClasses.some(
+                  const matchedCourse = progress.matchingClasses.find(
                     taken => taken.code === cls.code
-                  )
+                  );
+                  const isTaken = !!matchedCourse;
                   
                   return (
                     <div 
@@ -679,14 +710,14 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
                           position: 'absolute',
                           top: '12px',
                           right: '12px',
-                          background: '#4CAF50',
+                          background: matchedCourse.isTaken ? '#2196F3' : matchedCourse.isFromFourYearPlan ? '#FF9800' : '#4CAF50',
                           color: 'white',
                           padding: '4px 8px',
                           borderRadius: '6px',
                           fontSize: '12px',
                           fontWeight: '500'
                         }}>
-                          PLANNED
+                          {matchedCourse.isTaken ? 'TAKEN' : matchedCourse.isFromFourYearPlan ? '4-YEAR PLAN' : 'PLANNED'}
                         </div>
                       )}
                     </div>
@@ -694,7 +725,6 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
                 })}
               </div>
 
-              {/* Additional Info */}
               {selectedCategory.moreClassesAvailable && (
                 <div style={{ 
                   marginTop: '24px',
@@ -721,7 +751,6 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
                 </div>
               )}
 
-              {/* Your Progress in This Category */}
               {(() => {
                 const progress = calculateProgress(selectedCategory);
                 if (progress.matchingClasses.length > 0) {
@@ -753,16 +782,16 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
                           <span 
                             key={courseIdx}
                             style={{
-                              background: course.isTaken ? '#e8f5e9' : '#fff3e0',
-                              color: course.isTaken ? '#2e7d32' : '#e65100',
+                              background: course.isTaken ? '#e8f5e9' : course.isFromFourYearPlan ? '#fff3e0' : '#f3e5f5',
+                              color: course.isTaken ? '#2e7d32' : course.isFromFourYearPlan ? '#e65100' : '#6a1b9a',
                               padding: '8px 12px',
                               borderRadius: '20px',
                               fontSize: '14px',
                               fontWeight: '500',
-                              border: `1px solid ${course.isTaken ? '#4CAF50' : '#ffb74d'}`
+                              border: `1px solid ${course.isTaken ? '#4CAF50' : course.isFromFourYearPlan ? '#ffb74d' : '#ce93d8'}`
                             }}
                           >
-                            {course.isTaken ? '✓ ' : '📅 '}{course.code}
+                            {course.isTaken ? '✓ ' : course.isFromFourYearPlan ? '🎯 ' : '📅 '}{course.code}
                           </span>
                         ))}
                       </div>
@@ -773,7 +802,6 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail }) 
               })()}
             </div>
 
-            {/* Modal Footer */}
             <div style={{
               padding: '20px 24px',
               borderTop: '1px solid #e9ecef',
