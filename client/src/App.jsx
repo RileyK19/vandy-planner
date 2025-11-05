@@ -28,14 +28,59 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showInfoModal, setShowInfoModal] = useState(false)
 
-  // Check for existing authentication on mount
+  // Check for existing authentication on mount and load user data
   useEffect(() => {
     const checkAuth = async () => {
-      if (isLoggedIn) {
+      const token = localStorage.getItem('token')
+      if (token) {
         try {
           const userData = await getUserProfile()
+          console.log('User profile loaded:', userData);
           setUser(userData)
           setIsLoggedIn(true)
+          
+          // Load semester plans from user data immediately
+          if (userData.plannedSchedules && userData.plannedSchedules.length > 0) {
+            console.log('Found planned schedules:', userData.plannedSchedules);
+            
+            const latestSchedule = userData.plannedSchedules[userData.plannedSchedules.length - 1]
+            console.log('Latest schedule:', latestSchedule);
+            
+            const semesterPlansFromDB = {}
+            
+            if (latestSchedule.classes && Array.isArray(latestSchedule.classes)) {
+              latestSchedule.classes.forEach(course => {
+                console.log('Processing course:', course);
+                if (course.semester) {
+                  if (!semesterPlansFromDB[course.semester]) {
+                    semesterPlansFromDB[course.semester] = []
+                  }
+                  semesterPlansFromDB[course.semester].push({
+                    id: course.courseId || course.id || course._id?.toString(),
+                    code: course.code,
+                    name: course.name,
+                    hours: course.hours || 3,
+                    subject: course.subject,
+                    professors: course.professors || [],
+                    term: course.term,
+                    sectionNumber: course.sectionNumber,
+                    active: course.active,
+                    schedule: course.schedule
+                  })
+                }
+              })
+            }
+            
+            console.log('Converted semester plans:', semesterPlansFromDB);
+            
+            if (Object.keys(semesterPlansFromDB).length > 0) {
+              setSemesterPlans(semesterPlansFromDB)
+              localStorage.setItem('semesterPlans', JSON.stringify(semesterPlansFromDB))
+              console.log('Successfully loaded semester plans from database');
+            }
+          } else {
+            console.log('No planned schedules found in user data');
+          }
         } catch (error) {
           console.error('Error loading user data:', error)
           logoutUser()
@@ -57,17 +102,55 @@ function App() {
     }
   }, [])
 
-  // Load semester plans from localStorage
+  // Load semester plans from localStorage and database
   useEffect(() => {
-    const saved = localStorage.getItem('semesterPlans')
-    if (saved) {
-      try {
-        setSemesterPlans(JSON.parse(saved))
-      } catch (error) {
-        console.error('Error loading semester plans:', error)
+    const loadSemesterPlans = async () => {
+      console.log('Loading semester plans from user data...');
+      
+      // Load from user object that was fetched on login
+      if (user && user.plannedSchedules && user.plannedSchedules.length > 0) {
+        console.log('Found planned schedules in user:', user.plannedSchedules);
+        
+        const latestSchedule = user.plannedSchedules[user.plannedSchedules.length - 1]
+        console.log('Latest schedule:', latestSchedule);
+        
+        const semesterPlansFromDB = {}
+        
+        if (latestSchedule.classes && Array.isArray(latestSchedule.classes)) {
+          latestSchedule.classes.forEach(course => {
+            console.log('Processing course:', course);
+            if (course.semester) {
+              if (!semesterPlansFromDB[course.semester]) {
+                semesterPlansFromDB[course.semester] = []
+              }
+              semesterPlansFromDB[course.semester].push({
+                id: course.courseId || course.id || course._id?.toString(),
+                code: course.code,
+                name: course.name,
+                hours: course.hours || 3,
+                subject: course.subject,
+                professors: course.professors || [],
+                term: course.term,
+                sectionNumber: course.sectionNumber,
+                active: course.active,
+                schedule: course.schedule
+              })
+            }
+          })
+        }
+        
+        console.log('Converted semester plans:', semesterPlansFromDB);
+        
+        if (Object.keys(semesterPlansFromDB).length > 0) {
+          setSemesterPlans(semesterPlansFromDB)
+          localStorage.setItem('semesterPlans', JSON.stringify(semesterPlansFromDB))
+          console.log('Successfully loaded semester plans');
+        }
       }
     }
-  }, [])
+
+    loadSemesterPlans()
+  }, [isLoggedIn, user])
 
   // Save planned classes to localStorage whenever it changes
   useEffect(() => {
@@ -200,15 +283,23 @@ function App() {
       if (planData.futureCourses.length > 0) {
         // Format courses with full details for database
         const coursesToSave = planData.futureCourses.map(course => ({
-          id: course.id,
+          courseId: course.id,
           code: course.code,
           name: course.name,
           hours: course.hours || 3,
           semester: course.semester,
           subject: course.subject,
-          professors: course.professors,
-          term: course.term
+          professors: course.professors || [],
+          term: course.term,
+          sectionNumber: course.sectionNumber
         }))
+        
+        // Create a new schedule entry
+        const scheduleData = {
+          scheduleName: `4-Year Plan ${new Date().toLocaleDateString()}`,
+          classes: coursesToSave
+        }
+        
         await savePlannedClassesToDB(coursesToSave)
       }
       
@@ -224,6 +315,42 @@ function App() {
     setAuthError('')
     setUser(userData)
     setIsLoggedIn(true)
+    
+    // Load semester plans from login data
+    if (userData.plannedSchedules && userData.plannedSchedules.length > 0) {
+      console.log('Loading semester plans from login...');
+      const latestSchedule = userData.plannedSchedules[userData.plannedSchedules.length - 1]
+      
+      const semesterPlansFromDB = {}
+      
+      if (latestSchedule.classes && Array.isArray(latestSchedule.classes)) {
+        latestSchedule.classes.forEach(course => {
+          if (course.semester) {
+            if (!semesterPlansFromDB[course.semester]) {
+              semesterPlansFromDB[course.semester] = []
+            }
+            semesterPlansFromDB[course.semester].push({
+              id: course.courseId || course.id || course._id?.toString(),
+              code: course.code,
+              name: course.name,
+              hours: course.hours || 3,
+              subject: course.subject,
+              professors: course.professors || [],
+              term: course.term,
+              sectionNumber: course.sectionNumber,
+              active: course.active,
+              schedule: course.schedule
+            })
+          }
+        })
+      }
+      
+      if (Object.keys(semesterPlansFromDB).length > 0) {
+        setSemesterPlans(semesterPlansFromDB)
+        localStorage.setItem('semesterPlans', JSON.stringify(semesterPlansFromDB))
+        console.log('Loaded semester plans on login');
+      }
+    }
   }
 
   const handleSignup = (userData) => {

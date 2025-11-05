@@ -371,16 +371,34 @@ app.post('/api/auth/save-schedule', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Explicitly map all course fields to ensure they're saved
+    const mappedClasses = classes.map(cls => ({
+      courseId: cls.courseId || cls.id,
+      code: cls.code,
+      name: cls.name,
+      hours: cls.hours || 3,
+      semester: cls.semester,
+      subject: cls.subject,
+      professors: cls.professors || [],
+      term: cls.term,
+      sectionNumber: cls.sectionNumber,
+      active: cls.active,
+      schedule: cls.schedule
+    }));
+
     // Add new schedule to user's plannedSchedules
     user.plannedSchedules.push({
       scheduleName,
-      classes,
+      classes: mappedClasses,
       createdAt: new Date()
     });
 
     await user.save();
 
-    res.json({ message: 'Schedule saved successfully', schedule: user.plannedSchedules[user.plannedSchedules.length - 1] });
+    res.json({ 
+      message: 'Schedule saved successfully', 
+      schedule: user.plannedSchedules[user.plannedSchedules.length - 1] 
+    });
   } catch (error) {
     console.error('Save schedule error:', error);
     res.status(500).json({ error: 'Failed to save schedule' });

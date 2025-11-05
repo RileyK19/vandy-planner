@@ -37,13 +37,22 @@ const plannedScheduleSchema = new mongoose.Schema({
     trim: true
   },
   classes: [{
-    courseCode: String,
-    courseName: String,
+    courseId: String,
+    code: String,
+    name: String,
+    hours: Number,
+    semester: String,
+    subject: String,
+    professors: [String],
     term: String,
-    credits: Number,
-    professor: String,
-    time: String,
-    location: String
+    sectionNumber: String,
+    active: Boolean,
+    schedule: {
+      days: mongoose.Schema.Types.Mixed,
+      startTime: String,
+      endTime: String,
+      location: String
+    }
   }],
   createdAt: {
     type: Date,
