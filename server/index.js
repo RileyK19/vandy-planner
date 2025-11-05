@@ -71,20 +71,16 @@ function parseTranscriptCourses(text) {
     
     if (match) {
       try {
-        const [, season, year, subject, courseNumber, courseName, credits, grade] = match;
+        const [, season, year, subject, courseNumber] = match;
         const course = {
           courseCode: `${subject} ${courseNumber}`,
-          courseName: courseName.trim(),
-          grade: grade,
-          term: `${season} ${year}`,
-          completedAt: new Date() // Default to current date
+          term: `${season} ${year}`
         };
         
         // Validate course data
-        if (course.courseCode && course.courseCode.length >= 3 && 
-            course.grade && course.term) {
+        if (course.courseCode && course.courseCode.length >= 3 && course.term) {
           courses.push(course);
-          console.log('Successfully parsed course:', course.courseCode, course.courseName);
+          console.log('Successfully parsed course:', course.courseCode, course.term);
         }
       } catch (error) {
         console.error('Error parsing course line:', line, error);
@@ -271,6 +267,12 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
 
+    // Filter previousCourses to only include courseCode and term
+    const filteredPreviousCourses = (previousCourses || []).map(course => ({
+      courseCode: course.courseCode,
+      term: course.term
+    })).filter(course => course.courseCode && course.term); // Only include valid entries
+
     // Create new user
     const user = new User({
       email,
@@ -279,7 +281,7 @@ app.post('/api/auth/register', async (req, res) => {
       major,
       year,
       dorm,
-      previousCourses
+      previousCourses: filteredPreviousCourses
     });
 
     await user.save();
