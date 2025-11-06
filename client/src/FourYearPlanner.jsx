@@ -131,11 +131,12 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan }) =
             <div
               key={semester.label}
               style={{
-                border: '2px solid #FF9800',
+                border: '2px solid #e0e0e0',
                 borderRadius: '8px',
                 padding: '15px',
-                backgroundColor: '#FFF3E0',
-                minHeight: '200px'
+                backgroundColor: 'white',
+                minHeight: '200px',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
               }}
             >
               <div style={{ marginBottom: '10px' }}>
@@ -172,10 +173,11 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan }) =
                     <div
                       key={cls.id}
                       style={{
-                        backgroundColor: 'white',
+                        backgroundColor: '#FFF3E0',
+                        border: '1px solid #FFE0B2',
                         padding: '8px',
                         marginBottom: '8px',
-                        borderRadius: '4px',
+                        borderRadius: '8px',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
