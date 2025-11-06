@@ -406,6 +406,10 @@ function App() {
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             style={{ cursor: 'pointer' }}
           >
+            {!sidebarCollapsed && (
+              <img src="/cropped_logo.png?v=3" alt="Vandy Planner" className="sidebar-logo" />
+            )}
+            
             {/* Hamburger Menu Icon */}
             <button 
               className="hamburger-menu"
@@ -419,10 +423,6 @@ function App() {
               <span></span>
               <span></span>
             </button>
-            
-            {!sidebarCollapsed && (
-              <img src="/cropped_logo.png?v=3" alt="Vandy Planner" className="sidebar-logo" />
-            )}
           </div>
           {!sidebarCollapsed && user && (
             <div className="sidebar-user">
