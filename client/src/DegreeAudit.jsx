@@ -56,45 +56,46 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
     setShowCoursesModal(false);
     setSelectedCategory(null);
   };
+  
   const calculateProgress = (category) => {
-    console.log('=== DEBUG calculateProgress ===');
-    console.log('Category:', category.name);
-    console.log('takenCourses:', takenCourses);
-    console.log('plannedClasses:', plannedClasses);
-    
-    // Create a map to track the best version of each course (prioritize: taken > planned)
-    const courseMap = new Map();
-    
-    // Add planned courses from planner
-    plannedClasses.forEach(pc => {
-      console.log('Adding PLANNED:', pc.code);
-      courseMap.set(pc.code, { 
-        code: pc.code,
-        name: pc.name,
-        hours: pc.hours || 3,
-        isTaken: false,
-        isFromFourYearPlan: false
-      });
-    });
-    
-    // Add taken courses (highest priority) - overwrite planned if exists
-    takenCourses.forEach(tc => {
-      console.log('Adding TAKEN:', tc.courseCode);
-      courseMap.set(tc.courseCode, { 
+    // Get all courses from 4-year plan (semesterPlans)
+    const fourYearPlanCourses = Object.values(semesterPlans).flat().map(course => ({
+      code: course.code,
+      name: course.name,
+      hours: course.hours || 3,
+      isTaken: false,
+      isFromFourYearPlan: true
+    }));
+
+    // Combine taken courses, planned courses, and 4-year plan courses
+    const allCourses = [
+      ...takenCourses.map(tc => ({ 
         code: tc.courseCode, 
         name: tc.courseName,
         hours: tc.hours || 3,
         isTaken: true,
         isFromFourYearPlan: false
-      });
-    });
+      })),
+      ...plannedClasses.map(pc => ({ 
+        code: pc.code,
+        name: pc.name,
+        hours: pc.hours || 3,
+        isTaken: false,
+        isFromFourYearPlan: false
+      })),
+      ...fourYearPlanCourses
+    ];
+
+    // Remove duplicates (prefer taken over planned)
+    const uniqueCourses = [];
+    const seenCodes = new Set();
     
-    console.log('Final courseMap:', Object.fromEntries(courseMap));
-    
-    // ... rest stays the same
-    
-    // Convert map back to array
-    const uniqueCourses = Array.from(courseMap.values());
+    for (const course of allCourses) {
+      if (!seenCodes.has(course.code)) {
+        uniqueCourses.push(course);
+        seenCodes.add(course.code);
+      }
+    }
     
     // Find matching courses
     const matchingClasses = uniqueCourses.filter(course => {
@@ -226,7 +227,7 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
     ...takenCourses.map(tc => tc.hours || 3),
     ...plannedClasses.map(pc => pc.hours || 3),
     ...Object.values(semesterPlans).flat().map(course => course.hours || 3)
-  ].reduce((sum, hours) => sum + (hours || 3), 0);
+  ].reduce((sum, hours) => sum + hours, 0);
   
   const totalRequired = degreeData.categories.reduce((sum, cat) => sum + cat.requiredHours, 0)
   const overallProgress = Math.min((totalEarned / totalRequired) * 100, 100)
@@ -491,23 +492,27 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
                       </button>
                     )}
                     
-                    {progress.matchingClasses.length > 0 && (
-  <div style={{ 
-    fontSize: '12px',
-    color: '#4a5568',
-    background: '#f7fafc',
-    padding: '4px 8px',
-    borderRadius: '6px',
-    border: '1px solid #e2e8f0'
-  }}>
-    {progress.matchingClasses.filter(c => c.isTaken).length > 0 && 
-      `${progress.matchingClasses.filter(c => c.isTaken).length} taken`}
-    {progress.matchingClasses.filter(c => c.isTaken).length > 0 && 
-     progress.matchingClasses.filter(c => !c.isTaken).length > 0 && ', '}
-    {progress.matchingClasses.filter(c => !c.isTaken).length > 0 && 
-      `${progress.matchingClasses.filter(c => !c.isTaken).length} planned`}
-  </div>
-)}
+                    {progress.matchingClasses.length > 0 && (() => {
+                      const takenCount = progress.matchingClasses.filter(c => c.isTaken).length;
+                      const plannedCount = progress.matchingClasses.filter(c => !c.isTaken).length;
+                      
+                      const parts = [];
+                      if (takenCount > 0) parts.push(`${takenCount} taken`);
+                      if (plannedCount > 0) parts.push(`${plannedCount} planned`);
+                      
+                      return (
+                        <div style={{ 
+                          fontSize: '12px',
+                          color: '#4a5568',
+                          background: '#f7fafc',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0'
+                        }}>
+                          {parts.join(', ')}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
