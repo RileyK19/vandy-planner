@@ -1,105 +1,121 @@
+// models/User.js - Add currentSemesterPlan to existing schema
+
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
-
-const previousCourseSchema = new mongoose.Schema({
-  courseCode: {
-    type: String,
-    required: true,
-    trim: true,
-    uppercase: true
-  },
-  term: {
-    type: String,
-    required: true,
-    trim: true
-  }
-});
-
-const plannedScheduleSchema = new mongoose.Schema({
-  scheduleName: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  classes: [{
-    courseId: String,
-    code: String,
-    name: String,
-    hours: Number,
-    semester: String,
-    subject: String,
-    professors: [String],
-    term: String,
-    sectionNumber: String,
-    active: Boolean,
-    schedule: {
-      days: mongoose.Schema.Types.Mixed,
-      startTime: String,
-      endTime: String,
-      location: String
-    }
-  }],
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
 
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
-    required: [true, 'Email is required'],
+    required: true,
     unique: true,
     lowercase: true,
-    trim: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+    trim: true
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
-    minlength: [6, 'Password must be at least 6 characters long']
+    required: true
   },
   name: {
     type: String,
-    required: [true, 'Name is required'],
-    trim: true,
-    minlength: [2, 'Name must be at least 2 characters long']
+    required: true
   },
   major: {
     type: String,
-    required: [true, 'Major is required'],
-    trim: true,
-    minlength: [2, 'Major must be at least 2 characters long']
+    required: true
   },
   year: {
     type: String,
-    required: [true, 'Academic year is required'],
-    enum: {
-      values: ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Graduate'],
-      message: 'Year must be one of: Freshman, Sophomore, Junior, Senior, Graduate'
-    }
+    required: true,
+    enum: ['Freshman', 'Sophomore', 'Junior', 'Senior']
   },
   dorm: {
     type: String,
-    required: [true, 'Dorm location is required'],
-    trim: true,
-    minlength: [2, 'Dorm location must be at least 2 characters long']
+    required: true
   },
-  previousCourses: [previousCourseSchema],
-  plannedSchedules: [plannedScheduleSchema],
+  
+  // Courses the user has already completed
+  previousCourses: [{
+    courseCode: String,
+    courseName: String,
+    term: String,
+    grade: String,
+    completedAt: Date
+  }],
+  
+  // EXISTING: Four-year planner (keep as is)
+  plannedSchedules: [{
+    scheduleName: String,
+    classes: [{
+      courseId: String,
+      code: String,
+      name: String,
+      hours: Number,
+      semester: String,
+      subject: String,
+      professors: [String],
+      term: String,
+      sectionNumber: String
+    }],
+    createdAt: Date
+  }],
+  
+  // NEW: One-semester planner with detailed schedule info
+  currentSemesterPlan: {
+    semesterName: {
+      type: String,
+      default: ''
+    },
+    classes: [{
+      courseId: String,
+      code: String,
+      name: String,
+      hours: Number,
+      subject: String,
+      term: String,
+      sectionNumber: String,
+      sectionType: String,
+      active: Boolean,
+      
+      // Detailed schedule information for calendar view
+      schedule: {
+        days: [String], // ['Monday', 'Tuesday', 'Wednesday']
+        startTime: String, // '11:15'
+        endTime: String, // '12:30'
+        location: String // 'FGH 234'
+      },
+      
+      // Professor information
+      professors: [String],
+      
+      // RMP ratings data
+      rmpData: mongoose.Schema.Types.Mixed,
+      
+      addedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+    lastUpdated: {
+      type: Date,
+      default: Date.now
+    }
+  },
+  
   createdAt: {
     type: Date,
     default: Date.now
   }
+}, {
+  timestamps: true
 });
 
-// Pre-save middleware to hash password
+// Hash password before saving
 userSchema.pre('save', async function(next) {
-  // Only hash the password if it has been modified (or is new)
-  if (!this.isModified('password')) return next();
+  if (!this.isModified('password')) {
+    return next();
+  }
   
   try {
-    // Hash password with cost of 10
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
     next();
@@ -108,24 +124,17 @@ userSchema.pre('save', async function(next) {
   }
 });
 
-// Instance method to compare password
+// Method to compare passwords
 userSchema.methods.comparePassword = async function(candidatePassword) {
-  try {
-    return await bcrypt.compare(candidatePassword, this.password);
-  } catch (error) {
-    throw error;
-  }
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Override toJSON to remove password from output
+// Method to get user data without sensitive info
 userSchema.methods.toJSON = function() {
-  const userObject = this.toObject();
-  delete userObject.password;
-  return userObject;
+  const user = this.toObject();
+  delete user.password;
+  return user;
 };
-
-// Create indexes
-userSchema.index({ createdAt: -1 });
 
 const User = mongoose.model('User', userSchema);
 

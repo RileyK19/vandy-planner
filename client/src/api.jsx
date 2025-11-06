@@ -946,3 +946,117 @@ export async function fetchBatchPrerequisites(courseCodes) {
     return {};
   }
 }
+
+export async function saveSemesterPlanner(semesterName, classes) {
+  try {
+    const response = await fetch('/api/auth/semester-planner', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ semesterName, classes })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        removeAuthToken();
+        throw new Error('Session expired. Please login again.');
+      }
+      throw new Error(data.error || 'Failed to save semester planner');
+    }
+
+    console.log('✅ Semester planner saved:', data);
+    return data;
+  } catch (error) {
+    console.error('Save semester planner error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Load current semester planner from database
+ */
+export async function loadSemesterPlanner() {
+  try {
+    const response = await fetch('/api/auth/semester-planner', {
+      method: 'GET',
+      headers: getAuthHeaders()
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        removeAuthToken();
+        throw new Error('Session expired. Please login again.');
+      }
+      throw new Error(data.error || 'Failed to load semester planner');
+    }
+
+    console.log('📖 Semester planner loaded:', {
+      semester: data.semesterName,
+      classCount: data.classes?.length || 0
+    });
+    
+    return data;
+  } catch (error) {
+    console.error('Load semester planner error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Remove a class from semester planner
+ */
+export async function removeFromSemesterPlanner(courseId) {
+  try {
+    const response = await fetch(`/api/auth/semester-planner/class/${courseId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        removeAuthToken();
+        throw new Error('Session expired. Please login again.');
+      }
+      throw new Error(data.error || 'Failed to remove class');
+    }
+
+    console.log('🗑️ Class removed from planner:', courseId);
+    return data;
+  } catch (error) {
+    console.error('Remove from planner error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update a specific class in semester planner
+ */
+export async function updateClassInPlanner(courseId, updatedClass) {
+  try {
+    const response = await fetch(`/api/auth/semester-planner/class/${courseId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(updatedClass)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        removeAuthToken();
+        throw new Error('Session expired. Please login again.');
+      }
+      throw new Error(data.error || 'Failed to update class');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Update class error:', error);
+    throw error;
+  }
+}

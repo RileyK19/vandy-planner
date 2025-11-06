@@ -650,3 +650,180 @@ app.get('/api/degree-requirements/:major', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch degree requirements' });
   }
 });
+
+// POST /api/auth/semester-planner - Save/update current semester planner
+app.post('/api/auth/semester-planner', authenticateToken, async (req, res) => {
+  try {
+    const { semesterName, classes } = req.body;
+
+    if (!semesterName || !Array.isArray(classes)) {
+      return res.status(400).json({ error: 'Semester name and classes array are required' });
+    }
+
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Map classes with FULL details including schedule
+    const mappedClasses = classes.map(cls => ({
+      courseId: cls.id || cls.courseId,
+      code: cls.code,
+      name: cls.name,
+      hours: cls.hours || 3,
+      subject: cls.subject,
+      term: cls.term,
+      sectionNumber: cls.sectionNumber,
+      sectionType: cls.sectionType,
+      active: cls.active,
+      
+      // Schedule details for calendar
+      schedule: cls.schedule ? {
+        days: Array.isArray(cls.schedule.days) ? cls.schedule.days : [cls.schedule.days],
+        startTime: cls.schedule.startTime,
+        endTime: cls.schedule.endTime,
+        location: cls.schedule.location || 'TBA'
+      } : null,
+      
+      professors: Array.isArray(cls.professors) ? cls.professors : [],
+      rmpData: cls.rmpData || {},
+      addedAt: new Date()
+    }));
+
+    // Update currentSemesterPlan
+    user.currentSemesterPlan = {
+      semesterName,
+      classes: mappedClasses,
+      lastUpdated: new Date()
+    };
+
+    await user.save();
+
+    console.log('✅ Saved current semester plan:', {
+      semester: semesterName,
+      classCount: mappedClasses.length,
+      userId: user._id
+    });
+
+    res.json({ 
+      message: 'Semester planner saved successfully', 
+      plan: user.currentSemesterPlan 
+    });
+  } catch (error) {
+    console.error('Save semester planner error:', error);
+    res.status(500).json({ error: 'Failed to save semester planner' });
+  }
+});
+
+// GET /api/auth/semester-planner - Get current semester planner
+app.get('/api/auth/semester-planner', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Return current semester plan or empty structure
+    const plan = user.currentSemesterPlan || {
+      semesterName: '',
+      classes: [],
+      lastUpdated: null
+    };
+
+    console.log('📖 Loaded semester planner:', {
+      semester: plan.semesterName,
+      classCount: plan.classes?.length || 0,
+      userId: user._id
+    });
+
+    res.json(plan);
+  } catch (error) {
+    console.error('Get semester planner error:', error);
+    res.status(500).json({ error: 'Failed to fetch semester planner' });
+  }
+});
+
+// DELETE /api/auth/semester-planner/class/:courseId - Remove class from planner
+app.delete('/api/auth/semester-planner/class/:courseId', authenticateToken, async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.currentSemesterPlan || !user.currentSemesterPlan.classes) {
+      return res.status(404).json({ error: 'No semester plan found' });
+    }
+
+    // Remove the class
+    const beforeCount = user.currentSemesterPlan.classes.length;
+    user.currentSemesterPlan.classes = user.currentSemesterPlan.classes.filter(
+      cls => cls.courseId !== courseId && cls.id !== courseId
+    );
+    const afterCount = user.currentSemesterPlan.classes.length;
+
+    user.currentSemesterPlan.lastUpdated = new Date();
+    await user.save();
+
+    console.log('🗑️ Removed class from planner:', {
+      courseId,
+      removed: beforeCount > afterCount,
+      remainingClasses: afterCount
+    });
+
+    res.json({ 
+      message: 'Class removed successfully',
+      plan: user.currentSemesterPlan
+    });
+  } catch (error) {
+    console.error('Remove class error:', error);
+    res.status(500).json({ error: 'Failed to remove class' });
+  }
+});
+
+// PUT /api/auth/semester-planner/class/:courseId - Update specific class in planner
+app.put('/api/auth/semester-planner/class/:courseId', authenticateToken, async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const updatedClass = req.body;
+
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.currentSemesterPlan || !user.currentSemesterPlan.classes) {
+      return res.status(404).json({ error: 'No semester plan found' });
+    }
+
+    // Find and update the class
+    const classIndex = user.currentSemesterPlan.classes.findIndex(
+      cls => cls.courseId === courseId || cls.id === courseId
+    );
+
+    if (classIndex === -1) {
+      return res.status(404).json({ error: 'Class not found in planner' });
+    }
+
+    // Update with new data
+    user.currentSemesterPlan.classes[classIndex] = {
+      ...user.currentSemesterPlan.classes[classIndex],
+      ...updatedClass,
+      courseId: courseId,
+      addedAt: user.currentSemesterPlan.classes[classIndex].addedAt
+    };
+
+    user.currentSemesterPlan.lastUpdated = new Date();
+    await user.save();
+
+    res.json({ 
+      message: 'Class updated successfully',
+      plan: user.currentSemesterPlan
+    });
+  } catch (error) {
+    console.error('Update class error:', error);
+    res.status(500).json({ error: 'Failed to update class' });
+  }
+});

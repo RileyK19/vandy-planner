@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import './App.css'
-import { fetchClassesFromDB, savePlannedClassesToDB, isAuthenticated, getUserProfile, logoutUser } from './api.jsx'
+import { 
+  fetchClassesFromDB, 
+  savePlannedClassesToDB, 
+  isAuthenticated, 
+  getUserProfile, 
+  logoutUser,
+  loadSemesterPlanner  // NEW: Import the new function
+} from './api.jsx'
 import { mockClasses } from './mockData.jsx'
 import PlannerCalendar from './PlannerCalendar.jsx'
 import Modal from './Modal.jsx'
@@ -40,18 +47,35 @@ function App() {
           setUser(userData)
           setIsLoggedIn(true)
           
-          // Load semester plans from user data immediately
-          if (userData.plannedSchedules && userData.plannedSchedules.length > 0) {
-            console.log('Found planned schedules:', userData.plannedSchedules);
+          // NEW: Load one-semester planner from database
+          try {
+            console.log('📖 Loading semester planner from database...');
+            const semesterPlan = await loadSemesterPlanner();
             
+            if (semesterPlan && semesterPlan.classes && semesterPlan.classes.length > 0) {
+              console.log('✅ Loaded semester planner:', {
+                semester: semesterPlan.semesterName,
+                classCount: semesterPlan.classes.length
+              });
+              setPlannedClasses(semesterPlan.classes);
+              localStorage.setItem('plannedClasses', JSON.stringify(semesterPlan.classes));
+            } else {
+              console.log('ℹ️ No semester planner data found');
+            }
+          } catch (plannerError) {
+            console.error('Error loading semester planner:', plannerError);
+            // Don't fail - just continue with empty planner
+          }
+          
+          // Load 4-year plans from plannedSchedules (EXISTING)
+          if (userData.plannedSchedules && userData.plannedSchedules.length > 0) {
+            console.log('📅 Loading 4-year plan from plannedSchedules...');
             const latestSchedule = userData.plannedSchedules[userData.plannedSchedules.length - 1]
-            console.log('Latest schedule:', latestSchedule);
             
             const semesterPlansFromDB = {}
             
             if (latestSchedule.classes && Array.isArray(latestSchedule.classes)) {
               latestSchedule.classes.forEach(course => {
-                console.log('Processing course:', course);
                 if (course.semester) {
                   if (!semesterPlansFromDB[course.semester]) {
                     semesterPlansFromDB[course.semester] = []
@@ -72,15 +96,13 @@ function App() {
               })
             }
             
-            console.log('Converted semester plans:', semesterPlansFromDB);
-            
             if (Object.keys(semesterPlansFromDB).length > 0) {
               setSemesterPlans(semesterPlansFromDB)
               localStorage.setItem('semesterPlans', JSON.stringify(semesterPlansFromDB))
-              console.log('Successfully loaded semester plans from database');
+              console.log('✅ Loaded 4-year plan:', Object.keys(semesterPlansFromDB).length, 'semesters');
             }
           } else {
-            console.log('No planned schedules found in user data');
+            console.log('ℹ️ No 4-year plan found');
           }
         } catch (error) {
           console.error('Error loading user data:', error)
@@ -91,67 +113,20 @@ function App() {
     checkAuth()
   }, [])
 
-  // Load planned classes from localStorage on mount
+  // Load planned classes from localStorage on mount (fallback)
   useEffect(() => {
     const saved = localStorage.getItem('plannedClasses')
-    if (saved) {
+    if (saved && plannedClasses.length === 0) {
       try {
         setPlannedClasses(JSON.parse(saved))
       } catch (error) {
-        console.error('Error loading planned classes:', error)
+        console.error('Error loading planned classes from localStorage:', error)
       }
     }
   }, [])
 
-  // Load semester plans from localStorage and database
-  useEffect(() => {
-    const loadSemesterPlans = async () => {
-      console.log('Loading semester plans from user data...');
-      
-      // Load from user object that was fetched on login
-      if (user && user.plannedSchedules && user.plannedSchedules.length > 0) {
-        console.log('Found planned schedules in user:', user.plannedSchedules);
-        
-        const latestSchedule = user.plannedSchedules[user.plannedSchedules.length - 1]
-        console.log('Latest schedule:', latestSchedule);
-        
-        const semesterPlansFromDB = {}
-        
-        if (latestSchedule.classes && Array.isArray(latestSchedule.classes)) {
-          latestSchedule.classes.forEach(course => {
-            console.log('Processing course:', course);
-            if (course.semester) {
-              if (!semesterPlansFromDB[course.semester]) {
-                semesterPlansFromDB[course.semester] = []
-              }
-              semesterPlansFromDB[course.semester].push({
-                id: course.courseId || course.id || course._id?.toString(),
-                code: course.code,
-                name: course.name,
-                hours: course.hours || 3,
-                subject: course.subject,
-                professors: course.professors || [],
-                term: course.term,
-                sectionNumber: course.sectionNumber,
-                active: course.active,
-                schedule: course.schedule
-              })
-            }
-          })
-        }
-        
-        console.log('Converted semester plans:', semesterPlansFromDB);
-        
-        if (Object.keys(semesterPlansFromDB).length > 0) {
-          setSemesterPlans(semesterPlansFromDB)
-          localStorage.setItem('semesterPlans', JSON.stringify(semesterPlansFromDB))
-          console.log('Successfully loaded semester plans');
-        }
-      }
-    }
-
-    loadSemesterPlans()
-  }, [isLoggedIn, user])
+  // REMOVED: Duplicate semester plans loading effect
+  // The checkAuth effect now handles both planner and 4-year plan loading
 
   // Save planned classes to localStorage whenever it changes
   useEffect(() => {
@@ -269,15 +244,7 @@ function App() {
     })
   }
 
-  const handleSavePlan = async () => {
-    try {
-      await savePlannedClassesToDB(plannedClasses)
-      console.log('Plan saved successfully!')
-    } catch (error) {
-      console.error('Failed to save plan:', error)
-      throw error
-    }
-  }
+  // REMOVED: Old handleSavePlan - now handled in PlannerCalendar component
 
   const handleSaveFourYearPlan = async (planData) => {
     try {
@@ -295,12 +262,7 @@ function App() {
           sectionNumber: course.sectionNumber
         }))
         
-        // Create a new schedule entry
-        const scheduleData = {
-          scheduleName: `4-Year Plan ${new Date().toLocaleDateString()}`,
-          classes: coursesToSave
-        }
-        
+        // Use existing 4-year plan endpoint
         await savePlannedClassesToDB(coursesToSave)
       }
       
@@ -312,14 +274,31 @@ function App() {
   }
 
   // Authentication functions
-  const handleLogin = (userData) => {
+  const handleLogin = async (userData) => {
     setAuthError('')
     setUser(userData)
     setIsLoggedIn(true)
     
-    // Load semester plans from login data
+    // NEW: Load semester planner immediately after login
+    try {
+      console.log('📖 Loading semester planner on login...');
+      const semesterPlan = await loadSemesterPlanner();
+      
+      if (semesterPlan && semesterPlan.classes && semesterPlan.classes.length > 0) {
+        console.log('✅ Loaded semester planner on login:', {
+          semester: semesterPlan.semesterName,
+          classCount: semesterPlan.classes.length
+        });
+        setPlannedClasses(semesterPlan.classes);
+        localStorage.setItem('plannedClasses', JSON.stringify(semesterPlan.classes));
+      }
+    } catch (error) {
+      console.error('Error loading semester planner on login:', error);
+    }
+    
+    // Load 4-year plans from plannedSchedules (EXISTING)
     if (userData.plannedSchedules && userData.plannedSchedules.length > 0) {
-      console.log('Loading semester plans from login...');
+      console.log('📅 Loading 4-year plans from login...');
       const latestSchedule = userData.plannedSchedules[userData.plannedSchedules.length - 1]
       
       const semesterPlansFromDB = {}
@@ -349,7 +328,7 @@ function App() {
       if (Object.keys(semesterPlansFromDB).length > 0) {
         setSemesterPlans(semesterPlansFromDB)
         localStorage.setItem('semesterPlans', JSON.stringify(semesterPlansFromDB))
-        console.log('Loaded semester plans on login');
+        console.log('✅ Loaded 4-year plans on login:', Object.keys(semesterPlansFromDB).length, 'semesters');
       }
     }
   }
@@ -551,7 +530,6 @@ function App() {
           <PlannerCalendar 
             plannedClasses={plannedClasses} 
             onRemoveClass={removeFromPlanner}
-            onSavePlan={handleSavePlan}
           />
         ) : currentView === 'recommend' ? (
           <RecommendMe
@@ -577,7 +555,6 @@ function App() {
             user={user}
             onProfileUpdate={(updatedUser) => {
               setUser(updatedUser);
-              // Update user state so other components reflect the changes
             }}
           />
         ) : (

@@ -294,7 +294,7 @@ export default function RecommendMe({
                     onKeyDown={handleProfKeyDown}
                     onFocus={() => setShowProfPopover(true)}
                     placeholder={avoidProfessors.length === 0 ? 'Type a name and press Enter…' : 'Type to search…'}
-                    disabled={avoidProfessors.length >= 8}
+                    disabled={avoidProfessors.length >= 8 || loading}
                   />
                   {avoidProfessors.length >= 8 && (
                     <div className="hint">Limit reached (8).</div>
@@ -335,6 +335,7 @@ export default function RecommendMe({
                       className={`pill ${selected ? 'pill-selected' : 'pill-outline'}`}
                       onClick={() => togglePill(opt.value)}
                       type="button"
+                      disabled={loading}
                     >
                       {opt.label}
                     </button>
@@ -355,6 +356,7 @@ export default function RecommendMe({
                     className={`segment ${workload === opt.value ? 'segment-selected' : ''}`}
                     onClick={() => setWorkload(opt.value)}
                     type="button"
+                    disabled={loading}
                   >
                     {opt.label}
                   </button>
@@ -379,6 +381,7 @@ export default function RecommendMe({
                     className={`segment ${weekPattern === opt.value ? 'segment-selected' : ''}`}
                     onClick={() => setWeekPattern(opt.value)}
                     type="button"
+                    disabled={loading}
                   >
                     {opt.label}
                   </button>

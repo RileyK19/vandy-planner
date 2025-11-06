@@ -1,6 +1,7 @@
-// PlannerCalendar.js - Calendar component for planned classes
+// PlannerCalendar.js - Updated to use new semester planner endpoint
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { saveSemesterPlanner } from './api.jsx';
 
 function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,8 +81,6 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan }) {
     const slotHeight = 30;
     
     // Calculate top position in pixels - each 30-minute slot is 30px
-    // Position is relative to the start of the time slots (after header)
-    // For example: 11:15 = 3 hours 15 minutes from 8:00 = 195 minutes = 6.5 slots = 195px
     const top = (startMinutesFromCalendar / 30) * slotHeight;
     const height = (duration / 30) * slotHeight;
     
@@ -129,22 +128,47 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan }) {
     return plannedClasses.reduce((total, cls) => total + (cls.hours || 0), 0);
   };
 
+  // NEW: Updated to use new semester planner endpoint
   const handleSubmitPlan = async () => {
     setIsSubmitting(true);
     setSubmitStatus(null);
     
     try {
-      await onSavePlan();
+      // Determine current semester (you can make this dynamic based on date)
+      const currentSemester = 'Fall 2025';
+      
+      // Use new semester planner endpoint with FULL details
+      await saveSemesterPlanner(currentSemester, plannedClasses);
+      
+      console.log('✅ Semester planner saved to database');
       setSubmitStatus('success');
-      setTimeout(() => setSubmitStatus(null), 3000); // Clear after 3 seconds
+      setTimeout(() => setSubmitStatus(null), 3000);
     } catch (error) {
       console.error('Failed to save plan:', error);
       setSubmitStatus('error');
-      setTimeout(() => setSubmitStatus(null), 5000); // Clear after 5 seconds
+      setTimeout(() => setSubmitStatus(null), 5000);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Optional: Auto-save when classes change (debounced)
+  useEffect(() => {
+    if (plannedClasses.length === 0) return;
+    
+    const autoSave = async () => {
+      try {
+        await saveSemesterPlanner('Fall 2025', plannedClasses);
+        console.log('🔄 Auto-saved planner');
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+      }
+    };
+    
+    // Debounce by 2 seconds to avoid excessive saves
+    const timer = setTimeout(autoSave, 2000);
+    return () => clearTimeout(timer);
+  }, [plannedClasses]);
 
   return (
     <div className="planner-calendar">
