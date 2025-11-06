@@ -8,25 +8,10 @@ const previousCourseSchema = new mongoose.Schema({
     trim: true,
     uppercase: true
   },
-  courseName: {
-    type: String,
-    required: true,
-    trim: true
-  },
   term: {
     type: String,
     required: true,
     trim: true
-  },
-  grade: {
-    type: String,
-    required: true,
-    trim: true,
-    uppercase: true
-  },
-  completedAt: {
-    type: Date,
-    required: true
   }
 });
 

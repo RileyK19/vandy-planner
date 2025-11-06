@@ -349,7 +349,20 @@ export async function registerUser(userData) {
       body: JSON.stringify(userData)
     });
 
-    const data = await response.json();
+    // Safely parse JSON response, handling empty or invalid responses
+    let data = {};
+    try {
+      const text = await response.text();
+      if (text && text.trim()) {
+        data = JSON.parse(text);
+      }
+    } catch (parseError) {
+      console.error('Failed to parse JSON response:', parseError);
+      if (!response.ok) {
+        throw new Error('Server error: Unable to parse response');
+      }
+      throw new Error('Invalid response from server');
+    }
 
     if (!response.ok) {
       throw new Error(data.error || 'Registration failed');
@@ -363,6 +376,10 @@ export async function registerUser(userData) {
     return data;
   } catch (error) {
     console.error('Registration error:', error);
+    // Handle network errors specifically
+    if (error.message === 'Failed to fetch' || error.message.includes('ECONNREFUSED') || error.name === 'TypeError') {
+      throw new Error('Unable to connect to server. Please make sure the backend is running.');
+    }
     throw error;
   }
 }
@@ -385,7 +402,21 @@ export async function loginUser(email, password) {
       body: JSON.stringify({ email, password })
     });
 
-    const data = await response.json();
+    // Safely parse JSON response, handling empty or invalid responses
+    let data = {};
+    try {
+      const text = await response.text();
+      if (text && text.trim()) {
+        data = JSON.parse(text);
+      }
+    } catch (parseError) {
+      console.error('Failed to parse JSON response:', parseError);
+      // If we can't parse the response but got a response, check status
+      if (!response.ok) {
+        throw new Error('Server error: Unable to parse response');
+      }
+      throw new Error('Invalid response from server');
+    }
 
     if (!response.ok) {
       throw new Error(data.error || 'Login failed');
@@ -399,6 +430,10 @@ export async function loginUser(email, password) {
     return data;
   } catch (error) {
     console.error('Login error:', error);
+    // Handle network errors specifically
+    if (error.message === 'Failed to fetch' || error.message.includes('ECONNREFUSED') || error.name === 'TypeError') {
+      throw new Error('Unable to connect to server. Please make sure the backend is running.');
+    }
     throw error;
   }
 }

@@ -21,30 +21,22 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
   // Form state for adding new courses
   const [newCourse, setNewCourse] = useState({
     courseCode: '',
-    courseName: '',
-    term: '',
-    grade: '',
-    completedAt: ''
+    term: ''
   });
 
   /**
    * Adds a new course to the previous courses list
-   * Validates all required fields and converts completion date to Date object
+   * Validates required fields (courseCode and term)
    */
   const handleAddCourse = () => {
-    if (!newCourse.courseCode || !newCourse.courseName || !newCourse.term || !newCourse.grade) {
-      setLocalErrors({ course: 'Please fill in all course fields' });
-      return;
-    }
-
-    if (!newCourse.completedAt) {
-      setLocalErrors({ course: 'Please select completion date' });
+    if (!newCourse.courseCode || !newCourse.term) {
+      setLocalErrors({ course: 'Please fill in course code and term' });
       return;
     }
 
     const course = {
-      ...newCourse,
-      completedAt: new Date(newCourse.completedAt) // Convert string to Date object
+      courseCode: newCourse.courseCode.toUpperCase().trim(),
+      term: newCourse.term.trim()
     };
 
     onUpdate({
@@ -54,10 +46,7 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
     // Reset form after successful addition
     setNewCourse({
       courseCode: '',
-      courseName: '',
-      term: '',
-      grade: '',
-      completedAt: ''
+      term: ''
     });
     setLocalErrors({});
   };
@@ -111,9 +100,14 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
       }
       
       // Add parsed courses to the form data
+      // Only extract courseCode and term from parsed courses
       if (result.courses && result.courses.length > 0) {
         const existingCourses = data.previousCourses || [];
-        const allCourses = [...existingCourses, ...result.courses];
+        const parsedCourses = result.courses.map(course => ({
+          courseCode: course.courseCode,
+          term: course.term
+        }));
+        const allCourses = [...existingCourses, ...parsedCourses];
         
         onUpdate({ previousCourses: allCourses });
         
@@ -146,9 +140,6 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
     },
     disabled: isProcessingPDF
   });
-
-  // Available grade options for course entry
-  const gradeOptions = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-', 'F', 'P', 'NP', 'W'];
 
   return (
     <div className="step-container">
@@ -216,20 +207,6 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
               />
             </div>
             <div className="form-group">
-              <label htmlFor="courseName">Course Name *</label>
-              <input
-                type="text"
-                id="courseName"
-                value={newCourse.courseName}
-                onChange={(e) => setNewCourse(prev => ({ ...prev, courseName: e.target.value }))}
-                placeholder="e.g., Introduction to Programming"
-                className={localErrors.course ? 'error' : ''}
-              />
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
               <label htmlFor="term">Term *</label>
               <input
                 type="text"
@@ -240,31 +217,6 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
                 className={localErrors.course ? 'error' : ''}
               />
             </div>
-            <div className="form-group">
-              <label htmlFor="grade">Grade *</label>
-              <select
-                id="grade"
-                value={newCourse.grade}
-                onChange={(e) => setNewCourse(prev => ({ ...prev, grade: e.target.value }))}
-                className={localErrors.course ? 'error' : ''}
-              >
-                <option value="">Select Grade</option>
-                {gradeOptions.map(grade => (
-                  <option key={grade} value={grade}>{grade}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="completedAt">Completion Date *</label>
-            <input
-              type="date"
-              id="completedAt"
-              value={newCourse.completedAt}
-              onChange={(e) => setNewCourse(prev => ({ ...prev, completedAt: e.target.value }))}
-              className={localErrors.course ? 'error' : ''}
-            />
           </div>
 
           {localErrors.course && (
@@ -284,9 +236,7 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
                 <div key={index} className="course-item">
                   <div className="course-info">
                     <span className="course-code">{course.courseCode}</span>
-                    <span className="course-name">{course.courseName}</span>
                     <span className="course-term">{course.term}</span>
-                    <span className="course-grade">{course.grade}</span>
                   </div>
                   <button
                     type="button"

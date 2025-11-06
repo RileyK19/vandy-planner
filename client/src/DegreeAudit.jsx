@@ -226,7 +226,7 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
     ...takenCourses.map(tc => tc.hours || 3),
     ...plannedClasses.map(pc => pc.hours || 3),
     ...Object.values(semesterPlans).flat().map(course => course.hours || 3)
-  ].reduce((sum, hours) => sum + hours, 0);
+  ].reduce((sum, hours) => sum + (hours || 3), 0);
   
   const totalRequired = degreeData.categories.reduce((sum, cat) => sum + cat.requiredHours, 0)
   const overallProgress = Math.min((totalEarned / totalRequired) * 100, 100)
