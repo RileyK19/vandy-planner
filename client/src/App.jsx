@@ -9,6 +9,7 @@ import DegreeAudit from './DegreeAudit.jsx'
 import RecommendMe from './RecommendMe.jsx'
 import SearchPage from './SearchPage.jsx'
 import FourYearPlanner from './FourYearPlanner.jsx'
+import ProfilePage from './ProfilePage.jsx'
 
 import { fetchClassesWithRatings } from './api.jsx'
 
@@ -406,6 +407,10 @@ function App() {
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             style={{ cursor: 'pointer' }}
           >
+            {!sidebarCollapsed && (
+              <img src="/cropped_logo.png?v=3" alt="Vandy Planner" className="sidebar-logo" />
+            )}
+            
             {/* Hamburger Menu Icon */}
             <button 
               className="hamburger-menu"
@@ -419,10 +424,6 @@ function App() {
               <span></span>
               <span></span>
             </button>
-            
-            {!sidebarCollapsed && (
-              <img src="/cropped_logo.png?v=3" alt="Vandy Planner" className="sidebar-logo" />
-            )}
           </div>
           {!sidebarCollapsed && user && (
             <div className="sidebar-user">
@@ -483,6 +484,18 @@ function App() {
             >
               <span className="nav-icon">🎯</span>
               {!sidebarCollapsed && <span className="nav-text">4-Year Plan</span>}
+            </button>
+          </div>
+          
+          <div className="nav-section">
+            {!sidebarCollapsed && <div className="nav-section-title">Account</div>}
+            <button 
+              onClick={() => setCurrentView('profile')} 
+              className={`nav-item ${currentView === 'profile' ? 'active' : ''}`}
+              title="My Profile"
+            >
+              <span className="nav-icon">👤</span>
+              {!sidebarCollapsed && <span className="nav-text">My Profile</span>}
             </button>
           </div>
           
@@ -555,6 +568,14 @@ function App() {
             onSavePlan={handleSaveFourYearPlan}
             semesterPlans={semesterPlans}
             onUpdateSemesterPlans={setSemesterPlans}
+          />
+        ) : currentView === 'profile' ? (
+          <ProfilePage 
+            user={user}
+            onProfileUpdate={(updatedUser) => {
+              setUser(updatedUser);
+              // Update user state so other components reflect the changes
+            }}
           />
         ) : (
           <DegreeAudit 
