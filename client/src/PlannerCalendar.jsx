@@ -14,30 +14,115 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan }) {
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
-  const getClassesForTimeSlot = (day, time) => {
+  // Calculate time in minutes from 8:00 AM (start of calendar)
+  const timeToMinutes = (time) => {
+    const [hour, min] = time.split(':').map(Number);
+    return (hour * 60 + min) - (8 * 60); // Subtract 8:00 AM (480 minutes)
+  };
+
+  // Get all classes for a specific day
+  const getClassesForDay = (day) => {
     return plannedClasses.filter(cls => {
       if (!cls.schedule || !cls.schedule.days || !cls.schedule.startTime || !cls.schedule.endTime) {
         return false;
       }
       
       const classDays = Array.isArray(cls.schedule.days) ? cls.schedule.days : [cls.schedule.days];
-      const startTime = cls.schedule.startTime;
-      const endTime = cls.schedule.endTime;
-      
-      // Check if class is on this day and overlaps with this time slot
-      if (classDays.includes(day)) {
-        const [currentHour, currentMin] = time.split(':').map(Number);
-        const [startHour, startMin] = startTime.split(':').map(Number);
-        const [endHour, endMin] = endTime.split(':').map(Number);
-        
-        const currentMinutes = currentHour * 60 + currentMin;
-        const startMinutes = startHour * 60 + startMin;
-        const endMinutes = endHour * 60 + endMin;
-        
-        return currentMinutes >= startMinutes && currentMinutes < endMinutes;
-      }
-      return false;
+      return classDays.includes(day);
     });
+  };
+
+  // Calculate position and height for a course block
+  const getCourseBlockStyle = (cls) => {
+    const startTime = cls.schedule.startTime;
+    const endTime = cls.schedule.endTime;
+    
+    // Parse times - handle format like "11:15" or "11:15AM"
+    let startHour, startMin, endHour, endMin;
+    
+    // Clean time string (remove AM/PM if present)
+    const cleanStartTime = startTime.replace(/[ap]m?/i, '').trim();
+    const cleanEndTime = endTime.replace(/[ap]m?/i, '').trim();
+    
+    // Parse hour and minute
+    const startParts = cleanStartTime.split(':');
+    const endParts = cleanEndTime.split(':');
+    
+    startHour = parseInt(startParts[0], 10);
+    startMin = parseInt(startParts[1] || '0', 10);
+    endHour = parseInt(endParts[0], 10);
+    endMin = parseInt(endParts[1] || '0', 10);
+    
+    // Handle 12-hour format if needed (check if original string had AM/PM)
+    if (startTime.toLowerCase().includes('p') && startHour !== 12) {
+      startHour += 12;
+    } else if (startTime.toLowerCase().includes('a') && startHour === 12) {
+      startHour = 0;
+    }
+    if (endTime.toLowerCase().includes('p') && endHour !== 12) {
+      endHour += 12;
+    } else if (endTime.toLowerCase().includes('a') && endHour === 12) {
+      endHour = 0;
+    }
+    
+    // Convert to minutes from midnight
+    const startTotalMinutes = startHour * 60 + startMin;
+    const endTotalMinutes = endHour * 60 + endMin;
+    
+    // Calculate minutes from 8:00 AM (calendar start)
+    const calendarStartMinutes = 8 * 60; // 8:00 AM = 480 minutes
+    const startMinutesFromCalendar = startTotalMinutes - calendarStartMinutes;
+    const endMinutesFromCalendar = endTotalMinutes - calendarStartMinutes;
+    
+    const duration = endMinutesFromCalendar - startMinutesFromCalendar;
+    
+    // Each 30-minute slot is 30px high
+    const slotHeight = 30;
+    
+    // Calculate top position in pixels - each 30-minute slot is 30px
+    // Position is relative to the start of the time slots (after header)
+    // For example: 11:15 = 3 hours 15 minutes from 8:00 = 195 minutes = 6.5 slots = 195px
+    const top = (startMinutesFromCalendar / 30) * slotHeight;
+    const height = (duration / 30) * slotHeight;
+    
+    // Ensure minimum height for visibility
+    const minHeight = Math.max(height, 20);
+    
+    // Debug logging (can be removed in production)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Course ${cls.code}: ${startTime} - ${endTime}`, {
+        parsed: `${startHour}:${startMin} - ${endHour}:${endMin}`,
+        startMinutesFromCalendar,
+        endMinutesFromCalendar,
+        duration: `${duration} min`,
+        top: `${top}px`,
+        height: `${height}px`
+      });
+    }
+    
+    return {
+      position: 'absolute',
+      top: `${top}px`,
+      height: `${minHeight}px`,
+      minHeight: `${minHeight}px`,
+      left: '2px',
+      right: '2px',
+      backgroundColor: '#4CAF50',
+      color: 'white',
+      padding: '2px 4px',
+      borderRadius: '3px',
+      fontSize: '10px',
+      cursor: 'pointer',
+      textAlign: 'center',
+      overflow: 'hidden',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
+      zIndex: 1,
+      pointerEvents: 'auto',
+      border: '1px solid #388E3C'
+    };
   };
 
   const getTotalCredits = () => {
@@ -142,84 +227,129 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan }) {
             ))}
           </div>
 
-          <div className="calendar-grid" style={{ 
-            display: 'grid', 
-            gridTemplateColumns: '80px repeat(5, 1fr)',
-            gap: '1px',
+          <div style={{ 
+            display: 'flex',
             backgroundColor: '#ddd',
             border: '1px solid #ddd',
             borderRadius: '4px',
             overflow: 'hidden'
           }}>
-            {/* Header row */}
-            <div style={{ 
-              backgroundColor: '#f0f0f0', 
-              padding: '8px', 
-              fontWeight: 'bold',
-              textAlign: 'center'
-            }}>
-              Time
-            </div>
-            {days.map(day => (
-              <div key={day} style={{ 
+            {/* Time column */}
+            <div style={{ width: '80px', flexShrink: 0 }}>
+              <div style={{ 
                 backgroundColor: '#f0f0f0', 
                 padding: '8px', 
-                fontWeight: 'bold', 
-                textAlign: 'center' 
+                fontWeight: 'bold',
+                textAlign: 'center',
+                borderBottom: '1px solid #ddd',
+                height: '40px',
+                boxSizing: 'border-box',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}>
-                {day}
+                Time
               </div>
-            ))}
-
-            {/* Time slots */}
-            {timeSlots.map(time => (
-              <React.Fragment key={time}>
-                <div style={{ 
+              {timeSlots.map((time) => (
+                <div key={time} style={{ 
                   backgroundColor: '#f9f9f9', 
-                  padding: '8px', 
+                  padding: '2px 8px', 
                   fontSize: '12px',
                   textAlign: 'center',
-                  borderRight: '1px solid #ddd'
+                  borderBottom: '1px solid #ddd',
+                  height: '30px',
+                  boxSizing: 'border-box',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}>
                   {time}
                 </div>
-                {days.map(day => {
-                  const classesInSlot = getClassesForTimeSlot(day, time);
-                  return (
-                    <div key={`${day}-${time}`} style={{ 
-                      backgroundColor: 'white', 
-                      padding: '2px',
-                      minHeight: '30px',
-                      position: 'relative',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'center'
-                    }}>
-                      {classesInSlot.map(cls => (
-                        <div 
-                          key={cls.id} 
-                          style={{
-                            backgroundColor: '#4CAF50',
-                            color: 'white',
-                            padding: '2px 4px',
-                            borderRadius: '3px',
-                            fontSize: '10px',
-                            margin: '1px 0',
-                            cursor: 'pointer',
-                            textAlign: 'center',
-                            overflow: 'hidden',
-                            whiteSpace: 'nowrap'
-                          }}
-                          title={`${cls.code}: ${cls.name}\n${cls.schedule?.location || 'TBA'}\nProf: ${cls.professors?.join(', ') || 'TBA'}`}
-                        >
+              ))}
+            </div>
+
+            {/* Day columns */}
+            {days.map((day, dayIndex) => {
+              const classesForDay = getClassesForDay(day);
+              const totalHeight = timeSlots.length * 30;
+              
+              return (
+                <div 
+                  key={day} 
+                  style={{ 
+                    flex: 1,
+                    borderLeft: '1px solid #ddd',
+                    position: 'relative',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  {/* Day header */}
+                  <div style={{ 
+                    backgroundColor: '#f0f0f0', 
+                    padding: '8px', 
+                    fontWeight: 'bold', 
+                    textAlign: 'center',
+                    borderBottom: '1px solid #ddd',
+                    height: '40px',
+                    boxSizing: 'border-box',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {day}
+                  </div>
+                  
+                  {/* Time slot cells */}
+                  {timeSlots.map((time) => (
+                    <div 
+                      key={`${day}-${time}`} 
+                      style={{ 
+                        backgroundColor: 'white', 
+                        padding: '2px',
+                        height: '30px',
+                        borderBottom: '1px solid #ddd',
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      {/* Empty cell - courses rendered via overlay */}
+                    </div>
+                  ))}
+                  
+                  {/* Course overlay for this day */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '40px', // After header (exactly 40px)
+                      left: '2px',
+                      right: '2px',
+                      height: `${timeSlots.length * 30}px`, // Exact height: number of slots * 30px per slot
+                      pointerEvents: 'none',
+                      padding: '0',
+                      boxSizing: 'border-box',
+                      backgroundColor: 'transparent'
+                    }}
+                  >
+                    {classesForDay.map(cls => (
+                      <div
+                        key={cls.id}
+                        style={getCourseBlockStyle(cls)}
+                        title={`${cls.code}: ${cls.name}\n${cls.schedule?.location || 'TBA'}\nProf: ${cls.professors?.join(', ') || 'TBA'}\n${cls.schedule?.startTime} - ${cls.schedule?.endTime}`}
+                      >
+                        <div style={{ 
+                          whiteSpace: 'nowrap', 
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          width: '100%',
+                          pointerEvents: 'auto'
+                        }}>
                           {cls.code}
                         </div>
-                      ))}
-                    </div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </>
       )}

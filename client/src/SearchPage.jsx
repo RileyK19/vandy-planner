@@ -16,6 +16,54 @@ const SearchPage = ({
   const [selectedFilters, setSelectedFilters] = useState({});
   const [infoClass, setInfoClass] = useState(null);
   const [showSemesterSelector, setShowSemesterSelector] = useState(null);
+  const [hoveredConflict, setHoveredConflict] = useState(null);
+
+  // Function to check if two courses have a time conflict
+  const checkTimeConflict = (course1, course2) => {
+    if (!course1.schedule || !course2.schedule) return false;
+    
+    const days1 = Array.isArray(course1.schedule.days) ? course1.schedule.days : [course1.schedule.days];
+    const days2 = Array.isArray(course2.schedule.days) ? course2.schedule.days : [course2.schedule.days];
+    
+    // Check if they share any days
+    const sharedDays = days1.some(day => days2.includes(day));
+    if (!sharedDays) return false;
+    
+    const start1 = course1.schedule.startTime;
+    const end1 = course1.schedule.endTime;
+    const start2 = course2.schedule.startTime;
+    const end2 = course2.schedule.endTime;
+    
+    if (!start1 || !end1 || !start2 || !end2) return false;
+    
+    // Parse times - handle formats like "11:15" or "11:15AM"
+    const parseTime = (timeStr) => {
+      const cleanTime = timeStr.replace(/[ap]m?/i, '').trim();
+      const [hour, min] = cleanTime.split(':').map(Number);
+      let hour24 = hour;
+      
+      if (timeStr.toLowerCase().includes('p') && hour !== 12) {
+        hour24 = hour + 12;
+      } else if (timeStr.toLowerCase().includes('a') && hour === 12) {
+        hour24 = 0;
+      }
+      
+      return hour24 * 60 + (min || 0);
+    };
+    
+    const start1Minutes = parseTime(start1);
+    const end1Minutes = parseTime(end1);
+    const start2Minutes = parseTime(start2);
+    const end2Minutes = parseTime(end2);
+    
+    // Check if time ranges overlap
+    return (start1Minutes < end2Minutes && end1Minutes > start2Minutes);
+  };
+
+  // Function to get all courses that conflict with a given course
+  const getConflictingCourses = (course) => {
+    return plannedClasses.filter(plannedClass => checkTimeConflict(course, plannedClass));
+  };
 
   // Get current and future semesters (no summer, chronologically ordered)
   // Hardcoded to start from Fall 2025
@@ -150,7 +198,37 @@ const SearchPage = ({
               aria-label={`Show details for ${cls.code}: ${cls.name}`}
               style={{ cursor: 'pointer', flex: 1 }}
             >
-              <strong>{cls.code}</strong>: {cls.name}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <strong>{cls.code}</strong>: {cls.name}
+                {(() => {
+                  const conflicts = getConflictingCourses(cls);
+                  if (conflicts.length > 0) {
+                    return (
+                      <span
+                        style={{
+                          color: 'red',
+                          fontSize: '18px',
+                          cursor: 'pointer',
+                          position: 'relative'
+                        }}
+                        onMouseEnter={(e) => {
+                          setHoveredConflict({ course: cls, conflicts, x: e.clientX, y: e.clientY });
+                        }}
+                        onMouseMove={(e) => {
+                          if (hoveredConflict && hoveredConflict.course.id === cls.id) {
+                            setHoveredConflict({ course: cls, conflicts, x: e.clientX, y: e.clientY });
+                          }
+                        }}
+                        onMouseLeave={() => setHoveredConflict(null)}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        ⚠️
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
               <span
                 className="class-status"
                 style={{ color: cls.active ? 'green' : 'red' }}
@@ -370,6 +448,45 @@ const SearchPage = ({
             </button>
           </div>
         </Modal>
+      )}
+
+      {/* Conflict Tooltip */}
+      {hoveredConflict && (
+        <div
+          style={{
+            position: 'fixed',
+            left: `${hoveredConflict.x + 10}px`,
+            top: `${hoveredConflict.y + 10}px`,
+            backgroundColor: '#fff',
+            border: '2px solid #ff4444',
+            borderRadius: '8px',
+            padding: '12px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 10000,
+            maxWidth: '300px',
+            pointerEvents: 'none'
+          }}
+        >
+          <div style={{ fontWeight: 'bold', color: '#ff4444', marginBottom: '8px' }}>
+            ⚠️ Conflict Detected
+          </div>
+          <div style={{ fontSize: '14px', color: '#333' }}>
+            This course conflicts with:
+          </div>
+          <ul style={{ margin: '8px 0 0 20px', fontSize: '13px', color: '#666' }}>
+            {hoveredConflict.conflicts.map((conflict, idx) => (
+              <li key={idx}>
+                <strong>{conflict.code}</strong>: {conflict.name}
+                {conflict.schedule && (
+                  <div style={{ fontSize: '12px', marginTop: '2px' }}>
+                    {Array.isArray(conflict.schedule.days) ? conflict.schedule.days.join(', ') : conflict.schedule.days}{' '}
+                    {conflict.schedule.startTime} - {conflict.schedule.endTime}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );
