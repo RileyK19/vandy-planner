@@ -387,6 +387,17 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
                 />
               </div>
               <div className="form-group">
+                <label htmlFor="term">Course Name *</label>
+                <input
+                  type="text"
+                  id="term"
+                  value={newCourse.term}
+                  onChange={(e) => setNewCourse(prev => ({ ...prev, term: e.target.value }))}
+                  placeholder="e.g., Programming and Problem Solving"
+                  className={localErrors.course ? 'error' : ''}
+                />
+              </div>
+              <div className="form-group">
                 <label htmlFor="term">Term *</label>
                 <input
                   type="text"

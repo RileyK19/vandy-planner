@@ -568,6 +568,8 @@ function App() {
             onSavePlan={handleSaveFourYearPlan}
             semesterPlans={semesterPlans}
             onUpdateSemesterPlans={setSemesterPlans}
+            year={user.year}
+            takenCourses={user.previousCourses}
           />
         ) : currentView === 'profile' ? (
           <ProfilePage 

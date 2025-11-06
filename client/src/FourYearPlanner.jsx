@@ -1,16 +1,29 @@
 import React, { useState } from 'react';
 
-const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan }) => {
+const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, year, takenCourses }) => {
   const [saving, setSaving] = useState(false);
+
+  console.log('TAKENCOURSES', takenCourses);
+  const currentSem = { term: 'Fall', year: 2025, label: 'Fall 2025' }
 
   // Get current and future semesters (no summer, chronologically ordered)
   // Hardcoded to start from Fall 2025
   const getAvailableSemesters = () => {
     const semesters = [];
-    const startYear = 2025;
+    let startYear = 2025;
+
+    let yearAdj = 0
     
+    switch (year) {
+      case 'Freshman': yearAdj=0
+      case 'Sophomore': yearAdj=1
+      case 'Junior': yearAdj=2
+      case 'Senior': yearAdj=3
+    }
+    startYear = startYear - yearAdj
+
     // Start with Fall 2025
-    semesters.push({ term: 'Fall', year: 2025, label: 'Fall 2025' });
+    semesters.push({ term: 'Fall', year: startYear, label: 'Fall ' + startYear });
     
     // Generate next 4 years of semesters (Spring and Fall only)
     for (let i = 1; i < 8; i++) { // 8 semesters = 4 years
@@ -24,6 +37,42 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan }) =
 
   const semesters = getAvailableSemesters();
 
+  // Merge taken courses with planned courses
+  const getMergedSemesterPlans = () => {
+    const merged = { ...semesterPlans };
+    
+    // Add taken courses to their respective semesters
+    takenCourses.forEach(course => {
+      if (course.term) {
+        // Convert "Fall 2023" format to match semester labels
+        const semesterLabel = course.term;
+        
+        if (!merged[semesterLabel]) {
+          merged[semesterLabel] = [];
+        }
+        
+        // Check if course is already in the semester plan
+        const exists = merged[semesterLabel].some(cls => cls.code === course.courseCode);
+        
+        if (!exists) {
+          // Add taken course to the semester
+          merged[semesterLabel].push({
+            id: course._id || `taken-${course.courseCode}`,
+            code: course.courseCode,
+            name: course.courseName,
+            hours: course.credits || 3,
+            grade: course.grade,
+            isTaken: true
+          });
+        }
+      }
+    });
+    
+    return merged;
+  };
+
+  const mergedPlans = getMergedSemesterPlans();
+
   const removeClassFromSemester = (semester, classId) => {
     const updated = {
       ...semesterPlans,
@@ -33,7 +82,7 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan }) =
   };
 
   const getTotalCredits = (semester) => {
-    const classes = semesterPlans[semester] || [];
+    const classes = mergedPlans[semester] || [];
     return classes.reduce((sum, cls) => sum + (cls.hours || 3), 0);
   };
 
@@ -65,11 +114,11 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan }) =
   };
 
   // Calculate total planned credits
-  const totalCredits = Object.values(semesterPlans).reduce((total, classes) => {
+  const totalCredits = Object.values(mergedPlans).reduce((total, classes) => {
     return total + classes.reduce((sum, cls) => sum + (cls.hours || 3), 0);
   }, 0);
 
-  const totalClasses = Object.values(semesterPlans).reduce((total, classes) => {
+  const totalClasses = Object.values(mergedPlans).reduce((total, classes) => {
     return total + classes.length;
   }, 0);
 
@@ -124,7 +173,7 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan }) =
         marginBottom: '20px'
       }}>
         {semesters.map(semester => {
-          const classes = semesterPlans[semester.label] || [];
+          const classes = mergedPlans[semester.label] || [];
           const totalCredits = getTotalCredits(semester.label);
 
           return (
@@ -150,7 +199,15 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan }) =
                     backgroundColor: '#FF9800',
                     color: 'white'
                   }}>
-                    📅 Planned
+                  {
+                    (semester.term > currentSem.term && semester.year === currentSem.year) ||
+                    (semester.year < currentSem.year)
+                      ? '✅ Taken'
+                      : (semester.term === currentSem.term && semester.year === currentSem.year)
+                        ? '🟢 Current'
+                        : '📅 Planned'
+                  }
+
                   </span>
                 </h3>
                 <div style={{ fontSize: '13px', color: '#666' }}>
@@ -173,8 +230,8 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan }) =
                     <div
                       key={cls.id}
                       style={{
-                        backgroundColor: '#FFF3E0',
-                        border: '1px solid #FFE0B2',
+                        backgroundColor: cls.isTaken ? '#E8F5E9' : '#FFF3E0',
+                        border: cls.isTaken ? '1px solid #A5D6A7' : '1px solid #FFE0B2',
                         padding: '8px',
                         marginBottom: '8px',
                         borderRadius: '8px',
@@ -185,7 +242,9 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan }) =
                       }}
                     >
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 'bold' }}>{cls.code}</div>
+                        <div style={{ fontWeight: 'bold' }}>
+                          {cls.code}
+                        </div>
                         <div style={{ fontSize: '11px', color: '#666' }}>
                           {cls.name}
                         </div>
@@ -193,20 +252,22 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan }) =
                           {cls.hours || 3} credits
                         </div>
                       </div>
-                      <button
-                        onClick={() => removeClassFromSemester(semester.label, cls.id)}
-                        style={{
-                          backgroundColor: '#f44336',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          padding: '4px 8px',
-                          cursor: 'pointer',
-                          fontSize: '12px'
-                        }}
-                      >
-                        ✕
-                      </button>
+                      {!cls.isTaken && (
+                        <button
+                          onClick={() => removeClassFromSemester(semester.label, cls.id)}
+                          style={{
+                            backgroundColor: '#f44336',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            cursor: 'pointer',
+                            fontSize: '12px'
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
                   ))
                 )}
@@ -233,7 +294,7 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan }) =
           <div>
             <h4 style={{ marginBottom: '10px', color: '#2196F3' }}>📊 By Semester</h4>
             {semesters.map(semester => {
-              const classes = semesterPlans[semester.label] || [];
+              const classes = mergedPlans[semester.label] || [];
               if (classes.length === 0) return null;
               return (
                 <p key={semester.label} style={{ fontSize: '14px', margin: '5px 0' }}>
