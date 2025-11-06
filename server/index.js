@@ -359,6 +359,50 @@ app.get('/api/auth/profile', authenticateToken, async (req, res) => {
   }
 });
 
+// PUT /api/auth/profile (protected) - Update user profile
+app.put('/api/auth/profile', authenticateToken, async (req, res) => {
+  try {
+    const { major, year, dorm, previousCourses } = req.body;
+
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update fields if provided
+    if (major !== undefined) {
+      user.major = major;
+    }
+    if (year !== undefined) {
+      user.year = year;
+    }
+    if (dorm !== undefined) {
+      user.dorm = dorm;
+    }
+    if (previousCourses !== undefined) {
+      // Filter previousCourses to only include courseCode and term
+      const filteredPreviousCourses = (previousCourses || []).map(course => ({
+        courseCode: course.courseCode,
+        term: course.term
+      })).filter(course => course.courseCode && course.term);
+      user.previousCourses = filteredPreviousCourses;
+    }
+
+    await user.save();
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: user.toJSON()
+    });
+  } catch (error) {
+    console.error('Profile update error:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ error: error.message });
+    }
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
 // POST /api/auth/save-schedule (protected)
 app.post('/api/auth/save-schedule', authenticateToken, async (req, res) => {
   try {

@@ -464,6 +464,59 @@ export async function getUserProfile() {
   }
 }
 
+/**
+ * Update user profile (protected)
+ * Updates user's major, year, dorm, and/or previous courses
+ * 
+ * @param {Object} profileData - Profile data to update:
+ *   - major (optional)
+ *   - year (optional)
+ *   - dorm (optional)
+ *   - previousCourses (optional array of {courseCode, term})
+ * @returns {Object} Updated user data
+ */
+export async function updateUserProfile(profileData) {
+  try {
+    const response = await fetch('/api/auth/profile', {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(profileData)
+    });
+
+    // Safely parse JSON response
+    let data = {};
+    try {
+      const text = await response.text();
+      if (text && text.trim()) {
+        data = JSON.parse(text);
+      }
+    } catch (parseError) {
+      console.error('Failed to parse JSON response:', parseError);
+      if (!response.ok) {
+        throw new Error('Server error: Unable to parse response');
+      }
+      throw new Error('Invalid response from server');
+    }
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        removeAuthToken();
+        throw new Error('Session expired. Please login again.');
+      }
+      throw new Error(data.error || 'Failed to update profile');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Update profile error:', error);
+    // Handle network errors specifically
+    if (error.message === 'Failed to fetch' || error.message.includes('ECONNREFUSED') || error.name === 'TypeError') {
+      throw new Error('Unable to connect to server. Please make sure the backend is running.');
+    }
+    throw error;
+  }
+}
+
 // Save user schedule (protected)
 export async function saveUserSchedule(scheduleName, classes) {
   try {
