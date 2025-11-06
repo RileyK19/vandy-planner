@@ -57,7 +57,7 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
     setSelectedCategory(null);
   };
   
-  const calculateProgress = (category) => {
+  const calculateProgress = (category, allocatedCourses = new Set()) => {
     // Get all courses from 4-year plan (semesterPlans)
     const fourYearPlanCourses = Object.values(semesterPlans).flat().map(course => ({
       code: course.code,
@@ -97,8 +97,11 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
       }
     }
     
-    // Find matching courses
+    // Find matching courses that haven't been allocated yet
     const matchingClasses = uniqueCourses.filter(course => {
+      // Skip if already allocated to another category
+      if (allocatedCourses.has(course.code)) return false;
+      
       // Check if it's in the available classes list
       const isInAvailable = category.availableClasses.some(
         avail => avail.code === course.code
@@ -334,191 +337,205 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
       </div>
 
       {/* Categories Grid */}
-      <div style={{ 
+            {/* Categories Grid */}
+            <div style={{ 
         display: 'grid', 
         gap: '24px',
         gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))'
       }}>
-        {degreeData.categories.map((category, idx) => {
-          const progress = calculateProgress(category)
-          const percentComplete = Math.min((progress.earnedHours / category.requiredHours) * 100, 100)
-          const isExpanded = expandedCategories.has(category.name)
-          
-          return (
-            <div 
-              key={idx}
-              style={{
-                background: 'white',
-                borderRadius: '16px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                overflow: 'hidden',
-                transition: 'all 0.3s ease',
-                border: progress.isComplete ? '2px solid #4CAF50' : '2px solid transparent'
-              }}
-            >
-              {/* Category Header */}
+        {(() => {
+          // ✅ Shared allocation tracker to prevent double-counting
+          const allocatedCourses = new Set();
+
+          return degreeData.categories.map((category, idx) => {
+            // Pass the shared allocatedCourses set
+            const progress = calculateProgress(category, allocatedCourses);
+
+            // Mark matched courses as used so they aren’t reused
+            progress.matchingClasses.forEach(c => allocatedCourses.add(c.code));
+
+            const percentComplete = Math.min(
+              (progress.earnedHours / category.requiredHours) * 100,
+              100
+            );
+            const isExpanded = expandedCategories.has(category.name);
+
+            return (
               <div 
+                key={idx}
                 style={{
-                  padding: '24px',
-                  cursor: 'pointer',
-                  background: progress.isComplete 
-                    ? 'linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%)'
-                    : 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
-                  borderBottom: '1px solid #e9ecef'
+                  background: 'white',
+                  borderRadius: '16px',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                  overflow: 'hidden',
+                  transition: 'all 0.3s ease',
+                  border: progress.isComplete ? '2px solid #4CAF50' : '2px solid transparent'
                 }}
-                onClick={() => toggleCategory(category.name)}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                      <div style={{ fontSize: '24px' }}>
-                        {progress.isComplete ? '✅' : '📚'}
-                      </div>
-                      <h3 style={{ 
-                        margin: '0', 
-                        fontSize: '20px',
-                        color: '#2d3748',
-                        fontWeight: '600'
-                      }}>
-                        {category.name}
-                      </h3>
-                    </div>
-                    <p style={{ 
-                      margin: '0 0 16px 0', 
-                      color: '#718096', 
-                      fontSize: '14px',
-                      lineHeight: '1.5'
-                    }}>
-                      {category.description}
-                    </p>
-                    
-                    {/* Progress Bar */}
-                    <div style={{ 
-                      width: '100%', 
-                      height: '8px', 
-                      background: '#e2e8f0',
-                      borderRadius: '4px',
-                      overflow: 'hidden',
-                      marginBottom: '12px'
-                    }}>
-                      <div style={{ 
-                        width: `${percentComplete}%`,
-                        height: '100%',
-                        background: progress.isComplete 
-                          ? 'linear-gradient(90deg, #4CAF50 0%, #45a049 100%)'
-                          : 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
-                        transition: 'width 0.6s ease'
-                      }} />
-                    </div>
-                  </div>
-                  
-                  <div style={{ 
-                    textAlign: 'right',
-                    minWidth: '100px',
-                    marginLeft: '20px'
-                  }}>
-                    <div style={{ 
-                      fontSize: '28px', 
-                      fontWeight: '700',
-                      color: progress.isComplete ? '#2e7d32' : '#4a5568',
-                      marginBottom: '4px'
-                    }}>
-                      {progress.earnedHours}/{category.requiredHours}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#a0aec0', fontWeight: '500' }}>
-                      CREDIT HOURS
-                    </div>
-                    {category.minCourses && (
-                      <div style={{ 
-                        fontSize: '14px', 
-                        color: '#718096', 
-                        marginTop: '8px',
-                        padding: '4px 8px',
-                        background: '#f7fafc',
-                        borderRadius: '6px'
-                      }}>
-                        {progress.earnedCourses}/{category.minCourses} courses
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  marginTop: '16px'
-                }}>
-                  <div style={{ 
-                    fontSize: '14px', 
-                    color: progress.isComplete ? '#2e7d32' : '#4a5568',
-                    fontWeight: '500'
-                  }}>
-                    {progress.isComplete ? '✅ Complete' : `${Math.round(percentComplete)}% Complete`}
-                  </div>
-                  
-                  {/* Action Buttons */}
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    {category.availableClasses.length > 0 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openCoursesModal(category);
-                        }}
-                        style={{
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '8px',
-                          padding: '8px 16px',
-                          fontSize: '14px',
-                          fontWeight: '500',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.style.transform = 'translateY(-1px)';
-                          e.target.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.transform = 'translateY(0)';
-                          e.target.style.boxShadow = 'none';
-                        }}
-                      >
-                        📋 View Courses ({category.availableClasses.length})
-                      </button>
-                    )}
-                    
-                    {progress.matchingClasses.length > 0 && (() => {
-                      const takenCount = progress.matchingClasses.filter(c => c.isTaken).length;
-                      const plannedCount = progress.matchingClasses.filter(c => !c.isTaken).length;
-                      
-                      const parts = [];
-                      if (takenCount > 0) parts.push(`${takenCount} taken`);
-                      if (plannedCount > 0) parts.push(`${plannedCount} planned`);
-                      
-                      return (
-                        <div style={{ 
-                          fontSize: '12px',
-                          color: '#4a5568',
-                          background: '#f7fafc',
-                          padding: '4px 8px',
-                          borderRadius: '6px',
-                          border: '1px solid #e2e8f0'
-                        }}>
-                          {parts.join(', ')}
+                {/* Category Header */}
+                <div 
+                  style={{
+                    padding: '24px',
+                    cursor: 'pointer',
+                    background: progress.isComplete 
+                      ? 'linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%)'
+                      : 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
+                    borderBottom: '1px solid #e9ecef'
+                  }}
+                  onClick={() => toggleCategory(category.name)}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '24px' }}>
+                          {progress.isComplete ? '✅' : '📚'}
                         </div>
-                      );
-                    })()}
+                        <h3 style={{ 
+                          margin: '0', 
+                          fontSize: '20px',
+                          color: '#2d3748',
+                          fontWeight: '600'
+                        }}>
+                          {category.name}
+                        </h3>
+                      </div>
+                      <p style={{ 
+                        margin: '0 0 16px 0', 
+                        color: '#718096', 
+                        fontSize: '14px',
+                        lineHeight: '1.5'
+                      }}>
+                        {category.description}
+                      </p>
+                      
+                      {/* Progress Bar */}
+                      <div style={{ 
+                        width: '100%', 
+                        height: '8px', 
+                        background: '#e2e8f0',
+                        borderRadius: '4px',
+                        overflow: 'hidden',
+                        marginBottom: '12px'
+                      }}>
+                        <div style={{ 
+                          width: `${percentComplete}%`,
+                          height: '100%',
+                          background: progress.isComplete 
+                            ? 'linear-gradient(90deg, #4CAF50 0%, #45a049 100%)'
+                            : 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                          transition: 'width 0.6s ease'
+                        }} />
+                      </div>
+                    </div>
+                    
+                    <div style={{ 
+                      textAlign: 'right',
+                      minWidth: '100px',
+                      marginLeft: '20px'
+                    }}>
+                      <div style={{ 
+                        fontSize: '28px', 
+                        fontWeight: '700',
+                        color: progress.isComplete ? '#2e7d32' : '#4a5568',
+                        marginBottom: '4px'
+                      }}>
+                        {progress.earnedHours}/{category.requiredHours}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#a0aec0', fontWeight: '500' }}>
+                        CREDIT HOURS
+                      </div>
+                      {category.minCourses && (
+                        <div style={{ 
+                          fontSize: '14px', 
+                          color: '#718096', 
+                          marginTop: '8px',
+                          padding: '4px 8px',
+                          background: '#f7fafc',
+                          borderRadius: '6px'
+                        }}>
+                          {progress.earnedCourses}/{category.minCourses} courses
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    marginTop: '16px'
+                  }}>
+                    <div style={{ 
+                      fontSize: '14px', 
+                      color: progress.isComplete ? '#2e7d32' : '#4a5568',
+                      fontWeight: '500'
+                    }}>
+                      {progress.isComplete ? '✅ Complete' : `${Math.round(percentComplete)}% Complete`}
+                    </div>
+                    
+                    {/* Action Buttons */}
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      {category.availableClasses.length > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openCoursesModal(category);
+                          }}
+                          style={{
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '8px 16px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.transform = 'translateY(-1px)';
+                            e.target.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.transform = 'translateY(0)';
+                            e.target.style.boxShadow = 'none';
+                          }}
+                        >
+                          📋 View Courses ({category.availableClasses.length})
+                        </button>
+                      )}
+                      
+                      {progress.matchingClasses.length > 0 && (() => {
+                        const takenCount = progress.matchingClasses.filter(c => c.isTaken).length;
+                        const plannedCount = progress.matchingClasses.filter(c => !c.isTaken).length;
+                        
+                        const parts = [];
+                        if (takenCount > 0) parts.push(`${takenCount} taken`);
+                        if (plannedCount > 0) parts.push(`${plannedCount} planned`);
+                        
+                        return (
+                          <div style={{ 
+                            fontSize: '12px',
+                            color: '#4a5568',
+                            background: '#f7fafc',
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            border: '1px solid #e2e8f0'
+                          }}>
+                            {parts.join(', ')}
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )
-        })}
+            );
+          });
+        })()}
       </div>
 
       {/* Footer Notes */}
