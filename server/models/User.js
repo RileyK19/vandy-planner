@@ -1,7 +1,5 @@
-// models/User.js - Add currentSemesterPlan to existing schema
-
 import mongoose from 'mongoose';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema({
   email: {
