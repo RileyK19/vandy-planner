@@ -19,17 +19,8 @@
         "dest": "/api/[...path].js"
       },
       {
-        "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|json))",
-        "headers": {
-          "cache-control": "public, max-age=31536000, immutable"
-        }
-      },
-      {
-        "handle": "filesystem"
-      },
-      {
         "src": "/(.*)",
-        "dest": "/client/index.html"
+        "dest": "/client/$1"
       }
     ]
   }
