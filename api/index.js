@@ -1,4 +1,3 @@
-// api/index.js - This file should be at ROOT level (not in server/)
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
