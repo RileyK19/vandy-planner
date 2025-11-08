@@ -383,12 +383,15 @@ function App() {
         <div className="sidebar-header">
           <div 
             className="sidebar-logo-container"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             style={{ cursor: 'pointer' }}
           >
-            {!sidebarCollapsed && (
-              <img src="/cropped_logo.png?v=3" alt="Vandy Planner" className="sidebar-logo" />
-            )}
+            <button
+              onClick={() => setCurrentView('search')} 
+            >
+              {!sidebarCollapsed && (
+                <img src="/cropped_logo.png?v=3" alt="Vandy Planner" className="sidebar-logo" />
+              )}
+            </button>
             
             {/* Hamburger Menu Icon */}
             <button 
