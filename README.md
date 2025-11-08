@@ -2,7 +2,7 @@
 
 **Vandy Planner** is a full-stack web app built to streamline Vanderbilt University’s course registration experience. It integrates with the YES portal and RateMyProfessor to help students **plan, visualize, and optimize** their academic paths.
 
-🌐 **Live Demo:** [https://vandy-planner-83ilzmq3t-rileys-projects-f2de4ad0.vercel.app/](https://vandy-planner-83ilzmq3t-rileys-projects-f2de4ad0.vercel.app/)  
+🌐 **Live Demo:** [https://vandy-planner.vercel.app/](https://vandy-planner.vercel.app/)  
 🧠 Built with the **MERN stack** (MongoDB, Express, React, Node.js), deployed on **Vercel**.
 
 ---
