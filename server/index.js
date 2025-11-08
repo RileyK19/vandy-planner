@@ -481,8 +481,9 @@ app.get('/api/test-users', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  })
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}  })
   .catch(err => console.error('MongoDB connection error:', err));
 
   // POST /api/auth/past-courses (protected)
@@ -827,3 +828,5 @@ app.put('/api/auth/semester-planner/class/:courseId', authenticateToken, async (
     res.status(500).json({ error: 'Failed to update class' });
   }
 });
+
+export default app;
