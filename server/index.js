@@ -38,7 +38,7 @@ const upload = multer({
 // JWT Authentication Middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
     return res.status(401).json({ error: 'Access token required' });
@@ -56,16 +56,10 @@ const authenticateToken = (req, res, next) => {
 // Function to parse course information from transcript text
 function parseTranscriptCourses(text) {
   const courses = [];
-  
-  // Split text into lines for better parsing
   const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    
-    // Pattern for Vanderbilt transcript format where term, code, title, credits, and grade run together
-    // Example: Fall 2024CS 2201Program Design and Data Structures3A
-    // Pattern: (Term Year)(Subject Code)(Course Number)(Course Title)(Credits)(Grade)
     const coursePattern = /^(Fall|Spring|Summer|Winter)\s+(\d{4})([A-Z]{2,4})\s+(\d{4})(.+?)(\d)([A-Z][+\-]?)$/i;
     const match = line.match(coursePattern);
     
@@ -77,7 +71,6 @@ function parseTranscriptCourses(text) {
           term: `${season} ${year}`
         };
         
-        // Validate course data
         if (course.courseCode && course.courseCode.length >= 3 && course.term) {
           courses.push(course);
           console.log('Successfully parsed course:', course.courseCode, course.term);
@@ -88,7 +81,6 @@ function parseTranscriptCourses(text) {
     }
   }
   
-  // Remove duplicates based on course code and term
   const uniqueCourses = courses.filter((course, index, self) => 
     index === self.findIndex(c => 
       c.courseCode === course.courseCode && c.term === course.term
@@ -98,85 +90,100 @@ function parseTranscriptCourses(text) {
   return uniqueCourses;
 }
 
-// Connect to MongoDB first, then define routes and start server
-mongoose.connect(process.env.MONGO_URI, {
-  dbName: 'Users' // Use the Users database
-})
-  .then(() => {
-    console.log('MongoDB connected to Users database');
+// MongoDB Connection Helper for Serverless
+let cachedDb = null;
+
+async function connectToDatabase() {
+  if (cachedDb && mongoose.connection.readyState === 1) {
+    console.log('Using cached database connection');
+    return cachedDb;
+  }
+
+  console.log('Creating new database connection');
+  
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
+      dbName: 'Users',
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
     
-    // Define routes AFTER MongoDB connection
-    app.get('/', (req, res) => {
-      res.send('API is running...');
+    cachedDb = mongoose.connection;
+    console.log('MongoDB connected to Users database');
+    return cachedDb;
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    throw error;
+  }
+}
+
+// Middleware to ensure database connection
+app.use(async (req, res, next) => {
+  try {
+    await connectToDatabase();
+    next();
+  } catch (error) {
+    console.error('Database connection failed:', error);
+    res.status(503).json({ error: 'Database connection failed' });
+  }
+});
+
+// Routes
+app.get('/', (req, res) => {
+  res.json({ message: 'API is running...', status: 'ok' });
+});
+
+app.post('/api/parse-transcript', upload.single('transcript'), async (req, res) => {
+  try {
+    console.log('=== PDF Upload Request Received ===');
+    
+    if (!req.file) {
+      console.log('ERROR: No file in request');
+      return res.status(400).json({ error: 'No PDF file uploaded' });
+    }
+
+    console.log('File details:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
     });
 
-    // POST /api/parse-transcript - Parse PDF transcript to extract courses
-    app.post('/api/parse-transcript', upload.single('transcript'), async (req, res) => {
-      try {
-        console.log('=== PDF Upload Request Received ===');
-        
-        if (!req.file) {
-          console.log('ERROR: No file in request');
-          return res.status(400).json({ error: 'No PDF file uploaded' });
-        }
+    console.log('Starting PDF parsing...');
+    const pdfData = await pdfParse(req.file.buffer);
+    const text = pdfData.text;
 
-        console.log('File details:', {
-          originalname: req.file.originalname,
-          mimetype: req.file.mimetype,
-          size: req.file.size
-        });
+    console.log('PDF text extracted successfully, length:', text.length);
 
-        // Parse PDF text
-        console.log('Starting PDF parsing...');
-        console.log('Buffer type:', typeof req.file.buffer, 'Buffer length:', req.file.buffer.length);
-        
-        const pdfData = await pdfParse(req.file.buffer);
-        console.log('PDF data object:', Object.keys(pdfData));
-        
-        const text = pdfData.text;
+    const courses = parseTranscriptCourses(text);
+    console.log('Parsed courses:', courses.length);
 
-        console.log('PDF text extracted successfully, length:', text.length);
-        console.log('Full extracted text:\n', text);
+    if (courses.length === 0) {
+      return res.status(400).json({ 
+        error: 'No courses found in the transcript. The transcript format may not be supported.',
+        extractedText: text.substring(0, 500)
+      });
+    }
 
-        // Parse courses from the text
-        const courses = parseTranscriptCourses(text);
-
-        console.log('Parsed courses:', courses.length);
-        console.log('Course details:', JSON.stringify(courses, null, 2));
-
-        if (courses.length === 0) {
-          return res.status(400).json({ 
-            error: 'No courses found in the transcript. The transcript format may not be supported. Please add courses manually or contact support.',
-            extractedText: text.substring(0, 500) // Send a preview to help debug
-          });
-        }
-
-        res.json({
-          success: true,
-          courses: courses,
-          message: `Successfully parsed ${courses.length} courses from transcript`
-        });
-
-      } catch (error) {
-        console.error('PDF parsing error:', error);
-        console.error('Error stack:', error.stack);
-        res.status(500).json({ 
-          error: 'Failed to process transcript PDF. Please try again or contact support.',
-          details: error.message
-        });
-      }
+    res.json({
+      success: true,
+      courses: courses,
+      message: `Successfully parsed ${courses.length} courses from transcript`
     });
+
+  } catch (error) {
+    console.error('PDF parsing error:', error);
+    res.status(500).json({ 
+      error: 'Failed to process transcript PDF.',
+      details: error.message
+    });
+  }
+});
 
 app.get('/api/test-db', async (req, res) => {
-  console.log('Testing database connection...');
   try {
     const db = mongoose.connection.client.db('vanderbilt_courses');
-    console.log('Connected to database:', db.databaseName);
-    
     const collection = db.collection('cs_sections');
     const totalCount = await collection.countDocuments();
-    console.log('Total documents in cs_sections:', totalCount);
-    
     const samples = await collection.find({}).limit(3).toArray();
     
     res.json({
@@ -205,11 +212,8 @@ app.get('/api/classes', async (req, res) => {
 });
 
 app.get('/api/rmp-ratings', async (req, res) => {
-  console.log('Fetching RMP ratings...');
   try {
     const db = mongoose.connection.db;
-    
-    // Try to connect to rmp_data database
     const rmpDb = db.client.db('rmp_data');
     const rmpCollection = rmpDb.collection('course_instructor_averages');
     
@@ -226,54 +230,44 @@ app.get('/api/rmp-ratings', async (req, res) => {
 app.get('/api/degree-requirements', async (req, res) => {
   try {
     const { major } = req.query;
-    
-    // Query MongoDB for degree requirements
     const db = mongoose.connection.db;
     const degreeDb = db.client.db('vanderbilt_courses');
     const degreeCollection = degreeDb.collection('degree_audits');
     
-    const degreeReq = await degreeCollection.findOne({ major: major || 'Computer Science' }); // Changed to findOne
+    const degreeReq = await degreeCollection.findOne({ major: major || 'Computer Science' });
     
     if (!degreeReq) {
       return res.status(404).json({ error: 'Degree requirements not found' });
     }
     
-    res.json(degreeReq); // Now returns object instead of array
+    res.json(degreeReq);
   } catch (error) {
     console.error('Error fetching degree requirements:', error);
     res.status(500).json({ error: 'Failed to fetch degree requirements' });
   }
 });
 
-// Removed duplicate endpoint - using the one below
-
 // Authentication Routes
-
-// POST /api/auth/register
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, name, major, year, dorm, previousCourses = [] } = req.body;
 
-    // Validate required fields
     if (!email || !password || !name || !major || !year || !dorm) {
       return res.status(400).json({ 
         error: 'Missing required fields: email, password, name, major, year, and dorm are required' 
       });
     }
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
 
-    // Filter previousCourses to only include courseCode and term
     const filteredPreviousCourses = (previousCourses || []).map(course => ({
       courseCode: course.courseCode,
       term: course.term
-    })).filter(course => course.courseCode && course.term); // Only include valid entries
+    })).filter(course => course.courseCode && course.term);
 
-    // Create new user
     const user = new User({
       email,
       password,
@@ -286,7 +280,6 @@ app.post('/api/auth/register', async (req, res) => {
 
     await user.save();
 
-    // Generate JWT token
     const token = jwt.sign(
       { userId: user._id, email: user.email },
       JWT_SECRET,
@@ -306,7 +299,6 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// POST /api/auth/login
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -315,19 +307,16 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    // Find user by email
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Verify password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Generate JWT token
     const token = jwt.sign(
       { userId: user._id, email: user.email },
       JWT_SECRET,
@@ -344,7 +333,6 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// GET /api/auth/profile (protected)
 app.get('/api/auth/profile', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
@@ -359,7 +347,6 @@ app.get('/api/auth/profile', authenticateToken, async (req, res) => {
   }
 });
 
-// PUT /api/auth/profile (protected) - Update user profile
 app.put('/api/auth/profile', authenticateToken, async (req, res) => {
   try {
     const { major, year, dorm, previousCourses } = req.body;
@@ -369,18 +356,10 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Update fields if provided
-    if (major !== undefined) {
-      user.major = major;
-    }
-    if (year !== undefined) {
-      user.year = year;
-    }
-    if (dorm !== undefined) {
-      user.dorm = dorm;
-    }
+    if (major !== undefined) user.major = major;
+    if (year !== undefined) user.year = year;
+    if (dorm !== undefined) user.dorm = dorm;
     if (previousCourses !== undefined) {
-      // Filter previousCourses to only include courseCode and term
       const filteredPreviousCourses = (previousCourses || []).map(course => ({
         courseCode: course.courseCode,
         term: course.term
@@ -403,7 +382,6 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/auth/save-schedule (protected)
 app.post('/api/auth/save-schedule', authenticateToken, async (req, res) => {
   try {
     const { scheduleName, classes } = req.body;
@@ -417,7 +395,6 @@ app.post('/api/auth/save-schedule', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Explicitly map all course fields to ensure they're saved
     const mappedClasses = classes.map(cls => ({
       courseId: cls.courseId || cls.id,
       code: cls.code,
@@ -432,7 +409,6 @@ app.post('/api/auth/save-schedule', authenticateToken, async (req, res) => {
       schedule: cls.schedule
     }));
 
-    // Add new schedule to user's plannedSchedules
     user.plannedSchedules.push({
       scheduleName,
       classes: mappedClasses,
@@ -451,7 +427,6 @@ app.post('/api/auth/save-schedule', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/auth/schedules (protected)
 app.get('/api/auth/schedules', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
@@ -466,7 +441,6 @@ app.get('/api/auth/schedules', authenticateToken, async (req, res) => {
   }
 });
 
-// Test endpoint to verify Users collection
 app.get('/api/test-users', async (req, res) => {
   try {
     const userCount = await User.countDocuments();
@@ -481,12 +455,6 @@ app.get('/api/test-users', async (req, res) => {
   }
 });
 
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-}  })
-  .catch(err => console.error('MongoDB connection error:', err));
-
-  // POST /api/auth/past-courses (protected)
 app.post('/api/auth/past-courses', authenticateToken, async (req, res) => {
   try {
     const { courses } = req.body;
@@ -500,10 +468,8 @@ app.post('/api/auth/past-courses', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Add courses to user's completedCourses
     user.completedCourses = user.completedCourses || [];
     courses.forEach(course => {
-      // Avoid duplicates
       const exists = user.completedCourses.some(c => 
         c.id === course.id && c.semester === course.semester
       );
@@ -529,7 +495,6 @@ app.get('/api/users/:email/courses', async (req, res) => {
     const { email } = req.params;
     console.log('Fetching courses for user:', email);
     
-    // Use the User model to fetch from the correct database
     const user = await User.findOne({ email: email.toLowerCase() });
     
     if (!user) {
@@ -538,7 +503,6 @@ app.get('/api/users/:email/courses', async (req, res) => {
     }
     
     console.log('Found user, previousCourses:', user.previousCourses);
-    // Return the user's previous courses (from registration or PDF upload)
     res.json(user.previousCourses || []);
   } catch (error) {
     console.error('Error fetching user courses:', error);
@@ -546,7 +510,6 @@ app.get('/api/users/:email/courses', async (req, res) => {
   }
 });
 
-// Get prerequisites for a specific course
 app.get('/api/courses/:courseCode/prerequisites', async (req, res) => {
   try {
     const { courseCode } = req.params;
@@ -579,7 +542,6 @@ app.get('/api/courses/:courseCode/prerequisites', async (req, res) => {
   }
 });
 
-// Get prerequisites for multiple courses (batch request)
 app.post('/api/courses/prerequisites/batch', async (req, res) => {
   try {
     const { courseCodes } = req.body;
@@ -597,7 +559,6 @@ app.post('/api/courses/prerequisites/batch', async (req, res) => {
       .find({ courseId: { $in: upperCaseCodes } })
       .toArray();
     
-    // Create a map for easy lookup
     const prereqMap = {};
     prerequisites.forEach(prereq => {
       prereqMap[prereq.courseId] = {
@@ -609,7 +570,6 @@ app.post('/api/courses/prerequisites/batch', async (req, res) => {
       };
     });
     
-    // Fill in courses without prerequisites
     courseCodes.forEach(code => {
       const upperCode = code.toUpperCase();
       if (!prereqMap[upperCode]) {
@@ -627,7 +587,6 @@ app.post('/api/courses/prerequisites/batch', async (req, res) => {
   }
 });
 
-// Get degree requirements by major (add after your other endpoints)
 app.get('/api/degree-requirements/:major', async (req, res) => {
   try {
     const { major } = req.params;
@@ -652,7 +611,6 @@ app.get('/api/degree-requirements/:major', async (req, res) => {
   }
 });
 
-// POST /api/auth/semester-planner - Save/update current semester planner
 app.post('/api/auth/semester-planner', authenticateToken, async (req, res) => {
   try {
     const { semesterName, classes } = req.body;
@@ -666,7 +624,6 @@ app.post('/api/auth/semester-planner', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Map classes with FULL details including schedule
     const mappedClasses = classes.map(cls => ({
       courseId: cls.id || cls.courseId,
       code: cls.code,
@@ -678,7 +635,6 @@ app.post('/api/auth/semester-planner', authenticateToken, async (req, res) => {
       sectionType: cls.sectionType,
       active: cls.active,
       
-      // Schedule details for calendar
       schedule: cls.schedule ? {
         days: Array.isArray(cls.schedule.days) ? cls.schedule.days : [cls.schedule.days],
         startTime: cls.schedule.startTime,
@@ -691,7 +647,6 @@ app.post('/api/auth/semester-planner', authenticateToken, async (req, res) => {
       addedAt: new Date()
     }));
 
-    // Update currentSemesterPlan
     user.currentSemesterPlan = {
       semesterName,
       classes: mappedClasses,
@@ -699,12 +654,6 @@ app.post('/api/auth/semester-planner', authenticateToken, async (req, res) => {
     };
 
     await user.save();
-
-    console.log('✅ Saved current semester plan:', {
-      semester: semesterName,
-      classCount: mappedClasses.length,
-      userId: user._id
-    });
 
     res.json({ 
       message: 'Semester planner saved successfully', 
@@ -716,7 +665,6 @@ app.post('/api/auth/semester-planner', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/auth/semester-planner - Get current semester planner
 app.get('/api/auth/semester-planner', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
@@ -724,18 +672,11 @@ app.get('/api/auth/semester-planner', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Return current semester plan or empty structure
     const plan = user.currentSemesterPlan || {
       semesterName: '',
       classes: [],
       lastUpdated: null
     };
-
-    console.log('📖 Loaded semester planner:', {
-      semester: plan.semesterName,
-      classCount: plan.classes?.length || 0,
-      userId: user._id
-    });
 
     res.json(plan);
   } catch (error) {
@@ -744,7 +685,6 @@ app.get('/api/auth/semester-planner', authenticateToken, async (req, res) => {
   }
 });
 
-// DELETE /api/auth/semester-planner/class/:courseId - Remove class from planner
 app.delete('/api/auth/semester-planner/class/:courseId', authenticateToken, async (req, res) => {
   try {
     const { courseId } = req.params;
@@ -758,7 +698,6 @@ app.delete('/api/auth/semester-planner/class/:courseId', authenticateToken, asyn
       return res.status(404).json({ error: 'No semester plan found' });
     }
 
-    // Remove the class
     const beforeCount = user.currentSemesterPlan.classes.length;
     user.currentSemesterPlan.classes = user.currentSemesterPlan.classes.filter(
       cls => cls.courseId !== courseId && cls.id !== courseId
@@ -767,12 +706,6 @@ app.delete('/api/auth/semester-planner/class/:courseId', authenticateToken, asyn
 
     user.currentSemesterPlan.lastUpdated = new Date();
     await user.save();
-
-    console.log('🗑️ Removed class from planner:', {
-      courseId,
-      removed: beforeCount > afterCount,
-      remainingClasses: afterCount
-    });
 
     res.json({ 
       message: 'Class removed successfully',
@@ -784,7 +717,6 @@ app.delete('/api/auth/semester-planner/class/:courseId', authenticateToken, asyn
   }
 });
 
-// PUT /api/auth/semester-planner/class/:courseId - Update specific class in planner
 app.put('/api/auth/semester-planner/class/:courseId', authenticateToken, async (req, res) => {
   try {
     const { courseId } = req.params;
@@ -799,7 +731,6 @@ app.put('/api/auth/semester-planner/class/:courseId', authenticateToken, async (
       return res.status(404).json({ error: 'No semester plan found' });
     }
 
-    // Find and update the class
     const classIndex = user.currentSemesterPlan.classes.findIndex(
       cls => cls.courseId === courseId || cls.id === courseId
     );
@@ -808,7 +739,6 @@ app.put('/api/auth/semester-planner/class/:courseId', authenticateToken, async (
       return res.status(404).json({ error: 'Class not found in planner' });
     }
 
-    // Update with new data
     user.currentSemesterPlan.classes[classIndex] = {
       ...user.currentSemesterPlan.classes[classIndex],
       ...updatedClass,
@@ -829,4 +759,10 @@ app.put('/api/auth/semester-planner/class/:courseId', authenticateToken, async (
   }
 });
 
+// Only start server in non-production (for local development)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
+
+// Export for Vercel serverless
 export default app;
