@@ -808,7 +808,7 @@ const SearchPage = ({
                                       height: '18px',
                                       flexShrink: 0
                                     }}
-                                  />
+                    />
                                   <span style={{ flex: 1 }}>{String(option)}</span>
                                   {isSelected && (
                                     <span style={{ color: '#2196F3', fontSize: '16px', flexShrink: 0 }}>✓</span>

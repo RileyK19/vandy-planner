@@ -6,3 +6,7 @@ export const getUserProfile = jest.fn();
 export const logoutUser = jest.fn();
 export const loginUser = jest.fn();
 export const registerUser = jest.fn();
+export const fetchDegreeRequirements = jest.fn();
+export const fetchUserTakenCourses = jest.fn();
+export const saveSemesterPlanner = jest.fn();
+export const updateUserProfile = jest.fn();
