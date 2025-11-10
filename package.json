@@ -41,29 +41,40 @@
   "jest": {
     "testEnvironment": "jsdom",
     "setupFilesAfterEnv": [
-      "<rootDir>/jest.setup.js"
+      "<rootDir>/jest.setup.cjs"
     ],
+    "transform": {
+      "^.+\\.(js|jsx)$": "babel-jest"
+    },
     "moduleNameMapper": {
       "\\.(css|less|scss|sass)$": "identity-obj-proxy"
     },
     "collectCoverageFrom": [
-      "**/*.{js,jsx}",
+      "client/src/**/*.{js,jsx}",
+      "!client/src/**/*.test.{js,jsx}",
+      "!client/src/**/*.spec.{js,jsx}",
       "!**/node_modules/**",
-      "!**/coverage/**",
-      "!jest.setup.js",
-      "!babel.config.js",
-      "!jest.config.js",
-      "!**/*.test.{js,jsx}",
-      "!**/*.spec.{js,jsx}"
+      "!**/coverage/**"
+    ],
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/coverage/",
+      "/server/",
+      "jest.setup.cjs",
+      "babel.config.cjs"
+    ],
+    "testMatch": [
+      "<rootDir>/client/src/**/__tests__/**/*.(test|spec).(js|jsx)",
+      "<rootDir>/client/src/**/*.(test|spec).(js|jsx)"
     ],
     "coverageReporters": [
       "text",
       "lcov",
       "html"
     ],
-    "testMatch": [
-      "**/__tests__/**/*.(js|jsx)",
-      "**/*.(test|spec).(js|jsx)"
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/onboarding_tests/"
     ]
   }
 }
