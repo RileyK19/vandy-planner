@@ -33,9 +33,12 @@ describe('ProfilePage', () => {
       expect(api.getUserProfile).toHaveBeenCalled();
     });
 
-    expect(screen.getByLabelText('Major *').value).toBe('Computer Science');
-    expect(screen.getByLabelText('Academic Year *').value).toBe('Junior');
-    expect(screen.getByLabelText('Dorm Location *').value).toBe('Gillette House');
+    await waitFor(() => {
+      expect(screen.getByLabelText('Major *').value).toBe('Computer Science');
+      expect(screen.getByLabelText('Academic Year *').value).toBe('Junior');
+      expect(screen.getByLabelText('Dorm Location *').value).toBe('Gillette House');
+    });
+
     expect(screen.getByText('Added Courses (1)')).toBeInTheDocument();
   });
 

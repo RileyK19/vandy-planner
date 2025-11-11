@@ -1,7 +1,7 @@
-export const generateRecommendations = jest.fn(() => Promise.resolve([]));
+export const generateRecommendations = jest.fn(() => []);
 export const enhanceWithGPT = jest.fn(() => Promise.resolve([]));
-
-export default {
-  generateRecommendations,
-  enhanceWithGPT
-};
+export const formatRecommendation = jest.fn((course, neededCourses) => ({
+  ...course,
+  recommendationReasons: [],
+  matchScore: course.score
+}));

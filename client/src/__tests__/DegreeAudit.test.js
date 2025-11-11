@@ -34,8 +34,15 @@ const mockDegreeData = {
 };
 
 describe('DegreeAudit', () => {
+  let consoleSpy;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
   });
 
   test('renders degree audit data after loading', async () => {
@@ -76,14 +83,11 @@ describe('DegreeAudit', () => {
     );
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Degree Requirements Not Available')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Degree Requirements Not Available')).toBeInTheDocument();
     });
 
-    expect(
-      screen.getByText('Degree requirements for Mathematics are not currently available in our database.')
-    ).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes('Degree requirements for'))).toBeInTheDocument();
+    expect(screen.getByText('Mathematics', { selector: 'strong' })).toBeInTheDocument();
   });
 
   test('handles fetch errors by showing fallback message', async () => {
@@ -100,9 +104,7 @@ describe('DegreeAudit', () => {
     );
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Degree Requirements Not Available')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Degree Requirements Not Available')).toBeInTheDocument();
     });
   });
 });
