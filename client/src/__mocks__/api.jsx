@@ -10,3 +10,4 @@ export const fetchDegreeRequirements = jest.fn();
 export const fetchUserTakenCourses = jest.fn();
 export const saveSemesterPlanner = jest.fn();
 export const updateUserProfile = jest.fn();
+export const getCourseRecommendations = jest.fn();
