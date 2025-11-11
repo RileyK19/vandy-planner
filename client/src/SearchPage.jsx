@@ -45,7 +45,8 @@ const SearchPage = ({
   onRefreshData,
   semesterPlans = {},
   onAddToSemester,
-  userMajor = 'Computer Science'
+  userMajor = 'Computer Science',
+  year
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilter, setShowFilter] = useState(false);
@@ -105,19 +106,32 @@ const SearchPage = ({
     return plannedClasses.filter(plannedClass => checkTimeConflict(course, plannedClass));
   };
 
+  const currentSem = { term: 'Fall', year: 2025, label: 'Fall 2025' }
+
   // Get current and future semesters (no summer, chronologically ordered)
   // Hardcoded to start from Fall 2025
   const getAvailableSemesters = () => {
     const semesters = [];
-    const startYear = 2025;
+    let startYear = 2025;
+
+    let yearAdj = 0
     
-    // Generate 8 semesters = 4 years (Fall, Spring, Fall, Spring...)
-    for (let i = 0; i < 8; i++) {
-      const year = startYear + Math.floor(i / 2);
-      const term = i % 2 === 0 ? 'Fall' : 'Spring';
-      // For Spring semesters, use next year
-      const semesterYear = term === 'Spring' ? year + 1 : year;
-      semesters.push({ term, year: semesterYear, label: `${term} ${semesterYear}` });
+    switch (year) {
+      case 'Freshman': yearAdj=0
+      case 'Sophomore': yearAdj=1
+      case 'Junior': yearAdj=2
+      case 'Senior': yearAdj=3
+    }
+    startYear = startYear - yearAdj
+
+    // Start with Fall 2025
+    semesters.push({ term: 'Fall', year: startYear, label: 'Fall ' + startYear });
+    
+    // Generate next 4 years of semesters (Spring and Fall only)
+    for (let i = 1; i < 8; i++) { // 8 semesters = 4 years
+      const year = startYear + Math.floor((i+1) / 2);
+      const term = i % 2 === 1 ? 'Spring' : 'Fall';
+      semesters.push({ term, year, label: `${term} ${year}` });
     }
     
     return semesters;

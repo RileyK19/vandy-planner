@@ -528,6 +528,7 @@ function App() {
             semesterPlans={semesterPlans}
             onAddToSemester={addToSemester}
             userMajor={user?.major || 'Computer Science'}
+            year={user.year}
           />
         ) : currentView === 'planner' ? (
           <PlannerCalendar 
