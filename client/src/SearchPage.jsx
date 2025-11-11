@@ -111,6 +111,31 @@ const SearchPage = ({
   };
 
   const currentSem = { term: 'Fall', year: 2025, label: 'Fall 2025' }
+  const nextSem = { term: 'Fall', year: 2025, label: 'Fall 2025' }
+
+  // Helper to check if a class is in the next semester
+  const isNextSemester = (cls) => {
+    // Assuming currentSem is defined elsewhere, or define it here
+    // const currentYear = currentSem.year; // Adjust based on your current year logic
+    // const currentTerm = currentSem.year; // Adjust based on your current term logic
+    
+    // // Simple logic: if current term is Fall, next is Spring of same year
+    // // If current term is Spring, next is Fall of next year
+    // let nextTerm, nextYear;
+    
+    // if (currentTerm === 'Fall') {
+    //     nextTerm = 'Spring';
+    //     nextYear = currentYear + 1;
+    // } else { // Spring
+    //     nextTerm = 'Fall';
+    //     nextYear = currentYear;
+    // }
+    let nextTerm = nextSem.term;
+    let nextYear = nextSem.year;
+    let compare = nextYear + ' ' + nextTerm
+    
+    return cls.term === compare;
+  };
 
   // Get current and future semesters (no summer, chronologically ordered)
   // Hardcoded to start from Fall 2025
@@ -403,7 +428,9 @@ const SearchPage = ({
   const groupedClasses = useMemo(() => {
     const groups = {};
     
-    allClasses.forEach(cls => {
+    const filteredClasses = allClasses.filter(isNextSemester)
+
+    filteredClasses.forEach(cls => {
       // Extract base course code (e.g., "CS 1101" from "CS 1101-001")
       const baseCode = cls.code.split('-')[0].trim();
       
