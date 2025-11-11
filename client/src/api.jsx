@@ -1060,3 +1060,12 @@ export async function updateClassInPlanner(courseId, updatedClass) {
     throw error;
   }
 }
+
+export const __testExports = {
+  parseSchedule,
+  normalizeInstructorName,
+  extractInstructorNames,
+  identifyNeededCoursesHelper,
+  formatReasons,
+  enhanceSemestersWithGPT
+};

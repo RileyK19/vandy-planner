@@ -100,6 +100,35 @@ jest.mock('../RecommendationEngine', () => ({
         const result = await api.fetchClassesFromDB();
         expect(result[0].professors).toEqual([]);
       });
+
+      test('normalizes instructor formats and converts varied schedules', async () => {
+        fetch.mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve([
+            {
+              sectionId: 'CS2201-001',
+              courseName: 'Algorithms',
+              subject: 'CS',
+              schedule: 'TR;1:15p-2:30p',
+              instructors: [{ name: 'Doe, Jane ' }, { name: null }, 'Solo, Han']
+            },
+            {
+              sectionId: 'MATH101-001',
+              courseName: 'Calculus I',
+              subject: 'MATH',
+              schedule: 'SU;12:00a-1:45a',
+              instructors: 'Skywalker, Luke'
+            }
+          ])
+        });
+
+        const result = await api.fetchClassesFromDB();
+
+        expect(result[0].schedule).toMatchObject({ startTime: '13:15', endTime: '14:30' });
+        expect(result[0].professors).toEqual(['Jane Doe', 'Han Solo']);
+        expect(result[1].schedule).toMatchObject({ startTime: '00:00', endTime: '01:45' });
+        expect(result[1].professors).toEqual(['Luke Skywalker']);
+      });
     });
   
     describe('fetchRMPData', () => {
@@ -183,6 +212,24 @@ jest.mock('../RecommendationEngine', () => ({
         fetch.mockRejectedValue(new Error('Network error'));
         const result = await api.fetchClassesWithRatings();
         expect(result).toBeNull();
+      });
+
+      test('returns null when a dependent fetch throws', async () => {
+        const originalPromiseAll = Promise.all;
+        Promise.all = () => {
+          throw new Error('boom');
+        };
+
+        try {
+          const result = await api.fetchClassesWithRatings();
+          expect(result).toBeNull();
+          expect(console.error).toHaveBeenCalledWith(
+            'Error fetching classes with ratings:',
+            expect.any(Error)
+          );
+        } finally {
+          Promise.all = originalPromiseAll;
+        }
       });
     });
   
@@ -343,6 +390,24 @@ jest.mock('../RecommendationEngine', () => ({
   
         await expect(api.registerUser({})).rejects.toThrow('Invalid response from server');
       });
+
+      test('handles malformed error responses with server failure', async () => {
+        fetch.mockResolvedValue({
+          ok: false,
+          text: () => Promise.resolve('<html>error</html>')
+        });
+
+        await expect(api.registerUser({})).rejects.toThrow('Server error: Unable to parse response');
+      });
+
+      test('translates connection errors into guidance', async () => {
+        const networkError = new Error('Failed to fetch');
+        networkError.name = 'TypeError';
+        fetch.mockRejectedValue(networkError);
+
+        await expect(api.registerUser({})).rejects
+          .toThrow('Unable to connect to server. Please make sure the backend is running.');
+      });
     });
   
     describe('loginUser', () => {
@@ -376,6 +441,35 @@ jest.mock('../RecommendationEngine', () => ({
       test('handles network errors', async () => {
         fetch.mockRejectedValue(new Error('Network error'));
         await expect(api.loginUser('test@vanderbilt.edu', 'pass')).rejects.toThrow('Network error');
+      });
+
+      test('handles malformed JSON on success response', async () => {
+        fetch.mockResolvedValue({
+          ok: true,
+          text: () => Promise.resolve('not json')
+        });
+
+        await expect(api.loginUser('test@vanderbilt.edu', 'pass')).rejects
+          .toThrow('Invalid response from server');
+      });
+
+      test('handles malformed JSON on error response', async () => {
+        fetch.mockResolvedValue({
+          ok: false,
+          text: () => Promise.resolve('not json')
+        });
+
+        await expect(api.loginUser('test@vanderbilt.edu', 'pass')).rejects
+          .toThrow('Server error: Unable to parse response');
+      });
+
+      test('translates connection issues for login', async () => {
+        const networkError = new Error('Failed to fetch');
+        networkError.name = 'TypeError';
+        fetch.mockRejectedValue(networkError);
+
+        await expect(api.loginUser('test@vanderbilt.edu', 'pass')).rejects
+          .toThrow('Unable to connect to server. Please make sure the backend is running.');
       });
     });
   
@@ -416,6 +510,16 @@ jest.mock('../RecommendationEngine', () => ({
       test('handles network errors', async () => {
         fetch.mockRejectedValue(new Error('Network error'));
         await expect(api.getUserProfile()).rejects.toThrow('Network error');
+      });
+
+      test('handles non-auth related failures', async () => {
+        fetch.mockResolvedValue({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ error: 'Internal error' })
+        });
+
+        await expect(api.getUserProfile()).rejects.toThrow('Internal error');
       });
     });
   
@@ -500,6 +604,17 @@ jest.mock('../RecommendationEngine', () => ({
         fetch.mockRejectedValue(new Error('Network error'));
         await expect(api.savePlannedClassesToDB([])).rejects.toThrow('Network error');
       });
+
+      test('throws descriptive error for unexpected failure', async () => {
+        fetch.mockResolvedValue({
+          ok: false,
+          status: 500,
+          statusText: 'Internal Server Error'
+        });
+
+        await expect(api.savePlannedClassesToDB([]))
+          .rejects.toThrow('Failed to save planned classes: Internal Server Error');
+      });
     });
   
     describe('getCourseRecommendations', () => {
@@ -575,9 +690,206 @@ jest.mock('../RecommendationEngine', () => ({
         
         expect(result).toEqual(mockClasses);
       });
+
+      test('handles taken courses fetch failures gracefully', async () => {
+        fetch.mockReset();
+        const classSection = {
+          sectionId: 'CS1101-001',
+          abbreviation: 'CS 1101',
+          courseName: 'Programming',
+          subject: 'CS',
+          sectionType: 'LEC',
+          schedule: 'MWF;10:00a-11:00a',
+          instructors: ['Smith, John']
+        };
+
+        fetch
+          .mockRejectedValueOnce(new Error('fail courses'))
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve([classSection])
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ categories: [] })
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({})
+          });
+
+        const { generateRecommendations } = require('../RecommendationEngine');
+        generateRecommendations.mockReturnValue([]);
+
+        const result = await api.getCourseRecommendations(
+          { planType: 'single_semester' },
+          'CS',
+          'test@vanderbilt.edu',
+          []
+        );
+
+        expect(result).toEqual([]);
+      });
+
+      test('logs and continues when degree requirements fetch fails unexpectedly', async () => {
+        fetch.mockReset();
+        const classSection = {
+          sectionId: 'CS1101-001',
+          abbreviation: 'CS 1101',
+          courseName: 'Programming',
+          subject: 'CS',
+          sectionType: 'LEC',
+          schedule: 'MWF;10:00a-11:00a',
+          instructors: ['Smith, John']
+        };
+
+        fetch
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve([classSection])
+          })
+          .mockResolvedValueOnce({
+            ok: false,
+            status: 500,
+            statusText: 'Server Error'
+          });
+
+        const { generateRecommendations } = require('../RecommendationEngine');
+        generateRecommendations.mockReturnValue([]);
+
+        const result = await api.getCourseRecommendations({ planType: 'single_semester' }, 'CS', null, []);
+        expect(result).toEqual([]);
+        expect(console.warn).toHaveBeenCalledWith(
+          '⚠️ Error loading degree requirements:',
+          'Failed to fetch degree requirements: Server Error'
+        );
+      });
+
+      test('continues when degree requirements fetch rejects', async () => {
+        fetch.mockReset();
+        const classSection = {
+          sectionId: 'CS1101-001',
+          abbreviation: 'CS 1101',
+          courseName: 'Programming',
+          subject: 'CS',
+          sectionType: 'LEC',
+          schedule: 'MWF;10:00a-11:00a',
+          instructors: ['Smith, John']
+        };
+
+        const { generateRecommendations } = require('../RecommendationEngine');
+        generateRecommendations.mockReturnValue([{ code: 'CS 1101' }]);
+
+        fetch
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve([classSection])
+          })
+          .mockRejectedValueOnce(new Error('degree network fail'))
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({})
+          });
+
+        const result = await api.getCourseRecommendations({ planType: 'single_semester' }, 'CS', null, []);
+        expect(result).toEqual([{ code: 'CS 1101' }]);
+      });
+
+      test('continues when prerequisite fetch fails', async () => {
+        fetch.mockReset();
+        const classSection = {
+          sectionId: 'CS1101-001',
+          abbreviation: 'CS 1101',
+          courseName: 'Programming',
+          subject: 'CS',
+          sectionType: 'LEC',
+          schedule: 'MWF;10:00a-11:00a',
+          instructors: ['Smith, John']
+        };
+
+        const { generateRecommendations } = require('../RecommendationEngine');
+        generateRecommendations.mockReturnValue([{ code: 'CS 1101' }]);
+
+        fetch
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve([classSection])
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ categories: [] })
+          })
+          .mockRejectedValueOnce(new Error('prereq fail'));
+
+        const result = await api.getCourseRecommendations({ planType: 'single_semester' }, 'CS', null, []);
+        expect(result).toEqual([{ code: 'CS 1101' }]);
+      });
+
+      test('enhances four year plans and handles GPT failures per semester', async () => {
+        fetch.mockReset();
+        const classSection = {
+          sectionId: 'CS1101-001',
+          abbreviation: 'CS 1101',
+          courseName: 'Programming',
+          subject: 'CS',
+          sectionType: 'LEC',
+          schedule: 'MWF;10:00a-11:00a',
+          instructors: ['Smith, John']
+        };
+
+        fetch
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve([classSection])
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ categories: [] })
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({})
+          });
+
+        const { generateFourYearPlan } = require('../RecommendationEngineFourYear');
+        const { enhanceWithGPT } = require('../RecommendationEngine');
+
+        generateFourYearPlan.mockReturnValue({
+          semesters: [
+            { name: 'Fall 2025', courses: [{ code: 'CS 1101' }] },
+            { name: 'Spring 2026', courses: [{ code: 'FAIL' }] },
+            { name: 'Summer 2026', courses: [] }
+          ]
+        });
+
+        enhanceWithGPT.mockImplementation(async (courses) => {
+          if (courses[0].code === 'FAIL') {
+            throw new Error('GPT fail');
+          }
+          return courses.map(course => ({ ...course, enhanced: true }));
+        });
+
+        const originalSetTimeout = global.setTimeout;
+        global.setTimeout = jest.fn((callback) => {
+          callback();
+          return 0;
+        });
+
+        const result = await api.getCourseRecommendations({ planType: 'four_year' }, 'CS', null, []);
+
+        expect(result.semesters[0].courses[0]).toMatchObject({ code: 'CS 1101', enhanced: true });
+        expect(result.semesters[1].courses[0]).toMatchObject({ code: 'FAIL' });
+
+        global.setTimeout = originalSetTimeout;
+        enhanceWithGPT.mockImplementation((recs) => Promise.resolve(recs));
+      });
     });
   
     describe('Prerequisite Functions', () => {
+      beforeEach(() => {
+        fetch.mockReset();
+      });
+
       test('fetchCoursePrerequisites returns data', async () => {
         fetch.mockResolvedValue({
           ok: true,
@@ -586,6 +898,21 @@ jest.mock('../RecommendationEngine', () => ({
   
         const result = await api.fetchCoursePrerequisites('CS 2201');
         expect(result.courseCode).toBe('CS 2201');
+      });
+
+      test('fetchCoursePrerequisites throws on failure status', async () => {
+        fetch.mockResolvedValue({
+          ok: false,
+          statusText: 'Server Error'
+        });
+
+        await expect(api.fetchCoursePrerequisites('CS 2201'))
+          .rejects.toThrow('Failed to fetch prerequisites: Server Error');
+      });
+
+      test('fetchCoursePrerequisites rethrows network errors', async () => {
+        fetch.mockRejectedValue(new Error('Network error'));
+        await expect(api.fetchCoursePrerequisites('CS 2201')).rejects.toThrow('Network error');
       });
   
       test('fetchBatchPrerequisites returns map', async () => {
@@ -597,6 +924,20 @@ jest.mock('../RecommendationEngine', () => ({
         const result = await api.fetchBatchPrerequisites(['CS 2201']);
         expect(result['CS 2201']).toBeTruthy();
       });
+
+      test('fetchBatchPrerequisites returns empty map on failure status', async () => {
+        fetch.mockResolvedValue({
+          ok: false,
+          statusText: 'Bad Request'
+        });
+
+        const result = await api.fetchBatchPrerequisites(['CS 2201']);
+        expect(result).toEqual({});
+        expect(console.error).toHaveBeenCalledWith(
+          'Error fetching batch prerequisites:',
+          expect.objectContaining({ message: 'Failed to fetch batch prerequisites: Bad Request' })
+        );
+      });
   
       test('fetchBatchPrerequisites handles network error gracefully', async () => {
         fetch.mockRejectedValue(new Error('Network error'));
@@ -605,6 +946,11 @@ jest.mock('../RecommendationEngine', () => ({
       });
   
       test('fetchBatchPrerequisites handles empty course codes', async () => {
+        fetch.mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({})
+        });
+
         const result = await api.fetchBatchPrerequisites([]);
         expect(result).toEqual({});
       });
@@ -662,6 +1008,45 @@ jest.mock('../RecommendationEngine', () => ({
         await expect(api.removeFromSemesterPlanner('CS1101')).rejects.toThrow('Network error');
         await expect(api.updateClassInPlanner('CS1101', {})).rejects.toThrow('Network error');
       });
+
+      test('semester planner functions handle 401 responses', async () => {
+        fetch
+          .mockResolvedValueOnce({ ok: false, status: 401, json: () => Promise.resolve({ error: 'Unauthorized' }) })
+          .mockResolvedValueOnce({ ok: false, status: 401, json: () => Promise.resolve({ error: 'Unauthorized' }) })
+          .mockResolvedValueOnce({ ok: false, status: 401, json: () => Promise.resolve({ error: 'Unauthorized' }) })
+          .mockResolvedValueOnce({ ok: false, status: 401, json: () => Promise.resolve({ error: 'Unauthorized' }) });
+
+        await expect(api.saveSemesterPlanner('Fall 2025', [])).rejects.toThrow('Session expired');
+        expect(localStorage.getItem('authToken')).toBeNull();
+
+        localStorage.setItem('authToken', 'test-token');
+        await expect(api.loadSemesterPlanner()).rejects.toThrow('Session expired');
+
+        localStorage.setItem('authToken', 'test-token');
+        await expect(api.removeFromSemesterPlanner('CS1101')).rejects.toThrow('Session expired');
+
+        localStorage.setItem('authToken', 'test-token');
+        await expect(api.updateClassInPlanner('CS1101', {})).rejects.toThrow('Session expired');
+      });
+
+      test('semester planner functions handle unexpected failures', async () => {
+        fetch
+          .mockResolvedValueOnce({ ok: false, status: 500, json: () => Promise.resolve({ error: 'Boom' }) })
+          .mockResolvedValueOnce({ ok: false, status: 500, json: () => Promise.resolve({ error: 'Boom' }) })
+          .mockResolvedValueOnce({ ok: false, status: 500, json: () => Promise.resolve({ error: 'Boom' }) })
+          .mockResolvedValueOnce({ ok: false, status: 500, json: () => Promise.resolve({ error: 'Boom' }) });
+
+        await expect(api.saveSemesterPlanner('Fall 2025', [])).rejects.toThrow('Boom');
+
+        localStorage.setItem('authToken', 'test-token');
+        await expect(api.loadSemesterPlanner()).rejects.toThrow('Boom');
+
+        localStorage.setItem('authToken', 'test-token');
+        await expect(api.removeFromSemesterPlanner('CS1101')).rejects.toThrow('Boom');
+
+        localStorage.setItem('authToken', 'test-token');
+        await expect(api.updateClassInPlanner('CS1101', {})).rejects.toThrow('Boom');
+      });
     });
   
     describe('Other API Functions', () => {
@@ -707,6 +1092,172 @@ jest.mock('../RecommendationEngine', () => ({
   
         const result = await api.updateUserProfile({ major: 'Math' });
         expect(result.major).toBe('Math');
+      });
+
+      test('updateUserProfile handles 401 responses', async () => {
+        fetch.mockResolvedValue({
+          ok: false,
+          status: 401,
+          text: () => Promise.resolve(JSON.stringify({ error: 'Unauthorized' }))
+        });
+
+        await expect(api.updateUserProfile({ major: 'Math' })).rejects.toThrow('Session expired');
+        expect(localStorage.getItem('authToken')).toBeNull();
+      });
+
+      test('updateUserProfile handles malformed error response', async () => {
+        fetch.mockResolvedValue({
+          ok: false,
+          status: 500,
+          text: () => Promise.resolve('oops')
+        });
+
+        await expect(api.updateUserProfile({ major: 'Math' }))
+          .rejects.toThrow('Server error: Unable to parse response');
+      });
+
+      test('updateUserProfile translates connection failures', async () => {
+        const networkError = new Error('Failed to fetch');
+        networkError.name = 'TypeError';
+        fetch.mockRejectedValue(networkError);
+
+        await expect(api.updateUserProfile({})).rejects
+          .toThrow('Unable to connect to server. Please make sure the backend is running.');
+      });
+
+      test('saveUserSchedule handles 401 responses', async () => {
+        fetch.mockResolvedValue({
+          ok: false,
+          status: 401,
+          json: () => Promise.resolve({ error: 'Unauthorized' })
+        });
+
+        await expect(api.saveUserSchedule('Fall', [])).rejects.toThrow('Session expired');
+        expect(localStorage.getItem('authToken')).toBeNull();
+      });
+
+      test('saveUserSchedule handles unexpected errors', async () => {
+        fetch.mockResolvedValue({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ error: 'Boom' })
+        });
+
+        await expect(api.saveUserSchedule('Fall', [])).rejects.toThrow('Boom');
+      });
+
+      test('getUserSchedules handles 401 responses', async () => {
+        fetch.mockResolvedValue({
+          ok: false,
+          status: 401,
+          json: () => Promise.resolve({ error: 'Unauthorized' })
+        });
+
+        await expect(api.getUserSchedules()).rejects.toThrow('Session expired');
+        expect(localStorage.getItem('authToken')).toBeNull();
+      });
+
+      test('getUserSchedules handles unexpected errors', async () => {
+        fetch.mockResolvedValue({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ error: 'Failure' })
+        });
+
+        await expect(api.getUserSchedules()).rejects.toThrow('Failure');
+      });
+
+      test('savePastCoursesToDB handles 401 responses', async () => {
+        fetch.mockResolvedValue({
+          ok: false,
+          status: 401,
+          json: () => Promise.resolve({ error: 'Unauthorized' })
+        });
+
+        await expect(api.savePastCoursesToDB([])).rejects.toThrow('Session expired');
+        expect(localStorage.getItem('authToken')).toBeNull();
+      });
+
+      test('savePastCoursesToDB handles unexpected errors', async () => {
+        fetch.mockResolvedValue({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ error: 'Failure' })
+        });
+
+        await expect(api.savePastCoursesToDB([])).rejects.toThrow('Failure');
+      });
+
+      test('saveUserSchedule handles network errors', async () => {
+        fetch.mockRejectedValue(new Error('Network error'));
+        await expect(api.saveUserSchedule('Fall', [])).rejects.toThrow('Network error');
+      });
+
+      test('getUserSchedules handles network errors', async () => {
+        fetch.mockRejectedValue(new Error('Network error'));
+        await expect(api.getUserSchedules()).rejects.toThrow('Network error');
+      });
+
+      test('savePastCoursesToDB handles network errors', async () => {
+        fetch.mockRejectedValue(new Error('Network error'));
+        await expect(api.savePastCoursesToDB([])).rejects.toThrow('Network error');
+      });
+    });
+
+    describe('Internal helper utilities', () => {
+      const { identifyNeededCoursesHelper, formatReasons } = api.__testExports;
+
+      test('identifyNeededCoursesHelper marks unmet required courses', () => {
+        const degreeData = {
+          categories: [
+            {
+              availableClasses: [
+                { code: 'CS 1101', required: true },
+                { code: 'CS 1200', required: false }
+              ]
+            }
+          ]
+        };
+
+        const takenCourses = [{ courseCode: 'CS 2201' }];
+        const plannedClasses = [{ code: 'CS 1200' }];
+
+        const needed = identifyNeededCoursesHelper(degreeData, takenCourses, plannedClasses);
+
+        expect(needed.codes.has('CS 1101')).toBe(true);
+        expect(needed.codes.has('CS 1200')).toBe(false);
+        expect(needed.priorities['CS 1101']).toBe(3);
+      });
+
+      test('formatReasons builds contextual messaging', () => {
+        const needed = {
+          codes: new Set(['CS 1101']),
+          priorities: { 'CS 1101': 3 }
+        };
+
+        const reasons = formatReasons(
+          {
+            code: 'CS 1101',
+            rmpData: { 'Prof X': { quality: 4.6 } },
+            schedule: { days: ['Monday', 'Wednesday'] }
+          },
+          needed
+        );
+
+        expect(reasons).toEqual([
+          'Required for degree',
+          'Highly rated (4.6/5.0)',
+          'Meets Monday/Wednesday'
+        ]);
+      });
+
+      test('formatReasons omits when course is not needed', () => {
+        const reasons = formatReasons(
+          { code: 'CS 2201', rmpData: {}, schedule: null },
+          { codes: new Set(), priorities: {} }
+        );
+
+        expect(reasons).toEqual([]);
       });
     });
   });
