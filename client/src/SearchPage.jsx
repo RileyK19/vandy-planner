@@ -448,6 +448,28 @@ const SearchPage = ({
     return true;
   });
 
+  const sortedClasses = [...filteredClasses].sort((a, b) => {
+    // Extract department and number from code (e.g., "CS 1101" -> dept: "CS", num: 1101)
+    const parseCode = (code) => {
+      const match = code.match(/^([A-Z]+)\s*(\d+)/i);
+      if (match) {
+        return { dept: match[1].toUpperCase(), num: parseInt(match[2]) };
+      }
+      return { dept: code, num: 0 };
+    };
+    
+    const aCode = parseCode(a.code);
+    const bCode = parseCode(b.code);
+    
+    // First sort by department
+    if (aCode.dept !== bCode.dept) {
+      return aCode.dept.localeCompare(bCode.dept);
+    }
+    
+    // Then sort by number
+    return aCode.num - bCode.num;
+  });
+
   const handleAddToSemester = (semester, classItem) => {
     onAddToSemester(semester.label, classItem);
     setShowSemesterSelector(null);
@@ -527,12 +549,12 @@ const SearchPage = ({
       </div>
 
       <div style={{ margin: '10px 0', fontSize: '14px', color: '#666' }}>
-        Showing {filteredClasses.length} of {allClasses.length} classes
+        Showing {sortedClasses.length} of {allClasses.length} classes
       </div>
 
       <ul className="class-list">
-        {filteredClasses.length === 0 && <li>No classes found.</li>}
-        {filteredClasses.map((cls) => (
+        {sortedClasses.length === 0 && <li>No classes found.</li>}
+        {sortedClasses.map((cls) => (
           <li key={`${cls.id}-${cls.sectionNumber}-${cls.term}`} className="class-item">
             <div
               onClick={() => setInfoClass(cls)}
