@@ -221,9 +221,9 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
                 <label htmlFor="term">Course Name *</label>
                 <input
                   type="text"
-                  id="term"
-                  value={newCourse.term}
-                  onChange={(e) => setNewCourse(prev => ({ ...prev, term: e.target.value }))}
+                  id="name"
+                  value={newCourse.name}
+                  onChange={(e) => setNewCourse(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="e.g., Programming and Problem Solving"
                   className={localErrors.course ? 'error' : ''}
                 />
