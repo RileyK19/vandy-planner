@@ -37,6 +37,14 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showInfoModal, setShowInfoModal] = useState(false)
 
+  const [toast, setToast] = useState(null);
+
+  // Create a helper function to show toast
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   // Check for existing authentication on mount and load user data
   useEffect(() => {
     const checkAuth = async () => {
@@ -219,8 +227,9 @@ function App() {
     })
     
     if (hasConflict) {
-      const confirmed = window.confirm('This class conflicts with another class in your planner. Add anyway?')
-      if (!confirmed) return
+      showToast('This class conflicts with another class in your planner!', 'warning');
+    } else {
+      showToast('Class added successfully!', 'success');
     }
 
     setPlannedClasses(prev => [...prev, classItem])
@@ -608,6 +617,23 @@ function App() {
               {usingMockData ? ' (Currently using sample data)' : ' (Connected to database)'}
             </p>
           </Modal>
+        )}
+        {toast && (
+          <div style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: toast.type === 'error' ? '#ff4444' : 
+                            toast.type === 'warning' ? '#ff9800' : '#4CAF50',
+            color: 'white',
+            padding: '15px 20px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 10000
+          }}>
+            {toast.message}
+          </div>
         )}
       </div>
     </>
