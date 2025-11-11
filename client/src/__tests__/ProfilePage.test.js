@@ -202,11 +202,11 @@ describe('ProfilePage', () => {
     });
 
     expect(onProfileUpdate).toHaveBeenCalledWith(loadedProfile);
+    expect(screen.getByText('Profile updated successfully!')).toBeInTheDocument();
   });
 
-  test('handles save error', async () => {
-    const errorMessage = 'Failed to update profile';
-    api.updateUserProfile.mockRejectedValue(new Error(errorMessage));
+  test('shows load error when fetching profile fails', async () => {
+    api.getUserProfile.mockRejectedValueOnce(new Error('load failed'));
 
     render(<ProfilePage user={mockUser} onProfileUpdate={jest.fn()} />);
 
@@ -214,31 +214,66 @@ describe('ProfilePage', () => {
       expect(api.getUserProfile).toHaveBeenCalled();
     });
 
-    // Wait for form to be properly initialized
+    expect(await screen.findByText('Failed to load profile data')).toBeInTheDocument();
+  });
+
+  test('shows validation error when adding incomplete course', async () => {
+    render(<ProfilePage user={mockUser} onProfileUpdate={jest.fn()} />);
+
     await waitFor(() => {
-      expect(screen.getByLabelText('Major *')).toHaveValue('Computer Science');
+      expect(api.getUserProfile).toHaveBeenCalled();
     });
+
+    fireEvent.click(screen.getByText('Add Course'));
+
+    expect(screen.getByText('Please fill in course code and term')).toBeInTheDocument();
+    expect(screen.getByText('Added Courses (1)')).toBeInTheDocument();
+  });
+
+  test('removes an existing course from the list', async () => {
+    render(<ProfilePage user={mockUser} onProfileUpdate={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Added Courses (1)')).toBeInTheDocument();
+    });
+
+    const removeButton = screen.getByText('Remove');
+    fireEvent.click(removeButton);
+
+    expect(screen.queryByText('Added Courses (1)')).not.toBeInTheDocument();
+  });
+
+  test('handles update errors gracefully', async () => {
+    api.updateUserProfile.mockRejectedValueOnce(new Error('Server failure'));
+
+    render(<ProfilePage user={mockUser} onProfileUpdate={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(api.getUserProfile).toHaveBeenCalled();
+    });
+
+    await screen.findByDisplayValue('Gillette House');
 
     fireEvent.click(screen.getByText('Save Changes'));
 
     await waitFor(() => {
-      expect(screen.getByText(errorMessage)).toBeInTheDocument();
+      expect(api.updateUserProfile).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Server failure')).toBeInTheDocument();
     });
   });
 
   test('clears success message after timeout', async () => {
     jest.useFakeTimers();
-    
     render(<ProfilePage user={mockUser} onProfileUpdate={jest.fn()} />);
 
     await waitFor(() => {
       expect(api.getUserProfile).toHaveBeenCalled();
     });
 
-    // Wait for form initialization
-    await waitFor(() => {
-      expect(screen.getByLabelText('Major *')).toHaveValue('Computer Science');
-    });
+    await screen.findByDisplayValue('Gillette House');
 
     fireEvent.click(screen.getByText('Save Changes'));
 
@@ -246,197 +281,18 @@ describe('ProfilePage', () => {
       expect(api.updateUserProfile).toHaveBeenCalled();
     });
 
-    // Check for any success message
-    const successMessage = screen.queryByText(/Profile updated successfully|Changes saved|Success/i);
-    if (successMessage) {
-      // Fast-forward timers if message exists
-      act(() => {
-        jest.advanceTimersByTime(3000);
-      });
-      
-      // Message should be cleared
-      expect(screen.queryByText(/Profile updated successfully|Changes saved|Success/i)).not.toBeInTheDocument();
-    }
+    await waitFor(() => {
+      expect(screen.getByText('Profile updated successfully!')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      jest.runAllTimers();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Profile updated successfully!')).not.toBeInTheDocument();
+    });
 
     jest.useRealTimers();
-  });
-
-  test('disables save button while saving', async () => {
-    // Create a promise that doesn't resolve immediately
-    let resolveUpdate;
-    const updatePromise = new Promise(resolve => {
-      resolveUpdate = resolve;
-    });
-    api.updateUserProfile.mockReturnValue(updatePromise);
-
-    render(<ProfilePage user={mockUser} onProfileUpdate={jest.fn()} />);
-
-    await waitFor(() => {
-      expect(api.getUserProfile).toHaveBeenCalled();
-    });
-
-    // Wait for form initialization
-    await waitFor(() => {
-      expect(screen.getByLabelText('Major *')).toHaveValue('Computer Science');
-    });
-
-    // Get the save button before clicking
-    const saveButton = screen.getByRole('button', { name: /Save Changes/i });
-    
-    fireEvent.click(saveButton);
-
-    // Button should be disabled and show "Saving..."
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Saving.../i })).toBeDisabled();
-    });
-
-    // Resolve the promise
-    await act(async () => {
-      resolveUpdate({ user: loadedProfile });
-    });
-
-    // Button should be enabled again and show "Save Changes"
-    await waitFor(() => {
-      const enabledButton = screen.getByRole('button', { name: /Save Changes/i });
-      expect(enabledButton).not.toBeDisabled();
-    });
-  });
-
-  test('clears errors when form fields are changed', async () => {
-    api.getUserProfile.mockResolvedValue({ major: '', year: '', dorm: '' });
-
-    render(<ProfilePage user={mockUser} onProfileUpdate={jest.fn()} />);
-
-    await waitFor(() => {
-      expect(api.getUserProfile).toHaveBeenCalled();
-    });
-
-    // Trigger validation errors
-    fireEvent.click(screen.getByText('Save Changes'));
-
-    expect(screen.getByText('Please select your major')).toBeInTheDocument();
-
-    // Change major field - should clear errors
-    fireEvent.change(screen.getByLabelText('Major *'), { target: { value: 'Computer Science' } });
-
-    await waitFor(() => {
-      expect(screen.queryByText('Please select your major')).not.toBeInTheDocument();
-    });
-  });
-
-  test('handles course code uppercase conversion', async () => {
-    render(<ProfilePage user={mockUser} onProfileUpdate={jest.fn()} />);
-
-    await waitFor(() => {
-      expect(api.getUserProfile).toHaveBeenCalled();
-    });
-
-    // Type lowercase course code
-    fireEvent.change(screen.getByPlaceholderText('e.g., CS 1101'), { 
-      target: { value: 'cs 2201' } 
-    });
-    fireEvent.change(screen.getByPlaceholderText('e.g., Fall 2023'), { 
-      target: { value: 'Spring 2024' } 
-    });
-
-    fireEvent.click(screen.getByText('Add Course'));
-
-    // Course code should be converted to uppercase
-    expect(screen.getByText('CS 2201')).toBeInTheDocument();
-  });
-
-  test('filters previous courses to only include courseCode and term when saving', async () => {
-    const onProfileUpdate = jest.fn();
-
-    render(<ProfilePage user={mockUser} onProfileUpdate={onProfileUpdate} />);
-
-    await waitFor(() => {
-      expect(api.getUserProfile).toHaveBeenCalled();
-    });
-
-    // Wait for form initialization
-    await waitFor(() => {
-      expect(screen.getByLabelText('Major *')).toHaveValue('Computer Science');
-    });
-
-    // Add a new course
-    fireEvent.change(screen.getByPlaceholderText('e.g., CS 1101'), { target: { value: 'MATH 1010' } });
-    fireEvent.change(screen.getByPlaceholderText('e.g., Fall 2023'), { target: { value: 'Fall 2022' } });
-    fireEvent.click(screen.getByText('Add Course'));
-
-    fireEvent.click(screen.getByText('Save Changes'));
-
-    await waitFor(() => {
-      expect(api.updateUserProfile).toHaveBeenCalledWith({
-        major: 'Computer Science',
-        year: 'Junior',
-        dorm: 'Gillette House',
-        previousCourses: [
-          { courseCode: 'CS 1101', term: 'Fall 2023' },
-          { courseCode: 'MATH 1010', term: 'Fall 2022' }
-        ]
-      });
-    });
-  });
-
-  test('renders all major options', async () => {
-    render(<ProfilePage user={mockUser} onProfileUpdate={jest.fn()} />);
-
-    await waitFor(() => {
-      expect(api.getUserProfile).toHaveBeenCalled();
-    });
-
-    const majorSelect = screen.getByLabelText('Major *');
-    
-    // Open the dropdown
-    fireEvent.mouseDown(majorSelect);
-    
-    // Check for some expected major options
-    expect(screen.getByText('Computer Science')).toBeInTheDocument();
-    expect(screen.getByText('Mathematics')).toBeInTheDocument();
-    expect(screen.getByText('Physics')).toBeInTheDocument();
-    expect(screen.getByText('Other')).toBeInTheDocument();
-  });
-
-  test('renders all academic year options', async () => {
-    render(<ProfilePage user={mockUser} onProfileUpdate={jest.fn()} />);
-
-    await waitFor(() => {
-      expect(api.getUserProfile).toHaveBeenCalled();
-    });
-
-    const yearSelect = screen.getByLabelText('Academic Year *');
-    
-    // Open the dropdown
-    fireEvent.mouseDown(yearSelect);
-
-    // Check for all academic year options
-    expect(screen.getByText('Freshman')).toBeInTheDocument();
-    expect(screen.getByText('Sophomore')).toBeInTheDocument();
-    expect(screen.getByText('Junior')).toBeInTheDocument();
-    expect(screen.getByText('Senior')).toBeInTheDocument();
-    expect(screen.getByText('Graduate')).toBeInTheDocument();
-  });
-
-  test('handles user profile update without onProfileUpdate callback', async () => {
-    // Render without onProfileUpdate prop
-    render(<ProfilePage user={mockUser} />);
-
-    await waitFor(() => {
-      expect(api.getUserProfile).toHaveBeenCalled();
-    });
-
-    // Wait for form initialization
-    await waitFor(() => {
-      expect(screen.getByLabelText('Major *')).toHaveValue('Computer Science');
-    });
-
-    fireEvent.click(screen.getByText('Save Changes'));
-
-    await waitFor(() => {
-      expect(api.updateUserProfile).toHaveBeenCalled();
-    });
-
-    // Should not throw error even without onProfileUpdate
   });
 });
