@@ -234,7 +234,9 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan }) {
                   )}
                 </span>
                 <button 
-                  onClick={() => onRemoveClass(cls.id)}
+                  onClick={() => {
+                    onRemoveClass(cls.courseId);
+                  }}
                   style={{ 
                     backgroundColor: '#ff4444', 
                     color: 'white', 

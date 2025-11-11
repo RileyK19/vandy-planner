@@ -236,7 +236,7 @@ function App() {
   }
 
   const removeFromPlanner = (classId) => {
-    setPlannedClasses(prev => prev.filter(cls => cls.id !== classId))
+    setPlannedClasses(prev => prev.filter(cls => cls.courseId !== classId))
   }
 
   const addToSemester = (semester, classItem) => {
