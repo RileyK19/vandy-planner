@@ -9,6 +9,7 @@ export const registerUser = jest.fn();
 export const fetchDegreeRequirements = jest.fn();
 export const fetchUserTakenCourses = jest.fn();
 export const saveSemesterPlanner = jest.fn();
+export const loadSemesterPlanner = jest.fn();
 export const updateUserProfile = jest.fn();
 export const getClassAverageRatings = jest.fn(() => ({ hasData: false }));
 export const formatRating = jest.fn(() => ({ value: 'N/A', color: '#000' }));
