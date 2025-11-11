@@ -15,10 +15,10 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, yea
     let yearAdj = 0
     
     switch (year) {
-      case 'Freshman': yearAdj=0
-      case 'Sophomore': yearAdj=1
-      case 'Junior': yearAdj=2
-      case 'Senior': yearAdj=3
+      case 'Freshman': yearAdj=0; break;
+      case 'Sophomore': yearAdj=1; break;
+      case 'Junior': yearAdj=2; break;
+      case 'Senior': yearAdj=3; break;
     }
     startYear = startYear - yearAdj
 
