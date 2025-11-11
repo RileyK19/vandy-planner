@@ -58,6 +58,10 @@ const SearchPage = ({
   const [filterSearch, setFilterSearch] = useState({});
   const [degreeRequirements, setDegreeRequirements] = useState(null);
   const [courseCategoryMap, setCourseCategoryMap] = useState({});
+  
+  // New state for grouping
+  const [expandedGroups, setExpandedGroups] = useState({});
+  const [selectedSections, setSelectedSections] = useState({});
 
   // Function to check if two courses have a time conflict
   const checkTimeConflict = (course1, course2) => {
@@ -395,80 +399,148 @@ const SearchPage = ({
     );
   };
 
-  const filteredClasses = allClasses.filter((cls) => {
-    const searchMatch =
-      cls.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cls.name.toLowerCase().includes(searchTerm.toLowerCase());
-    if (!searchMatch) return false;
-
-    for (const key of filterableKeys) {
-      const selectedValues = selectedFilters[key];
-      if (!selectedValues || selectedValues.size === 0) continue;
-
-      if (key === 'degreeCategory') {
-        // Special handling for degree category - check if course belongs to selected categories
-        const courseCategories = getCourseCategories(cls);
-        if (courseCategories.length === 0 || !courseCategories.some((cat) => selectedValues.has(cat))) {
-          return false;
-        }
-      } else if (key === 'schedule') {
-        // Special handling for schedule - check time frame
-        if (!cls.schedule || !cls.schedule.startTime || !cls.schedule.endTime) {
-          return false;
-        }
-        const timeFrame = getTimeFrame(cls.schedule.startTime, cls.schedule.endTime);
-        if (!timeFrame || !selectedValues.has(timeFrame)) {
-          return false;
-        }
-      } else if (key === 'days') {
-        // Special handling for days - check if class meets on any selected day
-        if (!cls.schedule || !cls.schedule.days) {
-          return false;
-        }
-        const clsDays = Array.isArray(cls.schedule.days) ? cls.schedule.days : [cls.schedule.days];
-        if (!clsDays.some((day) => selectedValues.has(day))) {
-          return false;
-        }
-      } else if (key === 'professors') {
-        // Handle professors array
-        const clsProfessors = Array.isArray(cls.professors) ? cls.professors : (cls.professors ? [cls.professors] : []);
-        if (!clsProfessors.some((prof) => selectedValues.has(prof))) {
-          return false;
-        }
-      } else {
-        // Handle other fields normally
-      const clsVal = cls[key];
-      if (Array.isArray(clsVal)) {
-        if (!clsVal.some((v) => selectedValues.has(v))) return false;
-      } else {
-        if (!selectedValues.has(clsVal)) return false;
-        }
+  // Group classes by course code
+  const groupedClasses = useMemo(() => {
+    const groups = {};
+    
+    allClasses.forEach(cls => {
+      // Extract base course code (e.g., "CS 1101" from "CS 1101-001")
+      const baseCode = cls.code.split('-')[0].trim();
+      
+      if (!groups[baseCode]) {
+        groups[baseCode] = {
+          baseCode: baseCode,
+          name: cls.name, // Use the name from first occurrence
+          subject: cls.subject,
+          allSections: [],
+          hasMultipleSections: false
+        };
       }
-    }
-    return true;
-  });
+      
+      groups[baseCode].allSections.push(cls);
+    });
+    
+    // Mark groups that have multiple sections and sort sections
+    Object.values(groups).forEach(group => {
+      group.hasMultipleSections = group.allSections.length > 1;
+      group.allSections.sort((a, b) => {
+        // Sort by section number if available
+        if (a.sectionNumber && b.sectionNumber) {
+          return a.sectionNumber.localeCompare(b.sectionNumber);
+        }
+        return 0;
+      });
+    });
+    
+    return groups;
+  }, [allClasses]);
 
-  const sortedClasses = [...filteredClasses].sort((a, b) => {
-    // Extract department and number from code (e.g., "CS 1101" -> dept: "CS", num: 1101)
-    const parseCode = (code) => {
-      const match = code.match(/^([A-Z]+)\s*(\d+)/i);
-      if (match) {
-        return { dept: match[1].toUpperCase(), num: parseInt(match[2]) };
+  // Toggle expansion of a course group
+  const toggleGroupExpansion = (baseCode) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [baseCode]: !prev[baseCode]
+    }));
+  };
+
+  // Select a specific section for a course
+  const selectSection = (baseCode, section) => {
+    setSelectedSections(prev => ({
+      ...prev,
+      [baseCode]: section
+    }));
+  };
+
+  // Get the currently selected section for a course group
+  const getSelectedSection = (baseCode) => {
+    return selectedSections[baseCode] || groupedClasses[baseCode]?.allSections[0];
+  };
+
+  // Filter grouped classes based on search and filters
+  const filteredGroupedClasses = useMemo(() => {
+    const filteredGroups = {};
+    
+    Object.entries(groupedClasses).forEach(([baseCode, group]) => {
+      const searchMatch =
+        baseCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        group.name.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      if (!searchMatch) return;
+      
+      // Check if any section in the group matches the filters
+      const hasMatchingSection = group.allSections.some(cls => {
+        for (const key of filterableKeys) {
+          const selectedValues = selectedFilters[key];
+          if (!selectedValues || selectedValues.size === 0) continue;
+
+          if (key === 'degreeCategory') {
+            const courseCategories = getCourseCategories(cls);
+            if (courseCategories.length === 0 || !courseCategories.some((cat) => selectedValues.has(cat))) {
+              return false;
+            }
+          } else if (key === 'schedule') {
+            if (!cls.schedule || !cls.schedule.startTime || !cls.schedule.endTime) {
+              return false;
+            }
+            const timeFrame = getTimeFrame(cls.schedule.startTime, cls.schedule.endTime);
+            if (!timeFrame || !selectedValues.has(timeFrame)) {
+              return false;
+            }
+          } else if (key === 'days') {
+            if (!cls.schedule || !cls.schedule.days) {
+              return false;
+            }
+            const clsDays = Array.isArray(cls.schedule.days) ? cls.schedule.days : [cls.schedule.days];
+            if (!clsDays.some((day) => selectedValues.has(day))) {
+              return false;
+            }
+          } else if (key === 'professors') {
+            const clsProfessors = Array.isArray(cls.professors) ? cls.professors : (cls.professors ? [cls.professors] : []);
+            if (!clsProfessors.some((prof) => selectedValues.has(prof))) {
+              return false;
+            }
+          } else {
+            const clsVal = cls[key];
+            if (Array.isArray(clsVal)) {
+              if (!clsVal.some((v) => selectedValues.has(v))) return false;
+            } else {
+              if (!selectedValues.has(clsVal)) return false;
+            }
+          }
+        }
+        return true;
+      });
+      
+      if (hasMatchingSection) {
+        filteredGroups[baseCode] = group;
       }
-      return { dept: code, num: 0 };
-    };
+    });
     
-    const aCode = parseCode(a.code);
-    const bCode = parseCode(b.code);
-    
-    // First sort by department
-    if (aCode.dept !== bCode.dept) {
-      return aCode.dept.localeCompare(bCode.dept);
-    }
-    
-    // Then sort by number
-    return aCode.num - bCode.num;
-  });
+    return filteredGroups;
+  }, [groupedClasses, searchTerm, selectedFilters, filterableKeys]);
+
+  // Sort the filtered groups
+  const sortedGroupedClasses = useMemo(() => {
+    return Object.entries(filteredGroupedClasses)
+      .sort(([codeA, groupA], [codeB, groupB]) => {
+        const parseCode = (code) => {
+          const match = code.match(/^([A-Z]+)\s*(\d+)/i);
+          if (match) {
+            return { dept: match[1].toUpperCase(), num: parseInt(match[2]) };
+          }
+          return { dept: code, num: 0 };
+        };
+        
+        const aCode = parseCode(codeA);
+        const bCode = parseCode(codeB);
+        
+        if (aCode.dept !== bCode.dept) {
+          return aCode.dept.localeCompare(bCode.dept);
+        }
+        
+        return aCode.num - bCode.num;
+      });
+  }, [filteredGroupedClasses]);
 
   const handleAddToSemester = (semester, classItem) => {
     onAddToSemester(semester.label, classItem);
@@ -549,109 +621,212 @@ const SearchPage = ({
       </div>
 
       <div style={{ margin: '10px 0', fontSize: '14px', color: '#666' }}>
-        Showing {sortedClasses.length} of {allClasses.length} classes
+        Showing {Object.keys(filteredGroupedClasses).length} of {Object.keys(groupedClasses).length} courses
       </div>
 
       <ul className="class-list">
-        {sortedClasses.length === 0 && <li>No classes found.</li>}
-        {sortedClasses.map((cls) => (
-          <li key={`${cls.id}-${cls.sectionNumber}-${cls.term}`} className="class-item">
-            <div
-              onClick={() => setInfoClass(cls)}
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') setInfoClass(cls);
+        {sortedGroupedClasses.length === 0 && <li>No classes found.</li>}
+        {sortedGroupedClasses.map(([baseCode, group]) => {
+          const isExpanded = expandedGroups[baseCode];
+          const selectedSection = getSelectedSection(baseCode);
+          
+          return (
+            <li key={baseCode} className="class-item">
+              {/* Course Group Header */}
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                padding: '10px',
+                backgroundColor: '#f5f5f5',
+                borderRadius: '4px',
+                cursor: 'pointer'
               }}
-              aria-label={`Show details for ${cls.code}: ${cls.name}`}
-              style={{ cursor: 'pointer', flex: 1 }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <strong>{cls.code}</strong>: {cls.name}
-                {(() => {
-                  const conflicts = getConflictingCourses(cls);
-                  if (conflicts.length > 0) {
-                    return (
-                      <span
-                        style={{
-                          color: 'red',
-                          fontSize: '18px',
-                          cursor: 'pointer',
-                          position: 'relative'
-                        }}
-                        onMouseEnter={(e) => {
-                          setHoveredConflict({ course: cls, conflicts, x: e.clientX, y: e.clientY });
-                        }}
-                        onMouseMove={(e) => {
-                          if (hoveredConflict && hoveredConflict.course.id === cls.id) {
-                            setHoveredConflict({ course: cls, conflicts, x: e.clientX, y: e.clientY });
-                          }
-                        }}
-                        onMouseLeave={() => setHoveredConflict(null)}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        ⚠️
-                      </span>
-                    );
-                  }
-                  return null;
-                })()}
-              </div>
-              <span
-                className="class-status"
-                style={{ color: cls.active ? 'green' : 'red' }}
+              onClick={() => toggleGroupExpansion(baseCode)}
               >
-                ({cls.active ? 'Active' : 'Inactive'})
-              </span>
-              <div className="class-meta">
-                Prof: {cls.professors.join(', ')} | Term: {cls.term}
-                {cls.sectionNumber && ` | Section: ${cls.sectionNumber}`}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <strong>{baseCode}</strong>: {group.name}
+                  {group.hasMultipleSections && (
+                    <span style={{ fontSize: '12px', color: '#666' }}>
+                      ({group.allSections.length} sections) {isExpanded ? '▲' : '▼'}
+                    </span>
+                  )}
+                  {(() => {
+                    // Calculate average across all sections
+                    const allAverages = group.allSections.map(section => getClassAverageRatings(section));
+                    const validAverages = allAverages.filter(avg => avg?.hasData);
+                    
+                    if (validAverages.length === 0) return null;
+
+                    const avgQuality = validAverages.reduce((sum, avg) => sum + avg.avgQuality, 0) / validAverages.length;
+                    const avgDifficulty = validAverages.reduce((sum, avg) => sum + avg.avgDifficulty, 0) / validAverages.length;
+
+                    const quality = formatRating(avgQuality, 'quality');
+                    const difficulty = formatRating(avgDifficulty, 'difficulty');
+
+                    return (
+                        <div style={{ fontSize: '16px', color: '#666', marginLeft: '8px' }}>
+                            <span style={{ color: quality.color, padding: '5px' }}>Quality: {quality.value}</span>{' '}
+                            <span style={{ color: difficulty.color, padding: '5px' }}>Difficulty: {difficulty.value}</span>
+                        </div>
+                    );
+                  })()}
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddToPlanner(selectedSection);
+                    }}
+                    style={{
+                      backgroundColor: '#4CAF50',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                    }}
+                    disabled={plannedClasses.some(planned => planned.id === selectedSection.id)}
+                  >
+                    {plannedClasses.some(planned => planned.id === selectedSection.id) ? '✓ Added' : '+ Add'}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowSemesterSelector(selectedSection);
+                    }}
+                    style={{
+                      backgroundColor: '#2196F3',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    🎯 Long Term
+                  </button>
+                </div>
               </div>
-              {(() => {
-                const avg = getClassAverageRatings(cls);
-                if (!avg?.hasData) return null;
 
-                const quality = formatRating(avg.avgQuality, 'quality');
-                const difficulty = formatRating(avg.avgDifficulty, 'difficulty');
-
+              {/* Sections List (when expanded) */}
+              {isExpanded && group.allSections.map((section) => {
+                const isSelected = selectedSection.id === section.id;
+                const conflicts = getConflictingCourses(section);
+                
                 return (
-                  <div style={{ fontSize: '13px', marginTop: '4px' }}>
-                    <span style={{ color: quality.color }}>⭐ Quality: {quality.value}</span> |{' '}
-                    <span style={{ color: difficulty.color }}>💪 Difficulty: {difficulty.value}</span>
+                  <div
+                    key={`${section.id}-${section.sectionNumber}`}
+                    style={{
+                      padding: '10px',
+                      margin: '5px 0',
+                      border: `2px solid ${isSelected ? '#2196F3' : '#ddd'}`,
+                      borderRadius: '4px',
+                      backgroundColor: isSelected ? '#e3f2fd' : '#fff',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => selectSection(baseCode, section)}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <strong>Section {section.sectionNumber}</strong>
+                        {conflicts.length > 0 && (
+                          <span
+                            style={{
+                              color: 'red',
+                              fontSize: '18px',
+                              cursor: 'pointer',
+                              position: 'relative'
+                            }}
+                            onMouseEnter={(e) => {
+                              setHoveredConflict({ course: section, conflicts, x: e.clientX, y: e.clientY });
+                            }}
+                            onMouseMove={(e) => {
+                              if (hoveredConflict && hoveredConflict.course.id === section.id) {
+                                setHoveredConflict({ course: section, conflicts, x: e.clientX, y: e.clientY });
+                              }
+                            }}
+                            onMouseLeave={() => setHoveredConflict(null)}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            ⚠️
+                          </span>
+                        )}
+                      </div>
+                      {isSelected && <span style={{ color: '#2196F3', fontWeight: 'bold' }}>✓ Selected</span>}
+                    </div>
+                    
+                    <div className="class-meta">
+                      Prof: {section.professors.join(', ')} | Term: {section.term}
+                      {section.sectionType && ` | Type: ${section.sectionType}`}
+                    </div>
+                    
+                    {section.schedule && (
+                      <div style={{ fontSize: '13px', marginTop: '4px' }}>
+                        📅 {Array.isArray(section.schedule.days) ? section.schedule.days.join(', ') : section.schedule.days} 
+                        {' '}{section.schedule.startTime} - {section.schedule.endTime}
+                        {section.schedule.location && ` | ${section.schedule.location}`}
+                      </div>
+                    )}
+                    
+                    {(() => {
+                      const avg = getClassAverageRatings(section);
+                      if (!avg?.hasData) return null;
+
+                      const quality = formatRating(avg.avgQuality, 'quality');
+                      const difficulty = formatRating(avg.avgDifficulty, 'difficulty');
+
+                      return (
+                        <div style={{ fontSize: '13px', marginTop: '4px' }}>
+                          <span style={{ color: quality.color }}>⭐ Quality: {quality.value}</span> |{' '}
+                          <span style={{ color: difficulty.color }}>💪 Difficulty: {difficulty.value}</span>
+                        </div>
+                      );
+                    })()}
+                    
+                    <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAddToPlanner(section);
+                        }}
+                        style={{
+                          backgroundColor: '#4CAF50',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '6px 10px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                        disabled={plannedClasses.some(planned => planned.id === section.id)}
+                      >
+                        {plannedClasses.some(planned => planned.id === section.id) ? '✓ Added' : '+ Add This Section'}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setInfoClass(section);
+                        }}
+                        style={{
+                          backgroundColor: '#666',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '6px 10px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                      >
+                        ℹ️ Details
+                      </button>
+                    </div>
                   </div>
                 );
-              })()}
-            </div>
-            <div style={{ display: 'flex', gap: '8px', marginLeft: '10px' }}>
-              <button
-                onClick={() => onAddToPlanner(cls)}
-                style={{
-                  backgroundColor: '#4CAF50',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '8px 12px',
-                  cursor: 'pointer',
-                }}
-                disabled={plannedClasses.some(planned => planned.id === cls.id)}
-              >
-                {plannedClasses.some(planned => planned.id === cls.id) ? '✓ Added' : '+ Add'}
-              </button>
-              <button
-                onClick={() => setShowSemesterSelector(cls)}
-                style={{
-                  backgroundColor: '#2196F3',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '8px 12px',
-                  cursor: 'pointer',
-                }}
-              >
-                🎯 Long Term Plan
-              </button>
-            </div>
-          </li>
-        ))}
+              })}
+            </li>
+          );
+        })}
       </ul>
 
       {/* Filter Modal */}
