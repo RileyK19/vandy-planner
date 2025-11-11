@@ -122,14 +122,10 @@ const SearchPage = ({
       const currentMonth = now.getMonth() + 1; // 1-12
       
       // Determine semester based on month
-      // Jan-May: Spring, Jun-Aug: Summer, Sep-Dec: Fall
+      // Jan-May: Spring, Jun-Dec: Fall
       let term, nextTerm, nextYear;
-      if (currentMonth >= 1 && currentMonth <= 5) {
+      if ((currentMonth >= 1 && currentMonth <= 5)) {
         term = 'Spring';
-        nextTerm = 'Fall';
-        nextYear = currentYear;
-      } else if (currentMonth >= 6 && currentMonth <= 8) {
-        term = 'Summer';
         nextTerm = 'Fall';
         nextYear = currentYear;
       } else {
