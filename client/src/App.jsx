@@ -25,7 +25,8 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [user, setUser] = useState(null)
   const [authError, setAuthError] = useState('')
-  
+  const [authLoading, setAuthLoading] = useState(true)
+    
   // App state
   const [currentView, setCurrentView] = useState('search')
   const [allClasses, setAllClasses] = useState([])
@@ -39,7 +40,7 @@ function App() {
   // Check for existing authentication on mount and load user data
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem('authToken')
       if (token) {
         try {
           const userData = await getUserProfile()
@@ -106,9 +107,11 @@ function App() {
           }
         } catch (error) {
           console.error('Error loading user data:', error)
-          logoutUser()
+          localStorage.removeItem('authToken')
+          setIsLoggedIn(false)
         }
       }
+      setAuthLoading(false)
     }
     checkAuth()
   }, [])
@@ -350,6 +353,19 @@ function App() {
   }
 
   // Show login page if not authenticated
+  if (authLoading) {
+    return (
+      <div className="app-container">
+        <div className="app-header">
+          <h1>Vandy Planner</h1>
+        </div>
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          <p>Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (!isLoggedIn) {
     return <LoginPage onLogin={handleLogin} onSignup={handleSignup} />
   }
