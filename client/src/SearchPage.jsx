@@ -46,7 +46,8 @@ const SearchPage = ({
   semesterPlans = {},
   onAddToSemester,
   userMajor = 'Computer Science',
-  year
+  year,
+  onRemoveClass
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilter, setShowFilter] = useState(false);
@@ -549,6 +550,10 @@ const SearchPage = ({
     }));
   };
 
+  const deselectAll = () => {
+    setExpandedGroups([])
+  }
+
   // Get the currently selected section for a course group
   const getSelectedSection = (baseCode) => {
     return selectedSections[baseCode] || groupedClasses[baseCode]?.allSections[0];
@@ -716,6 +721,11 @@ const SearchPage = ({
             Clear All
       </button>
         )}
+        <button
+            onClick={deselectAll}
+        >
+            Collapse All
+        </button>
       </div>
 
       <div style={{ margin: '10px 0', fontSize: '14px', color: '#666' }}>
@@ -773,8 +783,13 @@ const SearchPage = ({
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={(e) => {
-                      e.stopPropagation();
-                      onAddToPlanner(selectedSection);
+                        if (plannedClasses.some(planned => planned.id === selectedSection.id)) {
+                            e.stopPropagation();
+                            onRemoveClass(selectedSection.courseId);
+                        } else {
+                            e.stopPropagation();
+                            onAddToPlanner(selectedSection);
+                        }
                     }}
                     style={{
                       backgroundColor: '#4CAF50',
@@ -784,7 +799,7 @@ const SearchPage = ({
                       padding: '8px 12px',
                       cursor: 'pointer',
                     }}
-                    disabled={plannedClasses.some(planned => planned.id === selectedSection.id)}
+                    // disabled={plannedClasses.some(planned => planned.id === selectedSection.id)}
                   >
                     {plannedClasses.some(planned => planned.id === selectedSection.id) ? '✓ Added' : '+ Add'}
                   </button>

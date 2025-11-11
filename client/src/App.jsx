@@ -193,7 +193,7 @@ function App() {
   const addToPlanner = (classItem) => {
     const isAlreadyPlanned = plannedClasses.some(cls => cls.id === classItem.id)
     if (isAlreadyPlanned) {
-      alert('This class is already in your planner!')
+      showToast('This class is already in your planner!', 'warning');
       return
     }
 
@@ -237,6 +237,7 @@ function App() {
 
   const removeFromPlanner = (classId) => {
     setPlannedClasses(prev => prev.filter(cls => cls.courseId !== classId))
+    showToast('Class removed successfully!', 'success');
   }
 
   const addToSemester = (semester, classItem) => {
@@ -245,7 +246,7 @@ function App() {
       const isAlreadyAdded = existing.some(cls => cls.id === classItem.id)
       
       if (isAlreadyAdded) {
-        alert('This class is already in this semester!')
+        showToast('This class is already in your planner!', 'warning');
         return prev
       }
       
@@ -255,8 +256,6 @@ function App() {
       }
     })
   }
-
-  // REMOVED: Old handleSavePlan - now handled in PlannerCalendar component
 
   const handleSaveFourYearPlan = async (planData) => {
     try {
@@ -554,6 +553,7 @@ function App() {
             onAddToSemester={addToSemester}
             userMajor={user?.major || 'Computer Science'}
             year={user.year}
+            onRemoveClass={removeFromPlanner}
           />
         ) : currentView === 'planner' ? (
           <PlannerCalendar 
