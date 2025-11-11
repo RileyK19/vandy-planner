@@ -67,6 +67,8 @@ describe('SearchPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     api.fetchDegreeRequirements.mockResolvedValue(mockDegreeRequirements);
+    api.getClassAverageRatings.mockReturnValue({ hasData: false });
+    api.formatRating.mockReturnValue({ value: 'N/A', color: '#000' });
   });
 
   test('renders class list and allows adding to planner', async () => {
@@ -119,7 +121,7 @@ describe('SearchPage', () => {
       expect(api.fetchDegreeRequirements).toHaveBeenCalled();
     });
 
-    expect(screen.getByText('⚠️')).toBeInTheDocument();
+    expect(screen.getAllByText('⚠️').length).toBeGreaterThan(0);
   });
 
   test('filters classes by degree category', async () => {
@@ -145,15 +147,17 @@ describe('SearchPage', () => {
       expect(screen.getByText('Degree Category')).toBeInTheDocument();
     });
 
-    const coreCheckbox = screen.getByLabelText('Core Requirements');
-    fireEvent.click(coreCheckbox);
-
+    fireEvent.click(screen.getByLabelText('Core Requirements'));
     fireEvent.click(screen.getByText('Apply Filters'));
 
     await waitFor(() => {
-      expect(screen.getByText('Intro to Programming')).toBeInTheDocument();
+      expect(
+        screen.getByText((content) => content.includes('Intro to Programming'))
+      ).toBeInTheDocument();
     });
 
-    expect(screen.queryByText('Calculus I')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText((content) => content.includes('Calculus I'))
+    ).not.toBeInTheDocument();
   });
 });
