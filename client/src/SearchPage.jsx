@@ -110,8 +110,83 @@ const SearchPage = ({
     return plannedClasses.filter(plannedClass => checkTimeConflict(course, plannedClass));
   };
 
-  const currentSem = { term: 'Fall', year: 2025, label: 'Fall 2025' }
-  const nextSem = { term: 'Fall', year: 2025, label: 'Fall 2025' }
+//   const currentSem = { term: 'Fall', year: 2025, label: 'Fall 2025' }
+//   const nextSem = { term: 'Fall', year: 2025, label: 'Fall 2025' }
+
+  // Dynamically determine current and next semester based on available classes
+  const { currentSem, nextSem } = useMemo(() => {
+    // if (allClasses.length === 0) {
+      // Fallback to current date if no classes
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1; // 1-12
+      
+      // Determine semester based on month
+      // Jan-May: Spring, Jun-Aug: Summer, Sep-Dec: Fall
+      let term, nextTerm, nextYear;
+      if (currentMonth >= 1 && currentMonth <= 5) {
+        term = 'Spring';
+        nextTerm = 'Fall';
+        nextYear = currentYear;
+      } else if (currentMonth >= 6 && currentMonth <= 8) {
+        term = 'Summer';
+        nextTerm = 'Fall';
+        nextYear = currentYear;
+      } else {
+        term = 'Fall';
+        nextTerm = 'Spring';
+        nextYear = currentYear + 1;
+      }
+      console.log('DEBUG CURRENT SEM', currentYear, term);
+      console.log('DEBUG NEXT SEM', nextYear, nextTerm);
+      
+      return {
+        currentSem: { term, year: currentYear, label: `${term} ${currentYear}` },
+        nextSem: { term: nextTerm, year: nextYear, label: `${nextTerm} ${nextYear}` }
+      };
+    // }
+    
+    // // Parse all unique terms from classes
+    // const terms = new Set();
+    // allClasses.forEach(cls => {
+    //   if (cls.term) {
+    //     terms.add(cls.term);
+    //   }
+    // });
+    
+    // // Parse terms into {year, term} objects
+    // const parsedTerms = Array.from(terms).map(termStr => {
+    //   const parts = termStr.split(' ');
+    //   if (parts.length === 2) {
+    //     const year = parseInt(parts[0]);
+    //     const term = parts[1];
+    //     return { year, term, label: termStr };
+    //   }
+    //   return null;
+    // }).filter(Boolean);
+    
+    // // Sort terms chronologically
+    // parsedTerms.sort((a, b) => {
+    //   if (a.year !== b.year) return a.year - b.year;
+    //   // Within same year: Spring < Summer < Fall
+    //   const termOrder = { 'Spring': 1, 'Summer': 2, 'Fall': 3 };
+    //   return (termOrder[a.term] || 0) - (termOrder[b.term] || 0);
+    // });
+    
+    // // Find the earliest term (most current/next offering)
+    // const current = parsedTerms[0] || { term: 'Fall', year: 2025, label: 'Fall 2025' };
+    
+    // // Determine next semester after current
+    // let next;
+    // if (current.term === 'Spring') {
+    //   next = { term: 'Fall', year: current.year, label: `Fall ${current.year}` };
+    // } else { // Fall
+    //   next = { term: 'Spring', year: current.year + 1, label: `Spring ${current.year + 1}` };
+    // }
+    // console.log('DEBUG CURRENT SEM', current);
+    // console.log('DEBUG NEXT SEM', next);
+    // return { currentSem: current, nextSem: next };
+  }, [allClasses]);
 
   // Helper to check if a class is in the next semester
   const isNextSemester = (cls) => {
