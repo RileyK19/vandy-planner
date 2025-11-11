@@ -516,6 +516,147 @@ describe('SearchPage', () => {
   });
 
   describe('Filter Functionality', () => {
+    test('search within professors filter narrows options', async () => {
+      const manyProfClasses = Array.from({ length: 6 }).map((_, index) => ({
+        ...baseClasses[0],
+        id: `prof-${index}`,
+        code: `CS 11${index}`,
+        name: `Course ${index}`,
+        professors: [`Prof. ${String.fromCharCode(65 + index)}`],
+      }));
+
+      render(
+        <SearchPage
+          allClasses={manyProfClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      const filtersButton = screen.getByRole('button', { name: /filters/i });
+      fireEvent.click(filtersButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Professors')).toBeInTheDocument();
+      });
+
+      const searchInput = await screen.findByPlaceholderText('Search professors...');
+      await userEvent.type(searchInput, 'Prof. A');
+
+      expect(screen.getByLabelText('Prof. A')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Prof. B')).not.toBeInTheDocument();
+    });
+
+    test('filters classes by Computer Science Depth category inferred from code', async () => {
+      const depthRequirements = {
+        major: 'Computer Science',
+        categories: [
+          { name: 'Core Requirements', availableClasses: [] },
+          { name: 'Computer Science Depth', availableClasses: [] }
+        ]
+      };
+      api.fetchDegreeRequirements.mockResolvedValueOnce(depthRequirements);
+
+      const depthClasses = [
+        {
+          ...baseClasses[0],
+          id: 'depth-1',
+          code: 'CS 3300',
+          name: 'Advanced Systems',
+          schedule: {
+            days: ['Monday'],
+            startTime: '18:00',
+            endTime: '19:15'
+          }
+        },
+        baseClasses[1]
+      ];
+
+      render(
+        <SearchPage
+          allClasses={depthClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      const filtersButton = screen.getByRole('button', { name: /filters/i });
+      fireEvent.click(filtersButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Degree Category')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByLabelText('Computer Science Depth'));
+      fireEvent.click(screen.getByText('Apply Filters'));
+
+      await waitFor(() => {
+        expect(screen.getByText('CS 3300')).toBeInTheDocument();
+        expect(screen.queryByText('MATH 1300')).not.toBeInTheDocument();
+      });
+    });
+
+    test('filters schedule using Other time frame', async () => {
+      const nightClass = [{
+        ...baseClasses[0],
+        id: 'night-1',
+        code: 'CS 1999',
+        name: 'Night Programming',
+        schedule: {
+          days: ['Saturday'],
+          startTime: '23:00',
+          endTime: '23:45'
+        }
+      }];
+
+      render(
+        <SearchPage
+          allClasses={nightClass}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      const filtersButton = screen.getByRole('button', { name: /filters/i });
+      fireEvent.click(filtersButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Schedule')).toBeInTheDocument();
+      });
+
+      const otherOption = screen.getByLabelText('Other');
+      fireEvent.click(otherOption);
+      fireEvent.click(screen.getByText('Apply Filters'));
+
+      await waitFor(() => {
+        expect(screen.getByText('CS 1999')).toBeInTheDocument();
+      });
+    });
+
     test('opens filter modal when filters button is clicked', async () => {
       render(
         <SearchPage

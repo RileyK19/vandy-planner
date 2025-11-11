@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 jest.mock('../api', () => require('../__mocks__/api.jsx'));
@@ -100,5 +100,96 @@ describe('ProfilePage', () => {
 
     expect(onProfileUpdate).toHaveBeenCalledWith(loadedProfile);
     expect(screen.getByText('Profile updated successfully!')).toBeInTheDocument();
+  });
+
+  test('shows load error when fetching profile fails', async () => {
+    api.getUserProfile.mockRejectedValueOnce(new Error('load failed'));
+
+    render(<ProfilePage user={mockUser} onProfileUpdate={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(api.getUserProfile).toHaveBeenCalled();
+    });
+
+    expect(await screen.findByText('Failed to load profile data')).toBeInTheDocument();
+  });
+
+  test('shows validation error when adding incomplete course', async () => {
+    render(<ProfilePage user={mockUser} onProfileUpdate={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(api.getUserProfile).toHaveBeenCalled();
+    });
+
+    fireEvent.click(screen.getByText('Add Course'));
+
+    expect(screen.getByText('Please fill in course code and term')).toBeInTheDocument();
+    expect(screen.getByText('Added Courses (1)')).toBeInTheDocument();
+  });
+
+  test('removes an existing course from the list', async () => {
+    render(<ProfilePage user={mockUser} onProfileUpdate={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Added Courses (1)')).toBeInTheDocument();
+    });
+
+    const removeButton = screen.getByText('Remove');
+    fireEvent.click(removeButton);
+
+    expect(screen.queryByText('Added Courses (1)')).not.toBeInTheDocument();
+  });
+
+  test('handles update errors gracefully', async () => {
+    api.updateUserProfile.mockRejectedValueOnce(new Error('Server failure'));
+
+    render(<ProfilePage user={mockUser} onProfileUpdate={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(api.getUserProfile).toHaveBeenCalled();
+    });
+
+    await screen.findByDisplayValue('Gillette House');
+
+    fireEvent.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(api.updateUserProfile).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Server failure')).toBeInTheDocument();
+    });
+  });
+
+  test('clears success message after timeout', async () => {
+    jest.useFakeTimers();
+    render(<ProfilePage user={mockUser} onProfileUpdate={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(api.getUserProfile).toHaveBeenCalled();
+    });
+
+    await screen.findByDisplayValue('Gillette House');
+
+    fireEvent.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(api.updateUserProfile).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Profile updated successfully!')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      jest.runAllTimers();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Profile updated successfully!')).not.toBeInTheDocument();
+    });
+
+    jest.useRealTimers();
   });
 });
