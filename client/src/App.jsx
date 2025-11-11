@@ -460,10 +460,10 @@ function App() {
             <button 
               onClick={() => setCurrentView('planner')} 
               className={`nav-item ${currentView === 'planner' ? 'active' : ''}`}
-              title="My Planner"
+              title="Next Semester Plan"
             >
               <span className="nav-icon">📅</span>
-              {!sidebarCollapsed && <span className="nav-text">My Planner</span>}
+              {!sidebarCollapsed && <span className="nav-text">Next Semester Plan</span>}
               {plannedClasses.length > 0 && (
                 <span className="nav-badge">{plannedClasses.length}</span>
               )}
@@ -487,10 +487,10 @@ function App() {
             <button 
               onClick={() => setCurrentView('fouryear')} 
               className={`nav-item ${currentView === 'fouryear' ? 'active' : ''}`}
-              title="4-Year Plan"
+              title="Long-Term Plan"
             >
               <span className="nav-icon">🎯</span>
-              {!sidebarCollapsed && <span className="nav-text">4-Year Plan</span>}
+              {!sidebarCollapsed && <span className="nav-text">Long-Term Plan</span>}
             </button>
           </div>
           

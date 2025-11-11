@@ -128,7 +128,7 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, yea
         <div>
           <h2>Long Term Plan</h2>
           <p style={{ color: '#666', fontSize: '14px', margin: '5px 0 0 0' }}>
-            View and manage your course plan for the next 4 years • Starting Fall 2025
+            View and manage your course plan for the full 4 years • Starting Fall 2025
           </p>
         </div>
         <button

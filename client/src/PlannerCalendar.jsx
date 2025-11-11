@@ -174,7 +174,7 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan }) {
     <div className="planner-calendar">
       <div className="calendar-header">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2>My Planner - {getTotalCredits()} Credit Hours</h2>
+          <h2>Next Semester Plan - {getTotalCredits()} Credit Hours</h2>
           {plannedClasses.length > 0 && (
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               {submitStatus === 'success' && (
