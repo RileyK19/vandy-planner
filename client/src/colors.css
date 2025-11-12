@@ -1,10 +1,62 @@
 :root {
-    --background: #ffffff;
-    --primary: #b7b7b7;
-    --secondary: #0b0031;
-    --tertiary: #ffffff;
-    --highlight: #9b9b9b;
-    --button: #86fca8;
-    --grey: #666;
-    --whiteish: #f5f5f5;
-  }
+  /* Base colors */
+  --white: #ffffff;
+  --black: #0b0031;
+  
+  /* Primary palette */
+  --primary: #75abd0;        /* Main brand color (blue-ish) */
+  --primary-hover: #5a9bc4;  /* Darker for hover states */
+  --primary-light: #b69cce;  /* Light purple accent */
+  
+  /* Neutral grays */
+  --gray-50: #fafafa;
+  --gray-100: #f5f5f5;
+  --gray-200: #e0e0e0;
+  --gray-300: #d0d0d0;
+  --gray-400: #b7b7b7;
+  --gray-500: #9b9b9b;
+  --gray-600: #888888;
+  --gray-700: #666666;
+  --gray-800: #4a5568;
+  --gray-900: #2d3748;
+  
+  /* Semantic colors */
+  --success: #86fca8;
+  --success-bg: #e8f5e8;
+  --error: #e74c3c;
+  --error-light: #fecaca;
+  --error-bg: #fdf2f2;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+  
+  /* Application-specific mappings */
+  --background: var(--white);
+  --background-secondary: var(--gray-50);
+  --background-tertiary: var(--gray-100);
+  
+  --text-primary: var(--black);
+  --text-secondary: var(--gray-700);
+  --text-muted: var(--gray-600);
+  --text-disabled: var(--gray-400);
+  
+  --border-light: #e2e8f0;
+  --border-medium: var(--gray-200);
+  --border-dark: var(--gray-300);
+  
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* Legacy variable support (for gradual migration) */
+:root {
+  --secondary: var(--text-primary);
+  --tertiary: var(--background-tertiary);
+  --highlight: var(--primary-hover);
+  --button: var(--success);
+  --grey: var(--text-secondary);
+  --whiteish: var(--gray-100);
+  --whitish: var(--gray-100);
+  --lightergrey: var(--text-muted);
+  --red: var(--error);
+}
