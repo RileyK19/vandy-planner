@@ -710,6 +710,8 @@ export async function getCourseRecommendations(preferences, major, userEmail, pl
   }
 }
 
+// Replace lines 760-790 in your api.jsx with this:
+
 async function _getCourseRecommendationsInternal(preferences, major, userEmail, plannedClasses) {
   try {
     console.log('🎯 Starting internal recommendation generation:', { major, userEmail, planType: preferences.planType });
@@ -731,7 +733,6 @@ async function _getCourseRecommendationsInternal(preferences, major, userEmail, 
       throw new Error('No classes available');
     }
     console.log('✓ All classes:', allClasses.length);
-    console.log('✓ Sample class:', allClasses[0]);
 
     // 3. Fetch degree requirements
     let degreeData = null;
@@ -768,28 +769,23 @@ async function _getCourseRecommendationsInternal(preferences, major, userEmail, 
     if (preferences.planType === 'four_year') {
       console.log('🎓 Generating 4-year plan...');
       
-      const plan = generateFourYearPlan({
+      const plan = await generateFourYearPlan({
         preferences,
         allClasses,
         degreeData,
         takenCourses,
         plannedClasses,
-        prerequisitesMap
+        prerequisitesMap,
+        currentYear: preferences.currentYear || 'Freshman',
+        startSemester: preferences.startSemester || 'Fall',
+        startYear: preferences.startYear || 2025
       });
 
-      console.log('✓ Generated 4-year plan:', plan.semesters.length, 'semesters');
+      console.log('✓ Generated 4-year plan:', plan?.semesters?.length || 0, 'semesters');
 
-      // Enhance with GPT (optional)
-      try {
-        plan.semesters = await enhanceSemestersWithGPT(plan.semesters, {
-          preferences,
-          degreeData,
-          takenCourses,
-          plannedClasses
-        });
-        console.log('🤖 Enhanced 4-year plan with GPT');
-      } catch (err) {
-        console.warn('⚠️ GPT enhancement failed for 4-year plan:', err.message);
+      // Validate response
+      if (!plan || !plan.semesters || !Array.isArray(plan.semesters)) {
+        throw new Error('Invalid 4-year plan structure');
       }
 
       return plan;

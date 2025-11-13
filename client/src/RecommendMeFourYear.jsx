@@ -27,6 +27,7 @@ export default function RecommendMeFourYear({
   major = 'Computer Science',
   userEmail = null,
   plannedClasses = [],
+  userYear = 'Freshman',
   onAddToPlanner,
   onBack
 }) {
@@ -90,6 +91,7 @@ export default function RecommendMeFourYear({
     setWorkload('balanced')
     setWeekPattern('balanced_days')
     setFourYearPlan(null)
+    setError(null)
   }
 
   async function handleGenerate() {
@@ -102,15 +104,24 @@ export default function RecommendMeFourYear({
         blockedSlots: Array.from(blockedSlots),
         workload,
         weekPattern,
-        planType: 'four_year' // Signal to API
+        planType: 'four_year', // Signal to API that we want 4-year plan
+        currentYear: userYear,
+        startSemester: 'Fall',
+        startYear: 2025
       }
       
       console.log('🎓 Requesting 4-year plan with payload:', payload)
       
-      // Use same endpoint with planType flag
+      // Call getCourseRecommendations which will route to 4-year planner
       const plan = await getCourseRecommendations(payload, major, userEmail, plannedClasses)
       
       console.log('✅ Received 4-year plan:', plan)
+      
+      // Validate response structure
+      if (!plan || !plan.semesters || !Array.isArray(plan.semesters)) {
+        throw new Error('Invalid response from server: expected plan with semesters array')
+      }
+      
       setFourYearPlan(plan)
     } catch (err) {
       console.error('❌ Error generating 4-year plan:', err)
@@ -132,7 +143,10 @@ export default function RecommendMeFourYear({
           style={{ 
             marginBottom: '20px',
             padding: '8px 16px',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            backgroundColor: '#f0f0f0',
+            border: '1px solid #ddd',
+            borderRadius: '4px'
           }}
         >
           ← Back to Preferences
@@ -219,7 +233,7 @@ export default function RecommendMeFourYear({
                     padding: '4px 8px',
                     borderRadius: '4px'
                   }}>
-                    Year {semester.year}
+                    {semester.yearLabel || `Year ${semester.year}`}
                   </span>
                 </h3>
                 <span style={{ 
@@ -302,6 +316,18 @@ export default function RecommendMeFourYear({
                               📚 Prerequisites: {course.prerequisiteInfo.prerequisiteText}
                             </div>
                           )}
+
+                          {/* Show GPT reasoning if available */}
+                          {course.gptReasoning && (
+                            <div style={{
+                              fontSize: '12px',
+                              color: '#0066cc',
+                              marginTop: '8px',
+                              fontStyle: 'italic'
+                            }}>
+                              💡 {course.gptReasoning}
+                            </div>
+                          )}
                         </div>
                         
                         {onAddToPlanner && (
@@ -311,7 +337,12 @@ export default function RecommendMeFourYear({
                               marginLeft: '12px', 
                               fontSize: '12px',
                               padding: '6px 12px',
-                              whiteSpace: 'nowrap'
+                              whiteSpace: 'nowrap',
+                              backgroundColor: '#4CAF50',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
                             }}
                           >
                             + Add
@@ -360,7 +391,7 @@ export default function RecommendMeFourYear({
         <div style={{ marginBottom: '24px' }}>
           <h2 style={{ marginBottom: '8px' }}>Generate Your 4-Year Plan</h2>
           <p style={{ color: '#666', fontSize: '14px' }}>
-            Set your preferences and we'll create an optimized 8-semester course plan
+            Set your preferences and we'll create an optimized 8-semester course plan for your {userYear} year
           </p>
         </div>
 
