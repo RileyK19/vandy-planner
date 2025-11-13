@@ -409,13 +409,13 @@ function App() {
             className="sidebar-logo-container"
             style={{ cursor: 'pointer' }}
           >
-            <button
-              onClick={() => setCurrentView('search')} 
-            >
-              {!sidebarCollapsed && (
-                <img src="/cropped_logo.png?v=3" alt="Vandy Planner" className="sidebar-logo" />
-              )}
-            </button>
+            {!sidebarCollapsed && (
+              <button
+                onClick={() => setCurrentView('search')} 
+              >
+                  <img src="/cropped_logo.png?v=3" alt="Vandy Planner" className="sidebar-logo" />
+              </button>
+            )}
             
             {/* Hamburger Menu Icon */}
             <button 
@@ -426,9 +426,23 @@ function App() {
               }}
               aria-label="Toggle sidebar"
             >
+              {/* <span></span>
               <span></span>
-              <span></span>
-              <span></span>
+              <span></span> */}
+              {sidebarCollapsed && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                      xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2"
+                      stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 6 15 12 9 18"></polyline>
+                </svg>
+              )}
+              {!sidebarCollapsed && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                      xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2"
+                      stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              )}
             </button>
           </div>
           {!sidebarCollapsed && user && (
