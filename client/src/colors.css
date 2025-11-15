@@ -4,7 +4,7 @@
   --black: #0b0031;
   
   /* Primary palette */
-  --primary: #75abd0;        /* Main brand color (blue-ish) */
+  --primary: #2695de;        /* Main brand color (blue-ish) */
   --primary-hover: #5a9bc4;  /* Darker for hover states */
   --primary-light: #b69cce;  /* Light purple accent */
   
@@ -23,11 +23,11 @@
   /* Semantic colors */
   --success: #86fca8;
   --success-bg: #e8f5e8;
-  --error: #e74c3c;
+  --error: #e5685a;
   --error-light: #fecaca;
   --error-bg: #fdf2f2;
   --warning: #f59e0b;
-  --info: #3b82f6;
+  --info: #649cf6;
   
   /* Application-specific mappings */
   --background: var(--white);
