@@ -99,6 +99,12 @@ const userSchema = new mongoose.Schema({
     }
   },
   
+  // ADD THIS: Superuser/Admin status
+  isSuperUser: {
+    type: Boolean,
+    default: false
+  },
+  
   createdAt: {
     type: Date,
     default: Date.now

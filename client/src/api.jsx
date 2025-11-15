@@ -1132,6 +1132,66 @@ export async function getUserPublicProfile(userId) {
   }
 }
 
+/**
+ * Admin: Delete a user (superuser only)
+ * @param {string} userId - MongoDB _id of user to delete
+ * @returns {Object} Deletion confirmation
+ */
+export async function adminDeleteUser(userId) {
+  try {
+    const response = await fetch(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        removeAuthToken();
+        throw new Error('Session expired or insufficient permissions');
+      }
+      throw new Error(data.error || 'Failed to delete user');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Admin delete user error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Admin: Toggle superuser status for a user (superuser only)
+ * @param {string} userId - MongoDB _id of user
+ * @param {boolean} isSuperUser - New superuser status
+ * @returns {Object} Updated user data
+ */
+export async function adminToggleSuperUser(userId, isSuperUser) {
+  try {
+    const response = await fetch(`/api/admin/users/${userId}/superuser`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ isSuperUser })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        removeAuthToken();
+        throw new Error('Session expired or insufficient permissions');
+      }
+      throw new Error(data.error || 'Failed to update user');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Admin toggle superuser error:', error);
+    throw error;
+  }
+}
+
 export const __testExports = {
   parseSchedule,
   normalizeInstructorName,

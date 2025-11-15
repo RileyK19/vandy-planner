@@ -759,81 +759,163 @@ app.put('/api/auth/semester-planner/class/:courseId', authenticateToken, async (
   }
 });
 
-// Search/filter users (authenticated users only)
-app.get('/api/users/search', authenticateToken, async (req, res) => {
-  try {
-    const { query, year, major, dorm } = req.query;
-
-    // Build filter object
-    const filter = {
-      _id: { $ne: req.user.userId } // Exclude current user
-    };
-
-    // Add text search if query provided
-    if (query && query.trim().length >= 2) {
-      const searchRegex = new RegExp(query.trim(), 'i');
-      filter.$or = [
-        { email: searchRegex },
-        { name: searchRegex }
-      ];
-    }
-
-    // Add filters
-    if (year) {
-      filter.year = year;
-    }
-    if (major) {
-      filter.major = new RegExp(major, 'i');
-    }
-    if (dorm) {
-      filter.dorm = new RegExp(dorm, 'i');
-    }
-
-    // Search by email or name, excluding the current user
-    const users = await User.find(filter)
-      .select('email name major year dorm') // Only return public info
-      .sort({ name: 1 }) // Sort by name
-      .limit(100); // Limit results
-
-    res.json(users);
-  } catch (error) {
-    console.error('User search error:', error);
-    res.status(500).json({ error: 'Failed to search users' });
-  }
-});
-
-// Get a specific user's public profile and semester planner
-app.get('/api/users/:userId/public-profile', authenticateToken, async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    const user = await User.findById(userId)
-      .select('email name major year dorm currentSemesterPlan');
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Return public profile with semester planner
-    const publicProfile = {
-      email: user.email,
-      name: user.name,
-      major: user.major,
-      year: user.year,
-      dorm: user.dorm,
-      semesterPlan: user.currentSemesterPlan || {
-        semesterName: '',
-        classes: [],
-        lastUpdated: null
+// Middleware to check if user is a superuser
+const requireSuperUser = async (req, res, next) => {
+    try {
+      const user = await User.findById(req.user.userId);
+      
+      if (!user || !user.isSuperUser) {
+        return res.status(403).json({ error: 'Forbidden: Admin access required' });
       }
-    };
-
-    res.json(publicProfile);
-  } catch (error) {
-    console.error('Get public profile error:', error);
-    res.status(500).json({ error: 'Failed to fetch user profile' });
-  }
-});
+      
+      req.superUser = user;
+      next();
+    } catch (error) {
+      console.error('SuperUser check error:', error);
+      return res.status(500).json({ error: 'Failed to verify admin status' });
+    }
+  };
+  
+  // Admin: Delete user
+  app.delete('/api/admin/users/:userId', authenticateToken, requireSuperUser, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Prevent deleting yourself
+      if (userId === req.user.userId) {
+        return res.status(400).json({ error: 'Cannot delete your own account' });
+      }
+      
+      const user = await User.findByIdAndDelete(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      console.log(`Admin ${req.user.email} deleted user: ${user.email}`);
+      
+      res.json({ 
+        message: 'User deleted successfully',
+        deletedUser: {
+          email: user.email,
+          name: user.name
+        }
+      });
+    } catch (error) {
+      console.error('Admin delete user error:', error);
+      res.status(500).json({ error: 'Failed to delete user' });
+    }
+  });
+  
+  // Admin: Toggle superuser status
+  app.put('/api/admin/users/:userId/superuser', authenticateToken, requireSuperUser, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { isSuperUser } = req.body;
+      
+      if (typeof isSuperUser !== 'boolean') {
+        return res.status(400).json({ error: 'isSuperUser must be a boolean' });
+      }
+      
+      // Prevent removing your own superuser status
+      if (userId === req.user.userId && !isSuperUser) {
+        return res.status(400).json({ error: 'Cannot remove your own superuser status' });
+      }
+      
+      const user = await User.findByIdAndUpdate(
+        userId,
+        { isSuperUser },
+        { new: true }
+      ).select('-password');
+      
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      console.log(`Admin ${req.user.email} ${isSuperUser ? 'granted' : 'revoked'} superuser to: ${user.email}`);
+      
+      res.json({ 
+        message: `User ${isSuperUser ? 'promoted to' : 'removed from'} superuser`,
+        user
+      });
+    } catch (error) {
+      console.error('Admin toggle superuser error:', error);
+      res.status(500).json({ error: 'Failed to update user' });
+    }
+  });
+  
+  // Update the /api/users/search route to include isSuperUser in response
+  app.get('/api/users/search', authenticateToken, async (req, res) => {
+    try {
+      const { query, year, major, dorm } = req.query;
+  
+      const filter = {
+        _id: { $ne: req.user.userId }
+      };
+  
+      if (query && query.trim().length >= 2) {
+        const searchRegex = new RegExp(query.trim(), 'i');
+        filter.$or = [
+          { email: searchRegex },
+          { name: searchRegex }
+        ];
+      }
+  
+      if (year) {
+        filter.year = year;
+      }
+      if (major) {
+        filter.major = new RegExp(major, 'i');
+      }
+      if (dorm) {
+        filter.dorm = new RegExp(dorm, 'i');
+      }
+  
+      const users = await User.find(filter)
+        .select('email name major year dorm isSuperUser') // ADD isSuperUser here
+        .sort({ name: 1 })
+        .limit(100);
+  
+      res.json(users);
+    } catch (error) {
+      console.error('User search error:', error);
+      res.status(500).json({ error: 'Failed to search users' });
+    }
+  });
+  
+  // Update the /api/users/:userId/public-profile route to include isSuperUser
+  app.get('/api/users/:userId/public-profile', authenticateToken, async (req, res) => {
+    try {
+      const { userId } = req.params;
+  
+      const user = await User.findById(userId)
+        .select('email name major year dorm currentSemesterPlan isSuperUser'); // ADD isSuperUser here
+  
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+  
+      const publicProfile = {
+        _id: user._id, // ADD _id so frontend can use it for admin actions
+        email: user.email,
+        name: user.name,
+        major: user.major,
+        year: user.year,
+        dorm: user.dorm,
+        isSuperUser: user.isSuperUser, // ADD this
+        semesterPlan: user.currentSemesterPlan || {
+          semesterName: '',
+          classes: [],
+          lastUpdated: null
+        }
+      };
+  
+      res.json(publicProfile);
+    } catch (error) {
+      console.error('Get public profile error:', error);
+      res.status(500).json({ error: 'Failed to fetch user profile' });
+    }
+  });
 
 // Only start server in non-production (for local development)
 if (process.env.NODE_ENV !== 'production') {
