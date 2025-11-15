@@ -745,9 +745,7 @@ const SearchPage = ({
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'space-between',
-                padding: '10px',
-                backgroundColor: '#f5f5f5',
-                borderRadius: '4px',
+                padding: '5px',
                 cursor: 'pointer'
               }}
               onClick={() => toggleGroupExpansion(baseCode)}
