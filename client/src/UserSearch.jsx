@@ -216,46 +216,104 @@ function UserSearch() {
               </button>
             </div>
 
+            {/* Filters */}
             {showFilters && (
-              <>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                  gap: '15px',
-                  marginBottom: '15px'
+            <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '15px',
+                marginBottom: '15px'
+            }}>
+                
+                {/* Class Year */}
+                <div>
+                <label style={{ 
+                    display: 'block', 
+                    marginBottom: '6px', 
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    color: 'var(--text-secondary)'
                 }}>
-                  {/* Filters exactly as FIRST file */}
-                  <div>
-                    <label>Class Year</label>
-                    <select value={yearFilter} onChange={(e)=>setYearFilter(e.target.value)}>
-                      <option value="">All Years</option>
-                      <option value="Freshman">Freshman</option>
-                      <option value="Sophomore">Sophomore</option>
-                      <option value="Junior">Junior</option>
-                      <option value="Senior">Senior</option>
-                    </select>
-                  </div>
+                    Class Year
+                </label>
 
-                  <div>
-                    <label>Major</label>
-                    <input type="text" value={majorFilter} onChange={(e)=>setMajorFilter(e.target.value)} />
-                  </div>
-
-                  <div>
-                    <label>Dorm</label>
-                    <input type="text" value={dormFilter} onChange={(e)=>setDormFilter(e.target.value)} />
-                  </div>
+                <select
+                    value={yearFilter}
+                    onChange={(e) => setYearFilter(e.target.value)}
+                    style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-medium)',
+                    fontSize: '14px',
+                    backgroundColor: 'var(--white)'
+                    }}
+                >
+                    <option value="">All Years</option>
+                    <option value="Freshman">Freshman</option>
+                    <option value="Sophomore">Sophomore</option>
+                    <option value="Junior">Junior</option>
+                    <option value="Senior">Senior</option>
+                </select>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                  <button onClick={handleClearFilters} style={{ backgroundColor: 'var(--gray-100)' }}>
-                    Clear Filters
-                  </button>
-                  <button onClick={handleSearch} style={{ backgroundColor: 'var(--primary)', color:'white' }}>
-                    Apply Filters
-                  </button>
+                {/* Major */}
+                <div>
+                <label style={{ 
+                    display: 'block', 
+                    marginBottom: '6px', 
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    color: 'var(--text-secondary)'
+                }}>
+                    Major
+                </label>
+
+                <input
+                    type="text"
+                    placeholder="Filter by major..."
+                    value={majorFilter}
+                    onChange={(e) => setMajorFilter(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-medium)',
+                    fontSize: '14px'
+                    }}
+                />
                 </div>
-              </>
+
+                {/* Dorm */}
+                <div>
+                <label style={{ 
+                    display: 'block', 
+                    marginBottom: '6px', 
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    color: 'var(--text-secondary)'
+                }}>
+                    Dorm
+                </label>
+
+                <input
+                    type="text"
+                    placeholder="Filter by dorm..."
+                    value={dormFilter}
+                    onChange={(e) => setDormFilter(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-medium)',
+                    fontSize: '14px'
+                    }}
+                />
+                </div>
+
+            </div>
             )}
           </div>
 
