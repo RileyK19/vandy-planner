@@ -774,29 +774,41 @@ if (process.env.NODE_ENV !== 'production') {
     });
 }
 
-// Add these endpoints to your server.js file (after the existing endpoints)
-
-// Search users by email or name (authenticated users only)
+// Search/filter users (authenticated users only)
 app.get('/api/users/search', authenticateToken, async (req, res) => {
   try {
-    const { query } = req.query;
+    const { query, year, major, dorm } = req.query;
 
-    if (!query || query.trim().length < 2) {
-      return res.status(400).json({ error: 'Search query must be at least 2 characters' });
-    }
+    // Build filter object
+    const filter = {
+      _id: { $ne: req.user.userId } // Exclude current user
+    };
 
-    const searchRegex = new RegExp(query.trim(), 'i');
-    
-    // Search by email or name, excluding the current user
-    const users = await User.find({
-      _id: { $ne: req.user.userId }, // Exclude current user
-      $or: [
+    // Add text search if query provided
+    if (query && query.trim().length >= 2) {
+      const searchRegex = new RegExp(query.trim(), 'i');
+      filter.$or = [
         { email: searchRegex },
         { name: searchRegex }
-      ]
-    })
-    .select('email name major year dorm') // Only return public info
-    .limit(20); // Limit results
+      ];
+    }
+
+    // Add filters
+    if (year) {
+      filter.year = year;
+    }
+    if (major) {
+      filter.major = new RegExp(major, 'i');
+    }
+    if (dorm) {
+      filter.dorm = new RegExp(dorm, 'i');
+    }
+
+    // Search by email or name, excluding the current user
+    const users = await User.find(filter)
+      .select('email name major year dorm') // Only return public info
+      .sort({ name: 1 }) // Sort by name
+      .limit(100); // Limit results
 
     res.json(users);
   } catch (error) {
