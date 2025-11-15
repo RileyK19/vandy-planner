@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { saveSemesterPlanner } from './api.jsx';
 
-function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan }) {
+function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly = false }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null); // 'success', 'error', or null
 
@@ -128,7 +128,6 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan }) {
     return plannedClasses.reduce((total, cls) => total + (cls.hours || 0), 0);
   };
 
-  // NEW: Updated to use new semester planner endpoint
   const handleSubmitPlan = async () => {
     setIsSubmitting(true);
     setSubmitStatus(null);
@@ -183,22 +182,24 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan }) {
               {submitStatus === 'error' && (
                 <span style={{ color: 'red', fontSize: '14px' }}>❌ Failed to save plan</span>
               )}
-              <button
-                onClick={handleSubmitPlan}
-                disabled={isSubmitting}
-                style={{
-                  backgroundColor: isSubmitting ? '#ccc' : '#2196F3',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '10px 20px',
-                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 'bold'
-                }}
-              >
-                {isSubmitting ? '💾 Saving...' : '💾 Submit Plan to Database'}
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={handleSubmitPlan}
+                  disabled={isSubmitting}
+                  style={{
+                    backgroundColor: isSubmitting ? '#ccc' : '#2196F3',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '10px 20px',
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {isSubmitting ? '💾 Saving...' : '💾 Submit Plan to Database'}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -233,22 +234,24 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan }) {
                     </div>
                   )}
                 </span>
-                <button 
-                  onClick={() => {
-                    onRemoveClass(cls.courseId);
-                  }}
-                  style={{ 
-                    backgroundColor: '#ff4444', 
-                    color: 'white', 
-                    border: 'none', 
-                    borderRadius: '4px',
-                    padding: '4px 8px',
-                    cursor: 'pointer',
-                    fontSize: '12px'
-                  }}
-                >
-                  Remove
-                </button>
+                {!readOnly && (
+                  <button 
+                    onClick={() => {
+                      onRemoveClass(cls.courseId);
+                    }}
+                    style={{ 
+                      backgroundColor: '#ff4444', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '4px',
+                      padding: '4px 8px',
+                      cursor: 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
             ))}
           </div>

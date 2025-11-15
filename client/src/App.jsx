@@ -17,6 +17,7 @@ import RecommendMe from './RecommendMe.jsx'
 import SearchPage from './SearchPage.jsx'
 import FourYearPlanner from './FourYearPlanner.jsx'
 import ProfilePage from './ProfilePage.jsx'
+import UserSearch from './UserSearch.jsx'
 
 import { fetchClassesWithRatings } from './api.jsx'
 
@@ -517,6 +518,14 @@ function App() {
               <span className="nav-icon">👤</span>
               {!sidebarCollapsed && <span className="nav-text">My Profile</span>}
             </button>
+            <button 
+              onClick={() => setCurrentView('userSearch')} 
+              className={`nav-item ${currentView === 'userSearch' ? 'active' : ''}`}
+              title="Find Users"
+            >
+              <span className="nav-icon">👥</span>
+              {!sidebarCollapsed && <span className="nav-text">Find Users</span>}
+            </button>
           </div>
           
           <div className="nav-section">
@@ -600,7 +609,9 @@ function App() {
               setUser(updatedUser);
             }}
           />
-        ) : (
+        ) : currentView === 'userSearch' ? (
+          <UserSearch />
+        ) :  (
           <DegreeAudit 
             plannedClasses={plannedClasses}
             major="Computer Science"

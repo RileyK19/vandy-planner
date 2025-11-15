@@ -1057,6 +1057,81 @@ export async function updateClassInPlanner(courseId, updatedClass) {
   }
 }
 
+/**
+ * Search/filter for users by email, name, and other criteria
+ * @param {Object} filters - Filter options
+ * @param {string} filters.query - Search query (email or name) - optional
+ * @param {string} filters.year - Filter by year (Freshman, Sophomore, etc) - optional
+ * @param {string} filters.major - Filter by major - optional
+ * @param {string} filters.dorm - Filter by dorm - optional
+ * @returns {Array} List of matching users
+ */
+export async function searchUsers(filters = {}) {
+  try {
+    // Build query string
+    const params = new URLSearchParams();
+    if (filters.query) params.append('query', filters.query);
+    if (filters.year) params.append('year', filters.year);
+    if (filters.major) params.append('major', filters.major);
+    if (filters.dorm) params.append('dorm', filters.dorm);
+
+    const response = await fetch(
+      `/api/users/search?${params.toString()}`,
+      {
+        method: 'GET',
+        headers: getAuthHeaders()
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        removeAuthToken();
+        throw new Error('Session expired. Please login again.');
+      }
+      throw new Error(data.error || 'Failed to search users');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Search users error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get public profile and semester planner for a specific user
+ * @param {string} userId - User's MongoDB _id
+ * @returns {Object} User's public profile and semester plan
+ */
+export async function getUserPublicProfile(userId) {
+  try {
+    const response = await fetch(
+      `/api/users/${userId}/public-profile`,
+      {
+        method: 'GET',
+        headers: getAuthHeaders()
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        removeAuthToken();
+        throw new Error('Session expired. Please login again.');
+      }
+      throw new Error(data.error || 'Failed to fetch user profile');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Get user public profile error:', error);
+    throw error;
+  }
+}
+
 export const __testExports = {
   parseSchedule,
   normalizeInstructorName,
