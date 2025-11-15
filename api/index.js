@@ -759,21 +759,6 @@ app.put('/api/auth/semester-planner/class/:courseId', authenticateToken, async (
   }
 });
 
-// Only start server in non-production (for local development)
-if (process.env.NODE_ENV !== 'production') {
-  mongoose.connect(process.env.MONGO_URI, {
-    dbName: 'Users'
-  })
-    .then(() => {
-      console.log('✅ MongoDB connected to Users database');
-      app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-    })
-    .catch(err => {
-      console.error('❌ MongoDB connection error:', err);
-      process.exit(1);
-    });
-}
-
 // Search/filter users (authenticated users only)
 app.get('/api/users/search', authenticateToken, async (req, res) => {
   try {
@@ -849,6 +834,21 @@ app.get('/api/users/:userId/public-profile', authenticateToken, async (req, res)
     res.status(500).json({ error: 'Failed to fetch user profile' });
   }
 });
+
+// Only start server in non-production (for local development)
+if (process.env.NODE_ENV !== 'production') {
+    mongoose.connect(process.env.MONGO_URI, {
+      dbName: 'Users'
+    })
+      .then(() => {
+        console.log('✅ MongoDB connected to Users database');
+        app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+      })
+      .catch(err => {
+        console.error('❌ MongoDB connection error:', err);
+        process.exit(1);
+      });
+  }
 
 // Export for Vercel serverless
 export default app;
