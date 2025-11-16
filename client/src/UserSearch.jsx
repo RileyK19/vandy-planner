@@ -24,6 +24,21 @@ function UserSearch() {
   const [dormFilter, setDormFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
+  // Toast and confirmation states
+  const [toast, setToast] = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null);
+
+  // Toast helper function
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Confirmation modal helper
+  const showConfirm = (message, onConfirm) => {
+    setConfirmModal({ message, onConfirm });
+  };
+
   // Check if current user is superuser
   useEffect(() => {
     checkSuperUserStatus();
@@ -104,35 +119,42 @@ function UserSearch() {
   // --- ADMIN FUNCTIONS ---
   const handleDeleteUser = async (userId, userName, e) => {
     e.stopPropagation();
-    if (!window.confirm(`Delete ${userName}? This cannot be undone.`)) return;
-
-    try {
-      await adminDeleteUser(userId);
-      setSearchResults(prev => prev.filter(u => u._id !== userId));
-      if (selectedUser && selectedUser._id === userId) setSelectedUser(null);
-      alert(`Deleted ${userName}`);
-    } catch (err) {
-      alert(`Failed to delete: ${err.message}`);
-    }
+    
+    showConfirm(
+      `Delete ${userName}? This cannot be undone.`,
+      async () => {
+        try {
+          await adminDeleteUser(userId);
+          setSearchResults(prev => prev.filter(u => u._id !== userId));
+          if (selectedUser && selectedUser._id === userId) setSelectedUser(null);
+          showToast(`Deleted ${userName}`, 'success');
+        } catch (err) {
+          showToast(`Failed to delete: ${err.message}`, 'error');
+        }
+      }
+    );
   };
 
   const handleToggleSuperUser = async (userId, userName, currentStatus, e) => {
     e.stopPropagation();
     const action = currentStatus ? "remove admin access from" : "grant admin access to";
 
-    if (!window.confirm(`Are you sure you want to ${action} ${userName}?`)) return;
-
-    try {
-      await adminToggleSuperUser(userId, !currentStatus);
-      setSearchResults(prev => prev.map(u =>
-        u._id === userId ? { ...u, isSuperUser: !currentStatus } : u
-      ));
-      if (selectedUser && selectedUser._id === userId)
-        setSelectedUser(prev => ({ ...prev, isSuperUser: !currentStatus }));
-      alert(`Successfully updated ${userName}`);
-    } catch (err) {
-      alert(`Failed: ${err.message}`);
-    }
+    showConfirm(
+      `Are you sure you want to ${action} ${userName}?`,
+      async () => {
+        try {
+          await adminToggleSuperUser(userId, !currentStatus);
+          setSearchResults(prev => prev.map(u =>
+            u._id === userId ? { ...u, isSuperUser: !currentStatus } : u
+          ));
+          if (selectedUser && selectedUser._id === userId)
+            setSelectedUser(prev => ({ ...prev, isSuperUser: !currentStatus }));
+          showToast(`Successfully updated ${userName}`, 'success');
+        } catch (err) {
+          showToast(`Failed: ${err.message}`, 'error');
+        }
+      }
+    );
   };
 
   // --- RENDER ---
@@ -168,7 +190,7 @@ function UserSearch() {
             </p>
           </div>
 
-          {/* SEARCH + FILTER BOX (unchanged styling from FIRST) */}
+          {/* SEARCH + FILTER BOX */}
           <div style={{
             maxWidth: '900px',
             margin: '0 auto 30px',
@@ -438,7 +460,7 @@ function UserSearch() {
           )}
         </>
       ) : (
-        /* USER PROFILE PAGE (unchanged from FIRST) */
+        /* USER PROFILE PAGE */
         <>
           <button onClick={handleBack} style={{
             padding:'10px 20px',
@@ -514,6 +536,90 @@ function UserSearch() {
             )}
           </div>
         </>
+      )}
+      
+      {/* Confirmation Modal */}
+      {confirmModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10001
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '12px',
+            maxWidth: '400px',
+            width: '90%',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.2)'
+          }}>
+            <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Confirm Action</h3>
+            <p style={{ marginBottom: '30px', color: 'var(--text-secondary)' }}>
+              {confirmModal.message}
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmModal(null)}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: 'var(--gray-200)',
+                  color: 'var(--text-primary)',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                No, Cancel
+              </button>
+              <button
+                onClick={() => {
+                  confirmModal.onConfirm();
+                  setConfirmModal(null);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: 'var(--primary)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                Yes, I'm Sure
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: toast.type === 'error' ? '#ff4444' : 
+                          toast.type === 'warning' ? '#ff9800' : '#4CAF50',
+          color: 'white',
+          padding: '15px 20px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          zIndex: 10000
+        }}>
+          {toast.message}
+        </div>
       )}
     </div>
   );

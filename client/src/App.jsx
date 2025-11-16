@@ -447,7 +447,10 @@ function App() {
             </button>
           </div>
           {!sidebarCollapsed && user && (
-            <div className="sidebar-user">
+            <button 
+              onClick={() => setCurrentView('profile')} 
+              className="sidebar-user"
+            >
               <div className="user-avatar">
                 {user.email.charAt(0).toUpperCase()}
               </div>
@@ -455,7 +458,7 @@ function App() {
                 <div className="user-name">Welcome back!</div>
                 <div className="user-email">{user.email}</div>
               </div>
-            </div>
+            </button>
           )}
         </div>
         
