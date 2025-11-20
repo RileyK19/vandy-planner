@@ -63,12 +63,8 @@ class SimpleRMPCollector {
     const collection = db.collection<CSSection>('cs_sections');
 
     console.log('Fetching CS courses from source database...');
-    const subjects = ["ECON", "CS"]; 
-
-    const csSections = await collection.find({
-      subject: { $in: subjects }
-    }).toArray();
-        console.log(`Found ${csSections.length} CS sections`);
+    const csSections = await collection.find({ subject: 'CS' }).toArray();
+    console.log(`Found ${csSections.length} CS sections`);
 
     const pairMap = new Map<string, CourseInstructorPair>();
 

@@ -202,7 +202,7 @@ app.get('/api/classes', async (req, res) => {
   try {
     const db = mongoose.connection.client.db('vanderbilt_courses');
     const collection = db.collection('cs_sections');
-    const classes = await collection.find({ subject: 'CS' }).toArray();
+    const classes = await collection.find({}).toArray();
     console.log('Found classes:', classes.length);
     res.json(classes);
   } catch (error) {
