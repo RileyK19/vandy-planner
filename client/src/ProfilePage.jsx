@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getUserProfile, updateUserProfile } from './api';
+import CourseDropdown from './CourseDropdown';
 import './LoginPage.css';
 
 /**
@@ -71,8 +72,25 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
   // Form state for adding new courses
   const [newCourse, setNewCourse] = useState({
     courseCode: '',
-    term: ''
+    term: '',
+    name: ''
   });
+  const [availableCourses, setAvailableCourses] = useState([]);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await fetch('/api/courses/list');
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableCourses(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch courses:', error);
+      }
+    };
+    fetchCourses();
+  }, []);
 
   /**
    * Handles form field changes
@@ -94,7 +112,8 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
 
     const course = {
       courseCode: newCourse.courseCode.toUpperCase().trim(),
-      term: newCourse.term.trim()
+      term: newCourse.term.trim(),
+      courseName: newCourse.name || ''
     };
 
     setFormData(prev => ({
@@ -103,7 +122,7 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
     }));
 
     // Reset form
-    setNewCourse({ courseCode: '', term: '' });
+    setNewCourse({ courseCode: '', term: '', name: '' });
     setLocalErrors({});
   };
 
@@ -122,7 +141,7 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
    */
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.major) {
       newErrors.major = 'Please select your major';
     }
@@ -150,10 +169,11 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
     setErrors({});
 
     try {
-      // Filter previousCourses to only include courseCode and term
+      // Filter previousCourses to only include courseCode, term, and courseName
       const filteredPreviousCourses = formData.previousCourses.map(course => ({
         courseCode: course.courseCode,
-        term: course.term
+        term: course.term,
+        courseName: course.courseName
       }));
 
       const updatedData = {
@@ -164,7 +184,7 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
       };
 
       const result = await updateUserProfile(updatedData);
-      
+
       setSaveMessage('Profile updated successfully!');
       if (onProfileUpdate && result.user) {
         onProfileUpdate(result.user);
@@ -219,8 +239,8 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
             flex: 1
           }}>
             {user?.name && (
-              <h2 style={{ 
-                margin: 0, 
+              <h2 style={{
+                margin: 0,
                 color: 'white',
                 fontSize: '28px',
                 fontWeight: '700',
@@ -230,8 +250,8 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
               </h2>
             )}
             {user?.email && (
-              <p style={{ 
-                margin: 0, 
+              <p style={{
+                margin: 0,
                 color: 'rgba(255, 255, 255, 0.9)',
                 fontSize: '15px',
                 fontWeight: '400'
@@ -264,7 +284,7 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
         )}
 
         {/* Major Section */}
-        <div className="profile-section" style={{ 
+        <div className="profile-section" style={{
           marginBottom: '32px',
           padding: '24px',
           background: 'var(--background)',
@@ -297,7 +317,7 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
         </div>
 
         {/* Academic Year Section */}
-        <div className="profile-section" style={{ 
+        <div className="profile-section" style={{
           marginBottom: '32px',
           padding: '24px',
           background: 'var(--background)',
@@ -330,7 +350,7 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
         </div>
 
         {/* Dorm Location Section */}
-        <div className="profile-section" style={{ 
+        <div className="profile-section" style={{
           marginBottom: '32px',
           padding: '24px',
           background: 'var(--background)',
@@ -358,7 +378,7 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
         </div>
 
         {/* Previous Courses Section */}
-        <div className="profile-section" style={{ 
+        <div className="profile-section" style={{
           marginBottom: '32px',
           padding: '24px',
           background: 'var(--background)',
@@ -375,29 +395,21 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
 
           <div className="course-form">
             <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="courseCode">Course Code *</label>
-                <input
-                  type="text"
-                  id="courseCode"
-                  value={newCourse.courseCode}
-                  onChange={(e) => setNewCourse(prev => ({ ...prev, courseCode: e.target.value.toUpperCase() }))}
+              <div className="form-group" style={{ flex: 2 }}>
+                <label htmlFor="courseCode">Course *</label>
+                <CourseDropdown
+                  value={{ courseCode: newCourse.courseCode, courseName: newCourse.name }}
+                  onChange={(course) => setNewCourse(prev => ({
+                    ...prev,
+                    courseCode: course.courseCode,
+                    name: course.courseName || ''
+                  }))}
+                  courses={availableCourses}
                   placeholder="e.g., CS 1101"
-                  className={localErrors.course ? 'error' : ''}
+                  error={localErrors.course}
                 />
               </div>
-              <div className="form-group">
-                <label htmlFor="term">Course Name *</label>
-                <input
-                  type="text"
-                  id="name"
-                  value={newCourse.name}
-                  onChange={(e) => setNewCourse(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., Programming and Problem Solving"
-                  className={localErrors.course ? 'error' : ''}
-                />
-              </div>
-              <div className="form-group">
+              <div className="form-group" style={{ flex: 1 }}>
                 <label htmlFor="term">Term *</label>
                 <input
                   type="text"
@@ -421,10 +433,10 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
 
           {formData.previousCourses && formData.previousCourses.length > 0 && (
             <div className="added-courses" style={{ marginTop: '24px' }}>
-              <div style={{ 
-                color: 'var(--secondary)', 
-                marginBottom: '16px', 
-                fontSize: '14px', 
+              <div style={{
+                color: 'var(--secondary)',
+                marginBottom: '16px',
+                fontSize: '14px',
                 fontWeight: '600',
                 display: 'flex',
                 alignItems: 'center',
@@ -441,14 +453,14 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
                     transition: 'all 0.2s ease'
                   }}>
                     <div className="course-info">
-                      <span className="course-code" style={{ 
+                      <span className="course-code" style={{
                         fontWeight: '600',
                         color: 'var(--secondary)',
                         fontSize: '15px'
                       }}>
                         {course.courseCode}
                       </span>
-                      <span className="course-term" style={{ 
+                      <span className="course-term" style={{
                         color: '#666',
                         fontSize: '14px'
                       }}>
@@ -484,12 +496,12 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
 
         {/* Save Button */}
         <div style={{ marginTop: '40px', paddingTop: '30px', borderTop: '2px solid #e9ecef' }}>
-          <button 
-            type="button" 
-            onClick={handleSave} 
+          <button
+            type="button"
+            onClick={handleSave}
             className="btn-primary"
             disabled={isSaving}
-            style={{ 
+            style={{
               width: '100%',
               backgroundColor: '#2196F3',
               color: 'white',
