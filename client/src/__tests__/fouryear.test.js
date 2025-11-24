@@ -38,7 +38,7 @@ describe('FourYearPlanner', () => {
       render(<FourYearPlanner {...defaultProps} />);
       
       expect(screen.getByText('Long Term Plan')).toBeInTheDocument();
-      expect(screen.getByText(/View and manage your course plan for the next 4 years/i)).toBeInTheDocument();
+      expect(screen.getByText(/View and manage your course plan for the full 4 years/i)).toBeInTheDocument();
       expect(screen.getByText(/Starting Fall 2025/i)).toBeInTheDocument();
     });
 
@@ -86,26 +86,25 @@ describe('FourYearPlanner', () => {
     test('generates semesters starting from Fall 2025 for Freshman', () => {
       render(<FourYearPlanner {...defaultProps} year="Freshman" />);
       
-      // Note: Due to missing break statements in switch, all cases fall through to Senior
-      // This means yearAdj becomes 3, resulting in startYear = 2022
-      expect(screen.getByText('Fall 2022')).toBeInTheDocument();
-      expect(screen.getByText('Spring 2023')).toBeInTheDocument();
+      // Freshman: yearAdj=0, startYear=2025
+      expect(screen.getByText('Fall 2025')).toBeInTheDocument();
+      expect(screen.getByText('Spring 2026')).toBeInTheDocument();
     });
 
     test('generates semesters for Sophomore', () => {
       render(<FourYearPlanner {...defaultProps} year="Sophomore" />);
       
-      // Due to fall-through bug, yearAdj = 3, startYear = 2022
-      expect(screen.getByText('Fall 2022')).toBeInTheDocument();
-      expect(screen.getByText('Spring 2023')).toBeInTheDocument();
+      // Sophomore: yearAdj=1, startYear=2024
+      expect(screen.getByText('Fall 2024')).toBeInTheDocument();
+      expect(screen.getByText('Spring 2025')).toBeInTheDocument();
     });
 
     test('generates semesters for Junior', () => {
       render(<FourYearPlanner {...defaultProps} year="Junior" />);
       
-      // Due to fall-through bug, yearAdj = 3, startYear = 2022
-      expect(screen.getByText('Fall 2022')).toBeInTheDocument();
-      expect(screen.getByText('Spring 2023')).toBeInTheDocument();
+      // Junior: yearAdj=2, startYear=2023
+      expect(screen.getByText('Fall 2023')).toBeInTheDocument();
+      expect(screen.getByText('Spring 2024')).toBeInTheDocument();
     });
 
     test('generates semesters for Senior', () => {
@@ -792,23 +791,32 @@ describe('FourYearPlanner', () => {
 
   describe('Component Bugs Documentation', () => {
     test('BUG: switch statement missing break causes all years to behave as Senior', () => {
-      // Test that Freshman and Senior generate the same semesters
+      // Test that Freshman and Senior generate different semesters (bug is fixed)
       const { container: freshmanContainer } = render(
         <FourYearPlanner {...defaultProps} year="Freshman" />
       );
+      // Get semester headers - skip the "Long Term Plan" h2 and get the semester h3s
       const freshmanSemesters = Array.from(
         freshmanContainer.querySelectorAll('h3')
-      ).map(h3 => h3.textContent.split('✅')[0].split('🟢')[0].split('📅')[0].trim());
+      )
+      .filter(h3 => h3.textContent.match(/Fall|Spring/))
+      .map(h3 => h3.textContent.split('✅')[0].split('🟢')[0].split('📅')[0].trim());
 
       const { container: seniorContainer } = render(
         <FourYearPlanner {...defaultProps} year="Senior" />
       );
       const seniorSemesters = Array.from(
         seniorContainer.querySelectorAll('h3')
-      ).map(h3 => h3.textContent.split('✅')[0].split('🟢')[0].split('📅')[0].trim());
+      )
+      .filter(h3 => h3.textContent.match(/Fall|Spring/))
+      .map(h3 => h3.textContent.split('✅')[0].split('🟢')[0].split('📅')[0].trim());
 
-      // They should be the same due to missing break statements
-      expect(freshmanSemesters).toEqual(seniorSemesters);
+      // After fix, they should be different
+      expect(freshmanSemesters.length).toBeGreaterThan(0);
+      expect(seniorSemesters.length).toBeGreaterThan(0);
+      expect(freshmanSemesters[0]).not.toBe(seniorSemesters[0]);
+      expect(freshmanSemesters[0]).toBe('Fall 2025');
+      expect(seniorSemesters[0]).toBe('Fall 2022');
     });
 
     test('BUG: loop generates 9 semesters instead of 8', () => {
@@ -827,22 +835,24 @@ describe('FourYearPlanner', () => {
     });
 
     test('EXPECTED: should start from different years for different class years', () => {
-      // This test documents the EXPECTED behavior (not actual)
+      // This test documents the EXPECTED behavior (now fixed)
       // Freshman should start from 2025
       // Sophomore should start from 2024
       // Junior should start from 2023
       // Senior should start from 2022
       
-      // But due to the bug, all start from 2022
+      // After fix, each year starts from the correct year
       const { container } = render(<FourYearPlanner {...defaultProps} year="Freshman" />);
-      const firstSemester = container.querySelector('h3');
       
-      // EXPECTED: Fall 2025
-      // ACTUAL: Fall 2022
-      // Component shows empty state, not semester headers
-      const semesterHeaders = container.querySelectorAll('h3');
+      // Get semester headers - filter for h3 elements that contain semester names
+      const semesterHeaders = Array.from(container.querySelectorAll('h3'))
+        .filter(h3 => h3.textContent.match(/Fall|Spring/));
+      
       if (semesterHeaders.length > 0) {
-        expect(semesterHeaders[1].textContent).toContain('Fall 2022');
+        expect(semesterHeaders[0].textContent).toContain('Fall 2025');
+      } else {
+        // If no semester headers found, check that the component rendered
+        expect(screen.getByText('Long Term Plan')).toBeInTheDocument();
       }
     });
 
@@ -1308,6 +1318,7 @@ describe('FourYearPlanner', () => {
     test('handles taken course with _id field', () => {
       const propsWithId = {
         ...defaultProps,
+        year: 'Senior', // Use Senior to get Fall 2022
         takenCourses: [
           {
             _id: 'mongo-id-123',
@@ -1327,6 +1338,7 @@ describe('FourYearPlanner', () => {
     test('handles taken course without _id field', () => {
       const propsWithoutId = {
         ...defaultProps,
+        year: 'Senior', // Use Senior to get Fall 2022
         takenCourses: [
           {
             courseCode: 'CS 1101',
@@ -1345,6 +1357,7 @@ describe('FourYearPlanner', () => {
     test('calculates total credits across all semesters', () => {
       const propsWithMultiple = {
         ...defaultProps,
+        year: 'Senior', // Use Senior to get Fall 2022
         semesterPlans: {
           'Fall 2022': [
             { id: '1', code: 'CS 1101', name: 'Programming', hours: 3 }
@@ -1367,6 +1380,7 @@ describe('FourYearPlanner', () => {
     test('handles semester with zero credits', () => {
       const propsWithZero = {
         ...defaultProps,
+        year: 'Senior', // Use Senior to get Fall 2022
         semesterPlans: {
           'Fall 2022': [
             { id: '1', code: 'CS 1101', name: 'Programming', hours: 0 }
@@ -1376,14 +1390,14 @@ describe('FourYearPlanner', () => {
 
       render(<FourYearPlanner {...propsWithZero} />);
       
-      // The component doesn't show "0 credits" for zero credit courses
-      // It shows "3 credits" (default) instead
+      // The component shows default 3 credits when hours is 0: {cls.hours || 3} credits
       expect(screen.getByText('3 credits')).toBeInTheDocument();
     });
 
     test('removes course from semester with multiple courses', () => {
       const propsWithMultiple = {
         ...defaultProps,
+        year: 'Senior', // Use Senior to get Fall 2022
         semesterPlans: {
           'Fall 2022': [
             { id: '1', code: 'CS 1101', name: 'Programming', hours: 3 },
@@ -1462,6 +1476,7 @@ describe('FourYearPlanner', () => {
     test('handles course with very long name', () => {
       const propsWithLongName = {
         ...defaultProps,
+        year: 'Senior', // Use Senior to get Fall 2022
         semesterPlans: {
           'Fall 2022': [
             { 
@@ -1482,6 +1497,7 @@ describe('FourYearPlanner', () => {
     test('handles course with special characters in code', () => {
       const propsWithSpecial = {
         ...defaultProps,
+        year: 'Senior', // Use Senior to get Fall 2022
         semesterPlans: {
           'Fall 2022': [
             { id: '1', code: 'CS-1101', name: 'Programming', hours: 3 }
@@ -1497,6 +1513,7 @@ describe('FourYearPlanner', () => {
     test('semester breakdown shows correct format', () => {
       const propsWithCourse = {
         ...defaultProps,
+        year: 'Senior', // Use Senior to get Fall 2022
         semesterPlans: {
           'Fall 2022': [
             { id: '1', code: 'CS 1101', name: 'Programming', hours: 3 }
@@ -1513,6 +1530,7 @@ describe('FourYearPlanner', () => {
     test('handles rapid removal of courses', () => {
       const propsWithMultiple = {
         ...defaultProps,
+        year: 'Senior', // Use Senior to get Fall 2022
         semesterPlans: {
           'Fall 2022': [
             { id: '1', code: 'CS 1101', name: 'Programming', hours: 3 },

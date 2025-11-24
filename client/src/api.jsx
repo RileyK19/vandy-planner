@@ -1057,6 +1057,7 @@ export async function updateClassInPlanner(courseId, updatedClass) {
   }
 }
 
+
 /**
  * Search/filter for users by email, name, and other criteria
  * @param {Object} filters - Filter options

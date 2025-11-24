@@ -10,6 +10,7 @@ import * as api from '../api.jsx';
 describe('PlannerCalendar', () => {
   const sampleClass = {
     id: '1',
+    courseId: '1', // Component uses courseId for removal
     code: 'CS 1101',
     name: 'Intro to Programming',
     hours: 3,
@@ -54,7 +55,7 @@ describe('PlannerCalendar', () => {
       />
     );
 
-    expect(screen.getByText('My Planner - 3 Credit Hours')).toBeInTheDocument();
+    expect(screen.getByText(/Next Semester Plan.*3 Credit Hours/)).toBeInTheDocument();
     expect(screen.getByText('Planned Classes:')).toBeInTheDocument();
     expect(screen.getByText(/Intro to Programming/)).toBeInTheDocument();
 
