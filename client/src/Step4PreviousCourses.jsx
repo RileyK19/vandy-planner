@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
+import CourseDropdown from './CourseDropdown';
 
 /**
  * Step4PreviousCourses - Final step of user registration
@@ -17,12 +18,28 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
   const [localErrors, setLocalErrors] = useState({}); // Local validation errors
   const [isProcessingPDF, setIsProcessingPDF] = useState(false); // PDF processing state
   const [pdfError, setPdfError] = useState(''); // PDF processing errors
-  
-  // Form state for adding new courses
+
   const [newCourse, setNewCourse] = useState({
     courseCode: '',
-    term: ''
+    term: '',
+    name: ''
   });
+  const [availableCourses, setAvailableCourses] = useState([]);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await fetch('/api/courses/list');
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableCourses(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch courses:', error);
+      }
+    };
+    fetchCourses();
+  }, []);
 
   /**
    * Adds a new course to the previous courses list
@@ -36,7 +53,8 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
 
     const course = {
       courseCode: newCourse.courseCode.toUpperCase().trim(),
-      term: newCourse.term.trim()
+      term: newCourse.term.trim(),
+      courseName: newCourse.name || ''
     };
 
     onUpdate({
@@ -46,7 +64,8 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
     // Reset form after successful addition
     setNewCourse({
       courseCode: '',
-      term: ''
+      term: '',
+      name: ''
     });
     setLocalErrors({});
   };
@@ -79,26 +98,26 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
   const processTranscriptPDF = async (file) => {
     setIsProcessingPDF(true);
     setPdfError('');
-    
+
     try {
       const formData = new FormData();
       formData.append('transcript', file);
-      
+
       const response = await fetch('/api/parse-transcript', {
         method: 'POST',
         body: formData
       });
-      
+
       if (!response.ok) {
         throw new Error(`Failed to process PDF: ${response.statusText}`);
       }
-      
+
       const result = await response.json();
-      
+
       if (result.error) {
         throw new Error(result.error);
       }
-      
+
       // Add parsed courses to the form data
       // Only extract courseCode and term from parsed courses
       if (result.courses && result.courses.length > 0) {
@@ -108,15 +127,15 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
           term: course.term
         }));
         const allCourses = [...existingCourses, ...parsedCourses];
-        
+
         onUpdate({ previousCourses: allCourses });
-        
+
         // Show success message
         console.log(`Successfully parsed ${result.courses.length} courses from transcript`);
       } else {
         setPdfError('No courses found in the uploaded transcript. Please check the file format.');
       }
-      
+
     } catch (error) {
       console.error('PDF processing error:', error);
       setPdfError(error.message || 'Failed to process transcript. Please try again.');
@@ -152,9 +171,9 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
       <div className="pdf-upload-section">
         <h4>Upload Transcript PDF</h4>
         <p>Drop your transcript PDF here to automatically extract course information</p>
-        
-        <div 
-          {...getRootProps()} 
+
+        <div
+          {...getRootProps()}
           className={`pdf-dropzone ${isDragActive ? 'drag-active' : ''} ${isProcessingPDF ? 'processing' : ''}`}
         >
           <input {...getInputProps()} />
@@ -177,7 +196,7 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
             </div>
           )}
         </div>
-        
+
         {pdfError && (
           <div className="pdf-error">
             <span className="error-icon">⚠️</span>
@@ -192,21 +211,24 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
 
       <div className="previous-courses-section">
         <h4>Add Previous Course</h4>
-        
+
         <div className="course-form">
           <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="courseCode">Course Code *</label>
-              <input
-                type="text"
-                id="courseCode"
-                value={newCourse.courseCode}
-                onChange={(e) => setNewCourse(prev => ({ ...prev, courseCode: e.target.value.toUpperCase() }))}
+            <div className="form-group" style={{ flex: 2 }}>
+              <label htmlFor="courseCode">Course *</label>
+              <CourseDropdown
+                value={{ courseCode: newCourse.courseCode, courseName: newCourse.name }}
+                onChange={(course) => setNewCourse(prev => ({
+                  ...prev,
+                  courseCode: course.courseCode,
+                  name: course.courseName || ''
+                }))}
+                courses={availableCourses}
                 placeholder="e.g., CS 1101"
-                className={localErrors.course ? 'error' : ''}
+                error={localErrors.course}
               />
             </div>
-            <div className="form-group">
+            <div className="form-group" style={{ flex: 1 }}>
               <label htmlFor="term">Term *</label>
               <input
                 type="text"
@@ -217,17 +239,6 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
                 className={localErrors.course ? 'error' : ''}
               />
             </div>
-              <div className="form-group">
-                <label htmlFor="term">Course Name *</label>
-                <input
-                  type="text"
-                  id="name"
-                  value={newCourse.name}
-                  onChange={(e) => setNewCourse(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., Programming and Problem Solving"
-                  className={localErrors.course ? 'error' : ''}
-                />
-              </div>
           </div>
 
           {localErrors.course && (
@@ -270,9 +281,9 @@ const Step4PreviousCourses = ({ data, onUpdate, onSubmit, onBack, errors, isSubm
         <button type="button" onClick={handleSkip} className="btn-secondary">
           Skip for Now
         </button>
-        <button 
-          type="button" 
-          onClick={handleComplete} 
+        <button
+          type="button"
+          onClick={handleComplete}
           className="btn-primary"
           disabled={isSubmitting}
         >

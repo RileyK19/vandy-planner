@@ -1,0 +1,93 @@
+.course-dropdown-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.course-dropdown-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.course-dropdown-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.course-dropdown-input:focus {
+  border-color: #4a90e2;
+  outline: none;
+}
+
+.course-dropdown-input.error {
+  border-color: #ff4d4f;
+}
+
+.dropdown-arrow {
+  position: absolute;
+  right: 12px;
+  color: #999;
+  pointer-events: none;
+  font-size: 12px;
+}
+
+.course-dropdown-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 250px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-top: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.course-dropdown-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+
+.course-dropdown-item:hover {
+  background-color: #f5f5f5;
+}
+
+.course-dropdown-item.selected {
+  background-color: #e6f7ff;
+  color: #1890ff;
+}
+
+.course-code-item {
+  font-weight: 600;
+  margin-right: 12px;
+  flex: 0 0 90px;
+  /* Fixed width to align names */
+  white-space: nowrap;
+}
+
+.course-name-item {
+  color: #666;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+  /* Allows text-overflow to work in flex child */
+}
+
+.course-dropdown-no-results {
+  padding: 12px;
+  color: #999;
+  text-align: center;
+}
