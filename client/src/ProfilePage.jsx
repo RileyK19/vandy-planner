@@ -283,6 +283,34 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
           </div>
         )}
 
+
+        {/* Save Button */}
+        <div style={{ marginBottom: '40px', paddingBottom: '30px', borderBottom: '2px solid #e9ecef' }}>
+          <button
+            type="button"
+            onClick={handleSave}
+            className="btn-primary"
+            disabled={isSaving}
+            style={{
+              width: '100%',
+              backgroundColor: '#2196F3',
+              color: 'white',
+              border: 'none',
+              padding: '14px 24px',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: isSaving ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)'
+            }}
+            onMouseEnter={(e) => !isSaving && (e.target.style.backgroundColor = '#1976D2')}
+            onMouseLeave={(e) => !isSaving && (e.target.style.backgroundColor = '#2196F3')}
+          >
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+
         {/* Major Section */}
         <div className="profile-section" style={{
           marginBottom: '32px',
@@ -492,33 +520,6 @@ const ProfilePage = ({ user, onProfileUpdate }) => {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Save Button */}
-        <div style={{ marginTop: '40px', paddingTop: '30px', borderTop: '2px solid #e9ecef' }}>
-          <button
-            type="button"
-            onClick={handleSave}
-            className="btn-primary"
-            disabled={isSaving}
-            style={{
-              width: '100%',
-              backgroundColor: '#2196F3',
-              color: 'white',
-              border: 'none',
-              padding: '14px 24px',
-              borderRadius: '8px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: isSaving ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)'
-            }}
-            onMouseEnter={(e) => !isSaving && (e.target.style.backgroundColor = '#1976D2')}
-            onMouseLeave={(e) => !isSaving && (e.target.style.backgroundColor = '#2196F3')}
-          >
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </button>
         </div>
       </div>
     </div>

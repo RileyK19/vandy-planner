@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react'
 import { getCourseRecommendations } from './api.jsx'
 import RecommendMeFourYear from './RecommendMeFourYear.jsx'
+import { useRecommendations } from './RecommendationContext.jsx'
 
 function timeOptions(startHour = 7, endHour = 21) {
   const opts = []
@@ -46,6 +47,8 @@ export default function RecommendMe({
   onReset
 }) {
   const [activeTab, setActiveTab] = useState('semester') // 'semester' or 'four_year'
+
+  const { recommendations: savedRecs, saveRecommendations, clearRecommendations } = useRecommendations()
   
   const [avoidProfessors, setAvoidProfessors] = useState([])
   const [profQuery, setProfQuery] = useState('')
@@ -57,7 +60,7 @@ export default function RecommendMe({
   const [weekPattern, setWeekPattern] = useState('balanced_days')
 
   const [loading, setLoading] = useState(false)
-  const [recommendations, setRecommendations] = useState(null)
+  const [recommendations, setRecommendations] = useState(savedRecs)
   const [error, setError] = useState(null)
 
   const timeOpts = useMemo(() => timeOptions(7, 21), [])
@@ -109,6 +112,7 @@ export default function RecommendMe({
     setWorkload('balanced')
     setWeekPattern('balanced_days')
     setRecommendations(null)
+    clearRecommendations()
     if (onReset) onReset()
   }
 
@@ -125,7 +129,14 @@ export default function RecommendMe({
       }
       
       const recs = await getCourseRecommendations(payload, major, userEmail, plannedClasses)
+      
+      // SAVE TO BOTH local state AND context
       setRecommendations(recs)
+      saveRecommendations(recs, {
+        preferences: payload,
+        major,
+        semester: 'current' // or whatever semester they're planning for
+      })
     } catch (err) {
       setError(err.message)
     } finally {

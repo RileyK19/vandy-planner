@@ -721,7 +721,7 @@ async function _getCourseRecommendationsInternal(preferences, major, userEmail, 
     if (userEmail) {
       try {
         takenCourses = await fetchUserTakenCourses(userEmail);
-        console.log('✓ Taken courses:', takenCourses.length);
+        console.log('✓ Taken courses:', takenCourses);
       } catch (err) {
         console.warn('⚠️ Could not fetch taken courses:', err.message);
       }
@@ -737,22 +737,24 @@ async function _getCourseRecommendationsInternal(preferences, major, userEmail, 
     // 3. Fetch degree requirements
     let degreeData = null;
     try {
+      console.log('📚 Fetching degree requirements for:', major);
+      
       const degreeResponse = await fetch(
-        `/api/degree-requirements/${encodeURIComponent(major)}`
+        `/api/degree-requirements/`
       );
       
-      if (!degreeResponse.ok) {
-        if (degreeResponse.status === 404) {
-          console.warn(`⚠️ No degree requirements found for "${major}". Continuing without degree filtering.`);
-        } else {
-          throw new Error(`Failed to fetch degree requirements: ${degreeResponse.statusText}`);
-        }
-      } else {
+      if (degreeResponse.ok) {
         degreeData = await degreeResponse.json();
-        console.log('✓ Degree data loaded');
+        console.log('✓ Degree data loaded:', degreeData?.major || 'unknown major');
+        console.log('  Categories:', degreeData?.categories?.length || 0);
+        console.log('  Total hours required:', degreeData?.totalRequiredHours || 'unknown');
+      } else if (degreeResponse.status === 404) {
+        console.warn(`⚠️ No degree requirements found for "${major}"`);
+      } else {
+        console.error(`❌ Degree fetch failed: ${degreeResponse.status} ${degreeResponse.statusText}`);
       }
     } catch (err) {
-      console.warn('⚠️ Error loading degree requirements:', err.message);
+      console.error('❌ Error loading degree requirements:', err.message);
     }
 
     // 4. Fetch prerequisites for all courses
@@ -790,10 +792,19 @@ async function _getCourseRecommendationsInternal(preferences, major, userEmail, 
 
       return plan;
 
+
     } else {
       console.log('📚 Generating 1-semester recommendations...');
-      
-      const recommendations = generateRecommendations({
+      // In api.jsx, add this right before the generateRecommendations call:
+
+      console.log('🔍 DEBUG - Data check before generateRecommendations:');
+      console.log('  degreeData:', degreeData ? 'EXISTS' : 'NULL');
+      console.log('  degreeData.categories:', degreeData?.categories ? `${degreeData.categories.length} categories` : 'MISSING');
+      console.log('  prerequisitesMap:', Object.keys(prerequisitesMap).length, 'courses');
+      console.log('  Sample prereq:', Object.entries(prerequisitesMap)[0]);
+
+      // Call generateRecommendations
+      const result = generateRecommendations({
         preferences,
         allClasses,
         degreeData,
@@ -802,19 +813,53 @@ async function _getCourseRecommendationsInternal(preferences, major, userEmail, 
         prerequisitesMap
       });
 
-      console.log('✓ Generated recommendations:', recommendations.length);
+      // DEBUG: Check what we got back
+      console.log('🔍 generateRecommendations returned:', {
+        type: typeof result,
+        isArray: Array.isArray(result),
+        hasCandidates: result?.candidates ? 'YES' : 'NO',
+        hasNeededCourses: result?.neededCourses ? 'YES' : 'NO',
+        length: result?.candidates?.length || result?.length || 0
+      });
 
+      // Extract candidates and neededCourses
+      let candidates, neededCourses;
+      
+      if (result?.candidates && result?.neededCourses) {
+        // New format - object with candidates and neededCourses
+        candidates = result.candidates;
+        neededCourses = result.neededCourses;
+        console.log('✅ Using new format: candidates =', candidates.length);
+      } else if (Array.isArray(result)) {
+        // Old format - just an array (shouldn't happen with new code)
+        console.warn('⚠️ Got array format (old), using as candidates');
+        candidates = result;
+        neededCourses = identifyNeededCoursesHelper(degreeData, takenCourses, plannedClasses);
+      } else {
+        console.error('❌ Invalid format from generateRecommendations:', result);
+        return [];
+      }
+
+      console.log('✓ Final candidates for GPT:', candidates.length);
+
+      // Now enhance with GPT
       try {
-        const enhanced = await enhanceWithGPT(recommendations, {
-          preferences,
-          degreeData,
-          takenCourses,
-          plannedClasses
-        });
+        const enhanced = await enhanceWithGPT(
+          { candidates, neededCourses },
+          {
+            preferences,
+            degreeData,
+            takenCourses,
+            plannedClasses,
+            prerequisitesMap,
+            neededCourses
+          }
+        );
+        console.log('✓ GPT enhanced:', enhanced.length, 'courses');
         return enhanced;
       } catch (err) {
-        console.warn('⚠️ GPT enhancement failed, returning basic recommendations:', err.message);
-        return recommendations;
+        console.warn('⚠️ GPT enhancement failed:', err.message);
+        return candidates.slice(0, 10);
       }
     }
 

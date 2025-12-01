@@ -1,51 +1,55 @@
 :root {
-  /* Base colors */
-  --white: #ffffff;
-  --black: #0b0031;
+  /* Vanderbilt Brand Colors */
+  --white: #FFFFFF;
+  --black: #1C1C1C;  /* Vanderbilt Black */
   
-  /* Primary palette */
-  --primary: #2695de;        /* Main brand color (blue-ish) */
-  --primary-hover: #5a9bc4;  /* Darker for hover states */
-  --primary-light: #b69cce;  /* Light purple accent */
+  /* Primary palette - Vanderbilt Gold */
+  --primary: #CFAE70;        /* Flat Gold - main brand color */
+  --primary-hover: #B49248;  /* Metallic Gold (darker end) for hover */
+  --primary-light: #FEEEB6;  /* Metallic Gold (lighter end) for accents */
   
-  /* Neutral grays */
-  --gray-50: #fafafa;
-  --gray-100: #f5f5f5;
-  --gray-200: #e0e0e0;
+  /* Neutral grays - Vanderbilt neutrals */
+  --gray-50: #F5F3EF;   /* Cream */
+  --gray-100: #E4E4E4;  /* Light Gray */
+  --gray-200: #E0D5C0;  /* Sand */
   --gray-300: #d0d0d0;
   --gray-400: #b7b7b7;
   --gray-500: #9b9b9b;
   --gray-600: #888888;
-  --gray-700: #666666;
+  --gray-700: #777777;  /* Dark Gray */
   --gray-800: #4a5568;
-  --gray-900: #2d3748;
+  --gray-900: #1C1C1C;  /* Vanderbilt Black */
   
   /* Semantic colors */
-  --success: #86fca8;
+  /*--success: #86fca8;*/
+  --success: var(--primary-light);
+  --success-light: var(--primary-hover)
   --success-bg: #e8f5e8;
-  --error: #e5685a;
+  /*--error: #e5685a;*/
+  --error: var(--primary-hover);
   --error-light: #fecaca;
   --error-bg: #fdf2f2;
   --warning: #f59e0b;
-  --info: #649cf6;
+  /*--info: #649cf6;*/
+  --info: var(--primary);
   
   /* Application-specific mappings */
   --background: var(--white);
-  --background-secondary: var(--gray-50);
-  --background-tertiary: var(--gray-100);
+  --background-secondary: var(--gray-50);  /* Cream */
+  --background-tertiary: var(--gray-50);
   
-  --text-primary: var(--black);
-  --text-secondary: var(--gray-700);
+  --text-primary: var(--black);     /* Vanderbilt Black */
+  --text-secondary: #777777;        /* Dark Gray */
   --text-muted: var(--gray-600);
   --text-disabled: var(--gray-400);
   
-  --border-light: #e2e8f0;
-  --border-medium: var(--gray-200);
-  --border-dark: var(--gray-300);
+  --border-light: #E4E4E4;          /* Light Gray */
+  --border-medium: #E0D5C0;         /* Sand */
+  --border-dark: #777777;           /* Dark Gray */
   
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 2px rgba(28, 28, 28, 0.04);
+  --shadow-md: 0 4px 6px rgba(28, 28, 28, 0.1);
+  --shadow-lg: 0 20px 40px rgba(28, 28, 28, 0.1);
 }
 
 /* Legacy variable support (for gradual migration) */
@@ -55,8 +59,8 @@
   --highlight: var(--primary-hover);
   --button: var(--success);
   --grey: var(--text-secondary);
-  --whiteish: var(--gray-100);
-  --whitish: var(--gray-100);
+  --whiteish: #E4E4E4;   /* Light Gray */
+  --whitish: #E4E4E4;    /* Light Gray */
   --lightergrey: var(--text-muted);
   --red: var(--error);
 }

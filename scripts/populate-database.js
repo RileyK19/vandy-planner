@@ -46,13 +46,13 @@ async function getAllCSCourses() {
       try {
         // Search for all CS courses
         console.log('Searching for CS courses...');
-        const csSections = await yes.searchSections("Economics", term);
+        const csSections = await yes.searchSections("Mathematics", term);
         console.log(`Found ${csSections.length} CS sections for ${term.title}`);
         
         if (csSections.length > 0) {
           // Filter for actual CS courses (subject = "CS")
           const actualCSCourses = csSections.filter(section => 
-            section.course?.subject === 'ECON'
+            section.course?.subject === 'MATH'
           );
           
           console.log(`Filtered to ${actualCSCourses.length} actual CS courses`);
@@ -88,7 +88,7 @@ async function getAllCSCourses() {
             // Delete existing data for this term to avoid duplicates
             const deleteResult = await collection.deleteMany({ 
               termId: term.id,
-              subject: 'ECON' 
+              subject: 'MATH' 
             });
             console.log(`Deleted ${deleteResult.deletedCount} existing records for ${term.title}`);
             
@@ -115,7 +115,7 @@ async function getAllCSCourses() {
     
     // Show some sample data
     console.log('\n=== Sample of inserted data ===');
-    const sampleDocs = await collection.find({ subject: 'ECON' }).limit(3).toArray();
+    const sampleDocs = await collection.find({ subject: 'MATH' }).limit(3).toArray();
     sampleDocs.forEach((doc, index) => {
       console.log(`Sample ${index + 1}:`, {
         term: doc.termTitle,

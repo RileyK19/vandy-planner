@@ -230,8 +230,10 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, yea
                     <div
                       key={cls.id}
                       style={{
-                        backgroundColor: cls.isTaken ? '#E8F5E9' : '#FFF3E0',
-                        border: cls.isTaken ? '1px solid #A5D6A7' : '1px solid #FFE0B2',
+                        // backgroundColor: cls.isTaken ? '#E8F5E9' : '#FFF3E0',
+                        backgroundColor: cls.isTaken ? 'var(--success)' : 'var(--primary)',
+                        // border: cls.isTaken ? '1px solid #A5D6A7' : '1px solid #FFE0B2',
+                        border: cls.isTaken ? '1px solid var(--success-light)' : '1px solid var(--primary-light)',
                         padding: '8px',
                         marginBottom: '8px',
                         borderRadius: '8px',

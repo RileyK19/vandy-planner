@@ -40,7 +40,7 @@ class CSCoursesPopulator {
         // Course Description  
         // Description text. Prerequisite: CS 2201, CS 2212. FALL, SPRING. [3]
         
-        const coursePattern = /(ECON)(\d{4}[A-Z]*)\s*-\s*([^\n]+)\n(?:Course Description\n)?([\s\S]*?)(?=\nECON\d{4}|\n\n[A-Z]{2,5}\d{4}|$)/gi;
+        const coursePattern = /(MATH)(\d{4}[A-Z]*)\s*-\s*([^\n]+)\n(?:Course Description\n)?([\s\S]*?)(?=\nMATH\d{4}|\n\n[A-Z]{2,5}\d{4}|$)/gi;
         
         let match;
         while ((match = coursePattern.exec(catalogText)) !== null) {
@@ -181,7 +181,7 @@ class CSCoursesPopulator {
 
         // Clear existing CS courses to avoid duplicates
         console.log('Clearing existing CS courses...');
-        const deleteResult = await this.collection.deleteMany({ department: 'ECON' });
+        const deleteResult = await this.collection.deleteMany({ department: 'MATH' });
         console.log(`Deleted ${deleteResult.deletedCount} existing CS course records`);
 
         // Insert new course data
@@ -198,11 +198,11 @@ class CSCoursesPopulator {
     async showStatistics() {
         console.log('\n=== CS Courses Statistics ===');
         
-        const totalCourses = await this.collection.countDocuments({ department: 'ECON' });
+        const totalCourses = await this.collection.countDocuments({ department: 'MATH' });
         console.log(`Total CS courses: ${totalCourses}`);
         
         const coursesWithPrereqs = await this.collection.countDocuments({ 
-            department: 'ECON',
+            department: 'MATH',
             'prerequisites.raw': { $exists: true, $ne: null }
         });
         console.log(`Courses with prerequisites: ${coursesWithPrereqs}`);
@@ -213,11 +213,11 @@ class CSCoursesPopulator {
         // Show course level distribution
         console.log('\n=== Course Level Distribution ===');
         const levels = {
-            '1000': await this.collection.countDocuments({ department: 'ECON', number: { $regex: /^1\d{3}/ } }),
-            '2000': await this.collection.countDocuments({ department: 'ECON', number: { $regex: /^2\d{3}/ } }),
-            '3000': await this.collection.countDocuments({ department: 'ECON', number: { $regex: /^3\d{3}/ } }),
-            '4000': await this.collection.countDocuments({ department: 'ECON', number: { $regex: /^4\d{3}/ } }),
-            '5000+': await this.collection.countDocuments({ department: 'ECON', number: { $regex: /^[5-9]\d{3}/ } })
+            '1000': await this.collection.countDocuments({ department: 'MATH', number: { $regex: /^1\d{3}/ } }),
+            '2000': await this.collection.countDocuments({ department: 'MATH', number: { $regex: /^2\d{3}/ } }),
+            '3000': await this.collection.countDocuments({ department: 'MATH', number: { $regex: /^3\d{3}/ } }),
+            '4000': await this.collection.countDocuments({ department: 'MATH', number: { $regex: /^4\d{3}/ } }),
+            '5000+': await this.collection.countDocuments({ department: 'MATH', number: { $regex: /^[5-9]\d{3}/ } })
         };
         
         Object.entries(levels).forEach(([level, count]) => {
@@ -228,7 +228,7 @@ class CSCoursesPopulator {
         console.log('\n=== Courses with Most Prerequisites ===');
         const coursesWithMostPrereqs = await this.collection
             .find({ 
-                department: 'ECON',
+                department: 'MATH',
                 'prerequisites.parsed.courses': { $exists: true, $not: { $size: 0 } }
             })
             .sort({ 'prerequisites.parsed.courses': -1 })

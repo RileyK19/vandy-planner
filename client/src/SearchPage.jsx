@@ -677,7 +677,8 @@ const SearchPage = ({
       <button
         onClick={() => setShowFilter(true)}
           style={{
-            backgroundColor: '#2196F3',
+            // backgroundColor: '#2196F3',
+            backgroundColor: 'var(--info)',
             color: 'white',
             border: 'none',
             borderRadius: '6px',
@@ -694,7 +695,8 @@ const SearchPage = ({
           🔍 Filters
           {getActiveFilterCount() > 0 && (
             <span style={{
-              backgroundColor: '#ff4444',
+            //   backgroundColor: '#ff4444',
+            backgroundColor: 'var(--error)',
               color: 'white',
               borderRadius: '12px',
               padding: '2px 8px',
@@ -790,7 +792,8 @@ const SearchPage = ({
                         }
                     }}
                     style={{
-                      backgroundColor: '#4CAF50',
+                    //   backgroundColor: '#4CAF50',
+                      backgroundColor: 'var(--primary-hover)',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
@@ -807,7 +810,8 @@ const SearchPage = ({
                       setShowSemesterSelector(selectedSection);
                     }}
                     style={{
-                      backgroundColor: '#2196F3',
+                    //   backgroundColor: '#2196F3',
+                      backgroundColor: 'var(--info)',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',

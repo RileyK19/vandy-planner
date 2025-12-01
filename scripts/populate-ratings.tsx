@@ -63,7 +63,8 @@ class SimpleRMPCollector {
     const collection = db.collection<CSSection>('cs_sections');
 
     console.log('Fetching CS courses from source database...');
-    const subjects = ["ECON", "CS"]; 
+    // const subjects = ["MATH", "ECON", "CS"]; 
+    const subjects = ["MATH"];
 
     const csSections = await collection.find({
       subject: { $in: subjects }
@@ -177,8 +178,8 @@ class SimpleRMPCollector {
     console.log(`\n=== Saving to separate cluster ===`);
 
     // Clear existing data
-    const deleteResult = await collection.deleteMany({});
-    console.log(`Deleted ${deleteResult.deletedCount} existing records`);
+    // const deleteResult = await collection.deleteMany({});
+    // console.log(`Deleted ${deleteResult.deletedCount} existing records`);
 
     // Insert new data
     const insertResult = await collection.insertMany(averages);
