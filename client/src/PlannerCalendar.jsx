@@ -27,7 +27,7 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
       if (!cls.schedule || !cls.schedule.days || !cls.schedule.startTime || !cls.schedule.endTime) {
         return false;
       }
-      
+
       const classDays = Array.isArray(cls.schedule.days) ? cls.schedule.days : [cls.schedule.days];
       return classDays.includes(day);
     });
@@ -37,23 +37,23 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
   const getCourseBlockStyle = (cls) => {
     const startTime = cls.schedule.startTime;
     const endTime = cls.schedule.endTime;
-    
+
     // Parse times - handle format like "11:15" or "11:15AM"
     let startHour, startMin, endHour, endMin;
-    
+
     // Clean time string (remove AM/PM if present)
     const cleanStartTime = startTime.replace(/[ap]m?/i, '').trim();
     const cleanEndTime = endTime.replace(/[ap]m?/i, '').trim();
-    
+
     // Parse hour and minute
     const startParts = cleanStartTime.split(':');
     const endParts = cleanEndTime.split(':');
-    
+
     startHour = parseInt(startParts[0], 10);
     startMin = parseInt(startParts[1] || '0', 10);
     endHour = parseInt(endParts[0], 10);
     endMin = parseInt(endParts[1] || '0', 10);
-    
+
     // Handle 12-hour format if needed (check if original string had AM/PM)
     if (startTime.toLowerCase().includes('p') && startHour !== 12) {
       startHour += 12;
@@ -65,28 +65,28 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
     } else if (endTime.toLowerCase().includes('a') && endHour === 12) {
       endHour = 0;
     }
-    
+
     // Convert to minutes from midnight
     const startTotalMinutes = startHour * 60 + startMin;
     const endTotalMinutes = endHour * 60 + endMin;
-    
+
     // Calculate minutes from 8:00 AM (calendar start)
     const calendarStartMinutes = 8 * 60; // 8:00 AM = 480 minutes
     const startMinutesFromCalendar = startTotalMinutes - calendarStartMinutes;
     const endMinutesFromCalendar = endTotalMinutes - calendarStartMinutes;
-    
+
     const duration = endMinutesFromCalendar - startMinutesFromCalendar;
-    
+
     // Each 30-minute slot is 30px high
     const slotHeight = 30;
-    
+
     // Calculate top position in pixels - each 30-minute slot is 30px
     const top = (startMinutesFromCalendar / 30) * slotHeight;
     const height = (duration / 30) * slotHeight;
-    
+
     // Ensure minimum height for visibility
     const minHeight = Math.max(height, 20);
-    
+
     // Debug logging (can be removed in production)
     if (process.env.NODE_ENV === 'development') {
       console.log(`Course ${cls.code}: ${startTime} - ${endTime}`, {
@@ -98,7 +98,7 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
         height: `${height}px`
       });
     }
-    
+
     return {
       position: 'absolute',
       top: `${top}px`,
@@ -131,14 +131,14 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
   const handleSubmitPlan = async () => {
     setIsSubmitting(true);
     setSubmitStatus(null);
-    
+
     try {
       // Determine current semester (you can make this dynamic based on date)
       const currentSemester = 'Fall 2025';
-      
+
       // Use new semester planner endpoint with FULL details
       await saveSemesterPlanner(currentSemester, plannedClasses);
-      
+
       console.log('✅ Semester planner saved to database');
       setSubmitStatus('success');
       setTimeout(() => setSubmitStatus(null), 3000);
@@ -154,7 +154,7 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
   // Optional: Auto-save when classes change (debounced)
   useEffect(() => {
     if (plannedClasses.length === 0) return;
-    
+
     const autoSave = async () => {
       try {
         await saveSemesterPlanner('Fall 2025', plannedClasses);
@@ -163,7 +163,7 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
         console.error('Auto-save failed:', error);
       }
     };
-    
+
     // Debounce by 2 seconds to avoid excessive saves
     const timer = setTimeout(autoSave, 2000);
     return () => clearTimeout(timer);
@@ -203,22 +203,22 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
             </div>
           )}
         </div>
-        
+
         {plannedClasses.length === 0 && (
           <p style={{ color: '#666', fontStyle: 'italic' }}>
             No classes planned yet. Add some from the search!
           </p>
         )}
       </div>
-      
+
       {plannedClasses.length > 0 && (
         <>
           <div className="planned-classes-list" style={{ marginBottom: '20px' }}>
             <h3>Planned Classes:</h3>
             {plannedClasses.map(cls => (
-              <div key={cls.id} className="planned-class-item" style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
+              <div key={cls.id} className="planned-class-item" style={{
+                display: 'flex',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 padding: '8px',
                 margin: '4px 0',
@@ -235,14 +235,14 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
                   )}
                 </span>
                 {!readOnly && (
-                  <button 
+                  <button
                     onClick={() => {
-                      onRemoveClass(cls.courseId);
+                      onRemoveClass(cls.id);
                     }}
-                    style={{ 
-                      backgroundColor: '#ff4444', 
-                      color: 'white', 
-                      border: 'none', 
+                    style={{
+                      backgroundColor: '#ff4444',
+                      color: 'white',
+                      border: 'none',
                       borderRadius: '4px',
                       padding: '4px 8px',
                       cursor: 'pointer',
@@ -256,7 +256,7 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
             ))}
           </div>
 
-          <div style={{ 
+          <div style={{
             display: 'flex',
             backgroundColor: '#ddd',
             border: '1px solid #ddd',
@@ -265,9 +265,9 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
           }}>
             {/* Time column */}
             <div style={{ width: '80px', flexShrink: 0 }}>
-              <div style={{ 
-                backgroundColor: '#f0f0f0', 
-                padding: '8px', 
+              <div style={{
+                backgroundColor: '#f0f0f0',
+                padding: '8px',
                 fontWeight: 'bold',
                 textAlign: 'center',
                 borderBottom: '1px solid #ddd',
@@ -280,9 +280,9 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
                 Time
               </div>
               {timeSlots.map((time) => (
-                <div key={time} style={{ 
-                  backgroundColor: '#f9f9f9', 
-                  padding: '2px 8px', 
+                <div key={time} style={{
+                  backgroundColor: '#f9f9f9',
+                  padding: '2px 8px',
                   fontSize: '12px',
                   textAlign: 'center',
                   borderBottom: '1px solid #ddd',
@@ -301,11 +301,11 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
             {days.map((day, dayIndex) => {
               const classesForDay = getClassesForDay(day);
               const totalHeight = timeSlots.length * 30;
-              
+
               return (
-                <div 
-                  key={day} 
-                  style={{ 
+                <div
+                  key={day}
+                  style={{
                     flex: 1,
                     borderLeft: '1px solid #ddd',
                     position: 'relative',
@@ -313,10 +313,10 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
                   }}
                 >
                   {/* Day header */}
-                  <div style={{ 
-                    backgroundColor: '#f0f0f0', 
-                    padding: '8px', 
-                    fontWeight: 'bold', 
+                  <div style={{
+                    backgroundColor: '#f0f0f0',
+                    padding: '8px',
+                    fontWeight: 'bold',
                     textAlign: 'center',
                     borderBottom: '1px solid #ddd',
                     height: '40px',
@@ -327,13 +327,13 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
                   }}>
                     {day}
                   </div>
-                  
+
                   {/* Time slot cells */}
                   {timeSlots.map((time) => (
-                    <div 
-                      key={`${day}-${time}`} 
-                      style={{ 
-                        backgroundColor: 'white', 
+                    <div
+                      key={`${day}-${time}`}
+                      style={{
+                        backgroundColor: 'white',
                         padding: '2px',
                         height: '30px',
                         borderBottom: '1px solid #ddd',
@@ -343,7 +343,7 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
                       {/* Empty cell - courses rendered via overlay */}
                     </div>
                   ))}
-                  
+
                   {/* Course overlay for this day */}
                   <div
                     style={{
@@ -364,8 +364,8 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
                         style={getCourseBlockStyle(cls)}
                         title={`${cls.code}: ${cls.name}\n${cls.schedule?.location || 'TBA'}\nProf: ${cls.professors?.join(', ') || 'TBA'}\n${cls.schedule?.startTime} - ${cls.schedule?.endTime}`}
                       >
-                        <div style={{ 
-                          whiteSpace: 'nowrap', 
+                        <div style={{
+                          whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           width: '100%',

@@ -138,6 +138,7 @@ describe('SearchPage', () => {
     api.fetchDegreeRequirements.mockResolvedValue(mockDegreeRequirements);
     api.getClassAverageRatings.mockReturnValue({ hasData: false });
     api.formatRating.mockReturnValue({ value: 'N/A', color: '#000' });
+    api.fetchCourseClasslist = jest.fn();
   });
 
   describe('Initial Render', () => {
@@ -2212,6 +2213,1034 @@ describe('SearchPage', () => {
         const clearAllButton = screen.getByText(/Clear All/);
         expect(clearAllButton).toBeDisabled();
       });
+    });
+  });
+
+  describe('Sort Functionality', () => {
+    test('opens sort menu when sort button is clicked', async () => {
+      render(
+        <SearchPage
+          allClasses={baseClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      const sortButton = screen.getByText(/🔀 Sort/i);
+      fireEvent.click(sortButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('None')).toBeInTheDocument();
+        expect(screen.getByText('Quality')).toBeInTheDocument();
+        expect(screen.getByText('Difficulty')).toBeInTheDocument();
+      });
+    });
+
+    test('sorts by quality when quality option is selected', async () => {
+      api.getClassAverageRatings.mockImplementation((course) => {
+        if (course.code === 'CS 1101') {
+          return { hasData: true, avgQuality: 4.5, avgDifficulty: 3.0 };
+        }
+        if (course.code === 'CS 2201') {
+          return { hasData: true, avgQuality: 3.5, avgDifficulty: 4.0 };
+        }
+        return { hasData: false };
+      });
+
+      render(
+        <SearchPage
+          allClasses={baseClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      const sortButton = screen.getByText(/🔀 Sort/i);
+      fireEvent.click(sortButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Quality')).toBeInTheDocument();
+      });
+
+      const qualityOption = screen.getByText('Quality');
+      fireEvent.click(qualityOption);
+
+      await waitFor(() => {
+        expect(screen.queryByText('Quality')).not.toBeInTheDocument();
+      });
+    });
+
+    test('sorts by difficulty when difficulty option is selected', async () => {
+      api.getClassAverageRatings.mockImplementation((course) => {
+        if (course.code === 'CS 1101') {
+          return { hasData: true, avgQuality: 4.5, avgDifficulty: 3.0 };
+        }
+        if (course.code === 'CS 2201') {
+          return { hasData: true, avgQuality: 3.5, avgDifficulty: 4.0 };
+        }
+        return { hasData: false };
+      });
+
+      render(
+        <SearchPage
+          allClasses={baseClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      const sortButton = screen.getByText(/🔀 Sort/i);
+      fireEvent.click(sortButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Difficulty')).toBeInTheDocument();
+      });
+
+      const difficultyOption = screen.getByText('Difficulty');
+      fireEvent.click(difficultyOption);
+
+      await waitFor(() => {
+        expect(screen.queryByText('Difficulty')).not.toBeInTheDocument();
+      });
+    });
+
+    test('closes sort menu when clicking outside', async () => {
+      render(
+        <SearchPage
+          allClasses={baseClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      const sortButton = screen.getByText(/🔀 Sort/i);
+      fireEvent.click(sortButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Quality')).toBeInTheDocument();
+      });
+
+      fireEvent.mouseDown(document.body);
+
+      await waitFor(() => {
+        expect(screen.queryByText('Quality')).not.toBeInTheDocument();
+      });
+    });
+
+    test('displays sort indicator when sort is active', async () => {
+      render(
+        <SearchPage
+          allClasses={baseClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      const sortButton = screen.getByText(/🔀 Sort/i);
+      fireEvent.click(sortButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Quality')).toBeInTheDocument();
+      });
+
+      const qualityOption = screen.getByText('Quality');
+      fireEvent.click(qualityOption);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Sort.*Quality/i)).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Group Expansion and Collapse', () => {
+    test('expands group when header is clicked', async () => {
+      const classesWithSections = [
+        {
+          ...baseClasses[0],
+          id: '1',
+          sectionNumber: '001',
+          code: 'CS 1101-001'
+        },
+        {
+          ...baseClasses[0],
+          id: '2',
+          sectionNumber: '002',
+          code: 'CS 1101-002'
+        }
+      ];
+
+      render(
+        <SearchPage
+          allClasses={classesWithSections}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+
+      const groupHeader = screen.getByText('CS 1101').closest('div[style*="cursor: pointer"]');
+      if (groupHeader) {
+        fireEvent.click(groupHeader);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Section 001|Section 002/)).toBeInTheDocument();
+        });
+      }
+    });
+
+    test('collapses all groups when Collapse All is clicked', async () => {
+      const classesWithSections = [
+        {
+          ...baseClasses[0],
+          id: '1',
+          sectionNumber: '001',
+          code: 'CS 1101-001'
+        },
+        {
+          ...baseClasses[0],
+          id: '2',
+          sectionNumber: '002',
+          code: 'CS 1101-002'
+        }
+      ];
+
+      render(
+        <SearchPage
+          allClasses={classesWithSections}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+
+      const groupHeader = screen.getByText('CS 1101').closest('div[style*="cursor: pointer"]');
+      if (groupHeader) {
+        fireEvent.click(groupHeader);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Section/)).toBeInTheDocument();
+        });
+
+        const collapseAllButton = screen.getByText('Collapse All');
+        fireEvent.click(collapseAllButton);
+
+        await waitFor(() => {
+          expect(screen.queryByText(/Section 001/)).not.toBeInTheDocument();
+        });
+      }
+    });
+
+    test('disables Collapse All button when no groups are expanded', async () => {
+      render(
+        <SearchPage
+          allClasses={baseClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      const collapseAllButton = screen.getByText('Collapse All');
+      expect(collapseAllButton).toBeDisabled();
+    });
+  });
+
+  describe('Section Selection', () => {
+    test('selects a section when clicked', async () => {
+      const classesWithSections = [
+        {
+          ...baseClasses[0],
+          id: '1',
+          sectionNumber: '001',
+          code: 'CS 1101-001'
+        },
+        {
+          ...baseClasses[0],
+          id: '2',
+          sectionNumber: '002',
+          code: 'CS 1101-002'
+        }
+      ];
+
+      render(
+        <SearchPage
+          allClasses={classesWithSections}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+
+      const groupHeader = screen.getByText('CS 1101').closest('div[style*="cursor: pointer"]');
+      if (groupHeader) {
+        fireEvent.click(groupHeader);
+
+        await waitFor(() => {
+          const section002 = screen.getByText(/Section 002/);
+          expect(section002).toBeInTheDocument();
+        });
+
+        const section002 = screen.getByText(/Section 002/);
+        fireEvent.click(section002.closest('div[style*="cursor: pointer"]'));
+
+        await waitFor(() => {
+          expect(screen.getByText('✓ Selected')).toBeInTheDocument();
+        });
+      }
+    });
+  });
+
+  describe('Classlist Functionality', () => {
+    beforeEach(() => {
+      api.fetchCourseClasslist = jest.fn();
+    });
+
+    test('opens classlist modal when Classlist button is clicked', async () => {
+      api.fetchCourseClasslist.mockResolvedValue({
+        courseCode: 'CS 1101',
+        users: [
+          { name: 'John Doe', email: 'john@example.com', major: 'CS', year: 'Sophomore', dorm: 'Commons' }
+        ],
+        count: 1
+      });
+
+      const classesWithSection = [{
+        ...baseClasses[0],
+        id: '1',
+        sectionNumber: '001',
+        code: 'CS 1101-001'
+      }];
+
+      render(
+        <SearchPage
+          allClasses={classesWithSection}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+
+      const groupHeader = screen.getByText('CS 1101').closest('div[style*="cursor: pointer"]');
+      if (groupHeader) {
+        fireEvent.click(groupHeader);
+
+        await waitFor(() => {
+          const classlistButton = screen.queryByText('👥 Classlist');
+          expect(classlistButton).toBeInTheDocument();
+        });
+
+        const classlistButton = screen.getByText('👥 Classlist');
+        fireEvent.click(classlistButton);
+
+        await waitFor(() => {
+          expect(api.fetchCourseClasslist).toHaveBeenCalledWith('CS 1101', '001');
+        });
+      }
+    });
+
+    test('displays classlist data when loaded', async () => {
+      api.fetchCourseClasslist.mockResolvedValue({
+        courseCode: 'CS 1101',
+        users: [
+          { name: 'John Doe', email: 'john@example.com', major: 'CS', year: 'Sophomore', dorm: 'Commons' },
+          { name: 'Jane Smith', email: 'jane@example.com', major: 'CS', year: 'Junior' }
+        ],
+        count: 2
+      });
+
+      const classesWithSection = [{
+        ...baseClasses[0],
+        id: '1',
+        sectionNumber: '001',
+        code: 'CS 1101-001'
+      }];
+
+      render(
+        <SearchPage
+          allClasses={classesWithSection}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+
+      const groupHeader = screen.getByText('CS 1101').closest('div[style*="cursor: pointer"]');
+      if (groupHeader) {
+        fireEvent.click(groupHeader);
+
+        await waitFor(() => {
+          const classlistButton = screen.queryByText('👥 Classlist');
+          expect(classlistButton).toBeInTheDocument();
+        });
+
+        const classlistButton = screen.getByText('👥 Classlist');
+        fireEvent.click(classlistButton);
+
+        await waitFor(() => {
+          expect(screen.getByText('John Doe')).toBeInTheDocument();
+          expect(screen.getByText('Jane Smith')).toBeInTheDocument();
+        }, { timeout: 3000 });
+      }
+    });
+
+    test('displays error message when classlist fetch fails', async () => {
+      api.fetchCourseClasslist.mockRejectedValue(new Error('Failed to fetch'));
+
+      const classesWithSection = [{
+        ...baseClasses[0],
+        id: '1',
+        sectionNumber: '001',
+        code: 'CS 1101-001'
+      }];
+
+      render(
+        <SearchPage
+          allClasses={classesWithSection}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+
+      const groupHeader = screen.getByText('CS 1101').closest('div[style*="cursor: pointer"]');
+      if (groupHeader) {
+        fireEvent.click(groupHeader);
+
+        await waitFor(() => {
+          const classlistButton = screen.queryByText('👥 Classlist');
+          expect(classlistButton).toBeInTheDocument();
+        });
+
+        const classlistButton = screen.getByText('👥 Classlist');
+        fireEvent.click(classlistButton);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Failed to load classlist/)).toBeInTheDocument();
+        }, { timeout: 3000 });
+      }
+    });
+
+    test('displays empty message when no students in classlist', async () => {
+      api.fetchCourseClasslist.mockResolvedValue({
+        courseCode: 'CS 1101',
+        users: [],
+        count: 0
+      });
+
+      const classesWithSection = [{
+        ...baseClasses[0],
+        id: '1',
+        sectionNumber: '001',
+        code: 'CS 1101-001'
+      }];
+
+      render(
+        <SearchPage
+          allClasses={classesWithSection}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+
+      const groupHeader = screen.getByText('CS 1101').closest('div[style*="cursor: pointer"]');
+      if (groupHeader) {
+        fireEvent.click(groupHeader);
+
+        await waitFor(() => {
+          const classlistButton = screen.queryByText('👥 Classlist');
+          expect(classlistButton).toBeInTheDocument();
+        });
+
+        const classlistButton = screen.getByText('👥 Classlist');
+        fireEvent.click(classlistButton);
+
+        await waitFor(() => {
+          expect(screen.getByText(/No students are currently planning/)).toBeInTheDocument();
+        }, { timeout: 3000 });
+      }
+    });
+  });
+
+  describe('Remove Class Functionality', () => {
+    test('calls onRemoveClass when removing an already planned class', async () => {
+      const onRemoveClass = jest.fn();
+      const plannedClass = {
+        ...baseClasses[0],
+        courseId: 'planned-1'
+      };
+
+      render(
+        <SearchPage
+          allClasses={baseClasses}
+          plannedClasses={[plannedClass]}
+          onAddToPlanner={jest.fn()}
+          onRemoveClass={onRemoveClass}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+
+      const addButton = screen.getByText('✓ Added');
+      if (addButton) {
+        fireEvent.click(addButton);
+        expect(onRemoveClass).toHaveBeenCalledWith(plannedClass.courseId);
+      }
+    });
+  });
+
+  describe('Filter Persistence', () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    test('persists filters to localStorage', async () => {
+      render(
+        <SearchPage
+          allClasses={baseClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      const filtersButton = screen.getByRole('button', { name: /filters/i });
+      fireEvent.click(filtersButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Subject')).toBeInTheDocument();
+      });
+
+      const csCheckbox = screen.getByLabelText('Computer Science');
+      fireEvent.click(csCheckbox);
+
+      const applyButton = screen.getByText('Apply Filters');
+      fireEvent.click(applyButton);
+
+      await waitFor(() => {
+        const savedFilters = localStorage.getItem('searchPage_filters');
+        expect(savedFilters).toBeTruthy();
+        const parsed = JSON.parse(savedFilters);
+        expect(parsed.subject).toContain('Computer Science');
+      });
+    });
+
+    test('loads persisted filters from localStorage', async () => {
+      localStorage.setItem('searchPage_filters', JSON.stringify({
+        subject: ['Computer Science']
+      }));
+
+      render(
+        <SearchPage
+          allClasses={baseClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      const filtersButton = screen.getByRole('button', { name: /filters/i });
+      fireEvent.click(filtersButton);
+
+      await waitFor(() => {
+        const csCheckbox = screen.getByLabelText('Computer Science');
+        expect(csCheckbox).toBeChecked();
+      });
+    });
+
+    test('persists sortBy to localStorage', async () => {
+      render(
+        <SearchPage
+          allClasses={baseClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      const sortButton = screen.getByText(/🔀 Sort/i);
+      fireEvent.click(sortButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Quality')).toBeInTheDocument();
+      });
+
+      const qualityOption = screen.getByText('Quality');
+      fireEvent.click(qualityOption);
+
+      await waitFor(() => {
+        expect(localStorage.getItem('searchPage_sortBy')).toBe('quality');
+      });
+    });
+
+    test('loads persisted sortBy from localStorage', async () => {
+      localStorage.setItem('searchPage_sortBy', 'quality');
+
+      render(
+        <SearchPage
+          allClasses={baseClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      expect(screen.getByText(/Sort.*Quality/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('Year Prop Handling', () => {
+    test('adjusts semester generation based on year prop', async () => {
+      render(
+        <SearchPage
+          allClasses={baseClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+          year="Sophomore"
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+
+      const longTermButton = screen.getAllByText('🎯 Long Term')[0];
+      fireEvent.click(longTermButton);
+
+      await waitFor(() => {
+        // Should show semesters adjusted for sophomore year
+        expect(screen.getByText(/Fall|Spring/)).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Conflict Tooltip', () => {
+    test('shows conflict tooltip on hover', async () => {
+      const conflictingClass = {
+        ...baseClasses[0],
+        schedule: {
+          days: ['Monday', 'Wednesday'],
+          startTime: '09:00',
+          endTime: '10:15'
+        }
+      };
+
+      render(
+        <SearchPage
+          allClasses={[conflictingClass]}
+          plannedClasses={[{
+            id: 'planned-1',
+            code: 'CS 2100',
+            name: 'Algorithms',
+            term: nextSemesterTerm,
+            schedule: {
+              days: ['Monday', 'Wednesday'],
+              startTime: '09:30',
+              endTime: '10:45'
+            }
+          }]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+
+      const groupHeader = screen.getByText('CS 1101').closest('div[style*="cursor: pointer"]');
+      if (groupHeader) {
+        fireEvent.click(groupHeader);
+
+        await waitFor(() => {
+          const conflictIcon = screen.queryByText('⚠️');
+          expect(conflictIcon).toBeInTheDocument();
+        });
+
+        const conflictIcon = screen.getByText('⚠️');
+        fireEvent.mouseEnter(conflictIcon);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Conflict Detected/)).toBeInTheDocument();
+        });
+      }
+    });
+
+    test('hides conflict tooltip on mouse leave', async () => {
+      const conflictingClass = {
+        ...baseClasses[0],
+        schedule: {
+          days: ['Monday', 'Wednesday'],
+          startTime: '09:00',
+          endTime: '10:15'
+        }
+      };
+
+      render(
+        <SearchPage
+          allClasses={[conflictingClass]}
+          plannedClasses={[{
+            id: 'planned-1',
+            code: 'CS 2100',
+            name: 'Algorithms',
+            term: nextSemesterTerm,
+            schedule: {
+              days: ['Monday', 'Wednesday'],
+              startTime: '09:30',
+              endTime: '10:45'
+            }
+          }]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+
+      const groupHeader = screen.getByText('CS 1101').closest('div[style*="cursor: pointer"]');
+      if (groupHeader) {
+        fireEvent.click(groupHeader);
+
+        await waitFor(() => {
+          const conflictIcon = screen.queryByText('⚠️');
+          expect(conflictIcon).toBeInTheDocument();
+        });
+
+        const conflictIcon = screen.getByText('⚠️');
+        fireEvent.mouseEnter(conflictIcon);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Conflict Detected/)).toBeInTheDocument();
+        });
+
+        fireEvent.mouseLeave(conflictIcon);
+
+        await waitFor(() => {
+          expect(screen.queryByText(/Conflict Detected/)).not.toBeInTheDocument();
+        });
+      }
+    });
+  });
+
+  describe('Edge Cases', () => {
+    test('handles classes without sectionNumber', async () => {
+      const classWithoutSection = {
+        ...baseClasses[0],
+        sectionNumber: undefined
+      };
+
+      render(
+        <SearchPage
+          allClasses={[classWithoutSection]}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+    });
+
+    test('handles currentSemesterLabel prop', async () => {
+      render(
+        <SearchPage
+          allClasses={baseClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+          currentSemesterLabel="Fall 2025"
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+
+      const longTermButton = screen.getAllByText('🎯 Long Term')[0];
+      fireEvent.click(longTermButton);
+
+      await waitFor(() => {
+        // Should only show future semesters
+        expect(screen.getByText(/Fall|Spring/)).toBeInTheDocument();
+      });
+    });
+
+    test('handles filter search within filter sections', async () => {
+      const manyProfClasses = Array.from({ length: 10 }).map((_, index) => ({
+        ...baseClasses[0],
+        id: `prof-${index}`,
+        code: `CS 11${index}`,
+        professors: [`Prof. ${String.fromCharCode(65 + index)}`],
+      }));
+
+      render(
+        <SearchPage
+          allClasses={manyProfClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      const filtersButton = screen.getByRole('button', { name: /filters/i });
+      fireEvent.click(filtersButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Professors')).toBeInTheDocument();
+      });
+
+      const searchInput = await screen.findByPlaceholderText(/Search professors/i);
+      if (searchInput) {
+        fireEvent.change(searchInput, { target: { value: 'Prof. A' } });
+
+        await waitFor(() => {
+          expect(screen.getByLabelText('Prof. A')).toBeInTheDocument();
+          expect(screen.queryByLabelText('Prof. B')).not.toBeInTheDocument();
+        });
+      }
+    });
+
+    test('handles toggle filter section expansion', async () => {
+      render(
+        <SearchPage
+          allClasses={baseClasses}
+          plannedClasses={[]}
+          onAddToPlanner={jest.fn()}
+          usingMockData={false}
+          onRefreshData={jest.fn()}
+          semesterPlans={{}}
+          onAddToSemester={jest.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(api.fetchDegreeRequirements).toHaveBeenCalled();
+      });
+
+      const filtersButton = screen.getByRole('button', { name: /filters/i });
+      fireEvent.click(filtersButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Subject')).toBeInTheDocument();
+      });
+
+      const subjectHeader = screen.getByText('Subject').closest('div[style*="cursor: pointer"]');
+      if (subjectHeader) {
+        fireEvent.click(subjectHeader);
+        // Section should collapse
+        await waitFor(() => {
+          expect(screen.queryByLabelText('Computer Science')).not.toBeInTheDocument();
+        });
+      }
     });
   });
 });

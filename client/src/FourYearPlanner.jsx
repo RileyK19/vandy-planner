@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, year, takenCourses, currentSemesterLabel, onRemoveClass }) => {
+const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, year, takenCourses, currentSemesterLabel, nextSemesterLabel, onRemoveClass }) => {
   const [saving, setSaving] = useState(false);
 
   console.log('TAKENCOURSES', takenCourses);
@@ -264,7 +264,7 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, yea
                           {cls.hours || 3} credits
                         </div>
                       </div>
-                      {!cls.isTaken && (
+                      {!cls.isTaken && semester.label !== nextSemesterLabel && (
                         <button
                           onClick={() => removeClassFromSemester(semester.label, cls.id)}
                           style={{
