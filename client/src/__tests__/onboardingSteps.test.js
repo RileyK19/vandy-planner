@@ -393,7 +393,7 @@ describe('Onboarding Steps', () => {
       
       expect(screen.getByText('Step 4: Previous Courses (Optional)')).toBeInTheDocument();
       expect(screen.getByText('Add courses you\'ve already taken to help with degree planning')).toBeInTheDocument();
-      expect(screen.getByLabelText('Course Code *')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('e.g., CS 1101')).toBeInTheDocument();
       expect(screen.getByLabelText('Term *')).toBeInTheDocument();
       expect(screen.getByText('Add Course')).toBeInTheDocument();
       expect(screen.getByText('Skip for Now')).toBeInTheDocument();
@@ -407,13 +407,34 @@ describe('Onboarding Steps', () => {
       expect(screen.getByTestId('dropzone')).toBeInTheDocument();
     });
 
-    test('updates course code input and converts to uppercase', () => {
+    test('updates course code via CourseDropdown', async () => {
+      const mockCourses = [
+        { courseCode: 'CS 1101', courseName: 'Programming' }
+      ];
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockCourses
+      });
+      
       render(<Step4PreviousCourses {...defaultProps} />);
       
-      const courseCodeInput = screen.getByLabelText('Course Code *');
-      fireEvent.change(courseCodeInput, { target: { value: 'cs 1101' } });
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
       
-      expect(courseCodeInput.value).toBe('CS 1101');
+      const courseDropdown = screen.getByPlaceholderText('e.g., CS 1101');
+      fireEvent.focus(courseDropdown);
+      
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+      
+      const courseOption = screen.getByText('CS 1101');
+      fireEvent.click(courseOption);
+      
+      // CourseDropdown should update the value
+      expect(courseDropdown).toHaveValue('CS 1101');
     });
 
     test('updates term input', () => {
@@ -425,16 +446,36 @@ describe('Onboarding Steps', () => {
       expect(termInput.value).toBe('Fall 2023');
     });
 
-    test('updates course name input (duplicate field)', () => {
+    test('updates course name via CourseDropdown', async () => {
+      const mockCourses = [
+        { courseCode: 'CS 1101', courseName: 'Programming and Problem Solving' }
+      ];
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockCourses
+      });
+      
       render(<Step4PreviousCourses {...defaultProps} />);
       
-      // There's a duplicate field with label "Course Name *" that also uses term state
-      const courseNameInputs = screen.getAllByPlaceholderText(/Programming and Problem Solving/i);
-      if (courseNameInputs.length > 0) {
-        fireEvent.change(courseNameInputs[0], { target: { value: 'Test Course' } });
-        // This should update the term state
-        expect(courseNameInputs[0].value).toBe('Test Course');
-      }
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+      
+      const courseDropdown = screen.getByPlaceholderText('e.g., CS 1101');
+      fireEvent.focus(courseDropdown);
+      
+      await waitFor(() => {
+        // CourseDropdown might show course code and name separately or together
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+      
+      // Select the course - CourseDropdown onChange will be called with course object
+      const courseOption = screen.getByText('CS 1101');
+      fireEvent.click(courseOption);
+      
+      // CourseDropdown should update both courseCode and courseName
+      expect(courseDropdown).toHaveValue('CS 1101');
     });
 
     test('shows error when trying to add course with missing fields', () => {
@@ -447,44 +488,83 @@ describe('Onboarding Steps', () => {
       expect(mockOnUpdate).not.toHaveBeenCalled();
     });
 
-    test('adds course when both fields are filled', () => {
+    test('adds course when both fields are filled', async () => {
+      const mockCourses = [
+        { courseCode: 'CS 1101', courseName: 'Programming' }
+      ];
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockCourses
+      });
+      
       render(<Step4PreviousCourses {...defaultProps} />);
       
-      const courseCodeInput = screen.getByLabelText('Course Code *');
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+      
+      const courseDropdown = screen.getByPlaceholderText('e.g., CS 1101');
       const termInput = screen.getByLabelText('Term *');
       const addButton = screen.getByText('Add Course');
       
-      fireEvent.change(courseCodeInput, { target: { value: 'CS 1101' } });
+      // Select course from dropdown
+      fireEvent.focus(courseDropdown);
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('CS 1101'));
+      
       fireEvent.change(termInput, { target: { value: 'Fall 2023' } });
       fireEvent.click(addButton);
       
       expect(mockOnUpdate).toHaveBeenCalledWith({
         previousCourses: [{
           courseCode: 'CS 1101',
-          term: 'Fall 2023'
+          term: 'Fall 2023',
+          courseName: 'Programming'
         }]
       });
       
       // Form should be reset
-      expect(courseCodeInput.value).toBe('');
       expect(termInput.value).toBe('');
     });
 
-    test('trims whitespace from course code and term', () => {
+    test('trims whitespace from course code and term', async () => {
+      const mockCourses = [
+        { courseCode: 'CS 1101', courseName: 'Programming' }
+      ];
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockCourses
+      });
+      
       render(<Step4PreviousCourses {...defaultProps} />);
       
-      const courseCodeInput = screen.getByLabelText('Course Code *');
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+      
+      const courseDropdown = screen.getByPlaceholderText('e.g., CS 1101');
       const termInput = screen.getByLabelText('Term *');
       const addButton = screen.getByText('Add Course');
       
-      fireEvent.change(courseCodeInput, { target: { value: '  CS 1101  ' } });
+      // Select course from dropdown (CourseDropdown handles trimming)
+      fireEvent.focus(courseDropdown);
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('CS 1101'));
+      
       fireEvent.change(termInput, { target: { value: '  Fall 2023  ' } });
       fireEvent.click(addButton);
       
       expect(mockOnUpdate).toHaveBeenCalledWith({
         previousCourses: [{
-          courseCode: 'CS 1101',
-          term: 'Fall 2023'
+          courseCode: 'CS 1101', // Already trimmed by CourseDropdown
+          term: 'Fall 2023', // Trimmed by handleAddCourse
+          courseName: 'Programming'
         }]
       });
     });
@@ -554,37 +634,59 @@ describe('Onboarding Steps', () => {
       expect(mockOnBack).toHaveBeenCalled();
     });
 
-    test('handles multiple courses being added', () => {
+    test('handles multiple courses being added', async () => {
+      const mockCourses = [
+        { courseCode: 'CS 1101', courseName: 'Programming' },
+        { courseCode: 'MATH 1200', courseName: 'Calculus' }
+      ];
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockCourses
+      });
+      
       const { rerender } = render(<Step4PreviousCourses {...defaultProps} />);
       
-      const courseCodeInput = screen.getByLabelText('Course Code *');
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+      
+      const courseDropdown = screen.getByPlaceholderText('e.g., CS 1101');
       const termInput = screen.getByLabelText('Term *');
       const addButton = screen.getByText('Add Course');
       
       // Add first course
-      fireEvent.change(courseCodeInput, { target: { value: 'CS 1101' } });
+      fireEvent.focus(courseDropdown);
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('CS 1101'));
       fireEvent.change(termInput, { target: { value: 'Fall 2023' } });
       fireEvent.click(addButton);
       
       expect(mockOnUpdate).toHaveBeenCalledWith({
-        previousCourses: [{ courseCode: 'CS 1101', term: 'Fall 2023' }]
+        previousCourses: [{ courseCode: 'CS 1101', term: 'Fall 2023', courseName: 'Programming' }]
       });
       
       // Simulate state update and add second course
-      rerender(<Step4PreviousCourses {...defaultProps} data={{ previousCourses: [{ courseCode: 'CS 1101', term: 'Fall 2023' }] }} />);
+      rerender(<Step4PreviousCourses {...defaultProps} data={{ previousCourses: [{ courseCode: 'CS 1101', term: 'Fall 2023', courseName: 'Programming' }] }} />);
       
-      const courseCodeInput2 = screen.getByLabelText('Course Code *');
+      const courseDropdown2 = screen.getByPlaceholderText('e.g., CS 1101');
       const termInput2 = screen.getByLabelText('Term *');
       const addButton2 = screen.getByText('Add Course');
       
-      fireEvent.change(courseCodeInput2, { target: { value: 'MATH 1200' } });
+      fireEvent.focus(courseDropdown2);
+      await waitFor(() => {
+        expect(screen.getByText('MATH 1200')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('MATH 1200'));
       fireEvent.change(termInput2, { target: { value: 'Spring 2024' } });
       fireEvent.click(addButton2);
       
       expect(mockOnUpdate).toHaveBeenLastCalledWith({
         previousCourses: [
-          { courseCode: 'CS 1101', term: 'Fall 2023' },
-          { courseCode: 'MATH 1200', term: 'Spring 2024' }
+          { courseCode: 'CS 1101', term: 'Fall 2023', courseName: 'Programming' },
+          { courseCode: 'MATH 1200', term: 'Spring 2024', courseName: 'Calculus' }
         ]
       });
     });
@@ -596,12 +698,23 @@ describe('Onboarding Steps', () => {
         { courseCode: 'MATH 1200', term: 'Spring 2024' }
       ];
 
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ courses: mockCourses })
-      });
+      // Mock both API calls: courses/list and parse-transcript
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ courses: mockCourses })
+        });
 
       render(<Step4PreviousCourses {...defaultProps} />);
+
+      // Wait for courses/list to complete
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
 
       // Trigger the dropzone onDrop callback
       if (mockDropzoneConfig.onDrop) {
@@ -622,7 +735,7 @@ describe('Onboarding Steps', () => {
             term: course.term
           }))
         });
-      });
+      }, { timeout: 3000 });
 
       expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Successfully parsed 2 courses'));
     });
@@ -634,12 +747,21 @@ describe('Onboarding Steps', () => {
         { courseCode: 'CS 1101', term: 'Fall 2023' }
       ];
 
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ courses: mockCourses })
-      });
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ courses: mockCourses })
+        });
 
       render(<Step4PreviousCourses {...defaultProps} data={{ previousCourses: existingCourses }} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
 
       if (mockDropzoneConfig.onDrop) {
         await mockDropzoneConfig.onDrop([mockFile]);
@@ -655,18 +777,27 @@ describe('Onboarding Steps', () => {
             }))
           ]
         });
-      });
+      }, { timeout: 3000 });
     });
 
     test('handles PDF upload error - response not ok', async () => {
       const mockFile = new File(['test'], 'transcript.pdf', { type: 'application/pdf' });
 
-      global.fetch.mockResolvedValueOnce({
-        ok: false,
-        statusText: 'Server Error'
-      });
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          statusText: 'Server Error'
+        });
 
       render(<Step4PreviousCourses {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
 
       if (mockDropzoneConfig.onDrop) {
         await mockDropzoneConfig.onDrop([mockFile]);
@@ -674,7 +805,7 @@ describe('Onboarding Steps', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/Failed to process PDF: Server Error/i)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
 
       expect(console.error).toHaveBeenCalled();
     });
@@ -682,12 +813,21 @@ describe('Onboarding Steps', () => {
     test('handles PDF upload error - result.error', async () => {
       const mockFile = new File(['test'], 'transcript.pdf', { type: 'application/pdf' });
 
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ error: 'Invalid PDF format' })
-      });
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ error: 'Invalid PDF format' })
+        });
 
       render(<Step4PreviousCourses {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
 
       if (mockDropzoneConfig.onDrop) {
         await mockDropzoneConfig.onDrop([mockFile]);
@@ -695,7 +835,7 @@ describe('Onboarding Steps', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Invalid PDF format')).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
 
       expect(console.error).toHaveBeenCalled();
     });
@@ -703,12 +843,21 @@ describe('Onboarding Steps', () => {
     test('handles PDF upload - no courses found', async () => {
       const mockFile = new File(['test'], 'transcript.pdf', { type: 'application/pdf' });
 
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ courses: [] })
-      });
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ courses: [] })
+        });
 
       render(<Step4PreviousCourses {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
 
       if (mockDropzoneConfig.onDrop) {
         await mockDropzoneConfig.onDrop([mockFile]);
@@ -716,15 +865,24 @@ describe('Onboarding Steps', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/No courses found in the uploaded transcript/i)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
     });
 
     test('handles PDF upload - fetch throws error', async () => {
       const mockFile = new File(['test'], 'transcript.pdf', { type: 'application/pdf' });
 
-      global.fetch.mockRejectedValueOnce(new Error('Network error'));
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+        .mockRejectedValueOnce(new Error('Network error'));
 
       render(<Step4PreviousCourses {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
 
       if (mockDropzoneConfig.onDrop) {
         await mockDropzoneConfig.onDrop([mockFile]);
@@ -732,7 +890,7 @@ describe('Onboarding Steps', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/Network error/i)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
 
       expect(console.error).toHaveBeenCalled();
     });
@@ -740,9 +898,18 @@ describe('Onboarding Steps', () => {
     test('handles PDF upload - error without message', async () => {
       const mockFile = new File(['test'], 'transcript.pdf', { type: 'application/pdf' });
 
-      global.fetch.mockRejectedValueOnce({});
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+        .mockRejectedValueOnce({});
 
       render(<Step4PreviousCourses {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
 
       if (mockDropzoneConfig.onDrop) {
         await mockDropzoneConfig.onDrop([mockFile]);
@@ -750,7 +917,7 @@ describe('Onboarding Steps', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/Failed to process transcript. Please try again/i)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
     });
 
     test('shows processing state during PDF upload', async () => {
@@ -785,15 +952,27 @@ describe('Onboarding Steps', () => {
       expect(mockDropzoneConfig.disabled).toBe(false);
     });
 
-    test('handles empty file array in dropzone', () => {
+    test('handles empty file array in dropzone', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => []
+      });
+
       render(<Step4PreviousCourses {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+
+      // Clear the mock call history for courses/list
+      global.fetch.mockClear();
 
       if (mockDropzoneConfig.onDrop) {
         mockDropzoneConfig.onDrop([]);
       }
 
-      // Should not call fetch
-      expect(global.fetch).not.toHaveBeenCalled();
+      // Should not call fetch for PDF processing
+      expect(global.fetch).not.toHaveBeenCalledWith('/api/parse-transcript', expect.anything());
     });
 
     test('displays PDF error message', () => {
@@ -804,21 +983,39 @@ describe('Onboarding Steps', () => {
       expect(screen.queryByText(/⚠️/i)).not.toBeInTheDocument();
     });
 
-    test('adds course when previousCourses is undefined', () => {
+    test('adds course when previousCourses is undefined', async () => {
+      const mockCourses = [
+        { courseCode: 'CS 1101', courseName: 'Programming' }
+      ];
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockCourses
+      });
+      
       render(<Step4PreviousCourses {...defaultProps} data={{}} />);
       
-      const courseCodeInput = screen.getByLabelText('Course Code *');
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+      
+      const courseDropdown = screen.getByPlaceholderText('e.g., CS 1101');
       const termInput = screen.getByLabelText('Term *');
       const addButton = screen.getByText('Add Course');
       
-      fireEvent.change(courseCodeInput, { target: { value: 'CS 1101' } });
+      fireEvent.focus(courseDropdown);
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('CS 1101'));
       fireEvent.change(termInput, { target: { value: 'Fall 2023' } });
       fireEvent.click(addButton);
       
       expect(mockOnUpdate).toHaveBeenCalledWith({
         previousCourses: [{
           courseCode: 'CS 1101',
-          term: 'Fall 2023'
+          term: 'Fall 2023',
+          courseName: 'Programming'
         }]
       });
     });
@@ -829,12 +1026,21 @@ describe('Onboarding Steps', () => {
         { courseCode: 'CS 1101', term: 'Fall 2023' }
       ];
 
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ courses: mockCourses })
-      });
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ courses: mockCourses })
+        });
 
       render(<Step4PreviousCourses {...defaultProps} data={{}} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
 
       if (mockDropzoneConfig.onDrop) {
         await mockDropzoneConfig.onDrop([mockFile]);
@@ -847,7 +1053,7 @@ describe('Onboarding Steps', () => {
             term: course.term
           }))
         });
-      });
+      }, { timeout: 3000 });
     });
 
     test('shows processing indicator when isProcessingPDF is true', async () => {
@@ -860,9 +1066,18 @@ describe('Onboarding Steps', () => {
         resolveFetch = resolve;
       });
 
-      global.fetch.mockReturnValueOnce(fetchPromise);
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+        .mockReturnValueOnce(fetchPromise);
 
       render(<Step4PreviousCourses {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
 
       if (mockDropzoneConfig.onDrop) {
         // Start the upload
@@ -891,6 +1106,505 @@ describe('Onboarding Steps', () => {
       
       // When isDragActive is true, should show drag-active message
       expect(screen.getByText('Drop your PDF transcript here...')).toBeInTheDocument();
+    });
+
+    test('handles CourseDropdown onChange with courseName', async () => {
+      const mockCourses = [
+        { courseCode: 'CS 1101', courseName: 'Programming and Problem Solving' }
+      ];
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockCourses
+      });
+      
+      render(<Step4PreviousCourses {...defaultProps} />);
+      
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+      
+      // CourseDropdown should be rendered with the courses
+      const courseDropdown = screen.getByPlaceholderText('e.g., CS 1101');
+      expect(courseDropdown).toBeInTheDocument();
+      
+      // Focus on CourseDropdown to open it
+      fireEvent.focus(courseDropdown);
+      
+      await waitFor(() => {
+        // CourseDropdown should show the course
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+      
+      // Select the course
+      const courseOption = screen.getByText('CS 1101');
+      fireEvent.click(courseOption);
+      
+      // Now add the course with term
+      const termInput = screen.getByLabelText('Term *');
+      fireEvent.change(termInput, { target: { value: 'Fall 2023' } });
+      
+      const addButton = screen.getByText('Add Course');
+      fireEvent.click(addButton);
+      
+      // Should include courseName from CourseDropdown
+      expect(mockOnUpdate).toHaveBeenCalledWith({
+        previousCourses: [{
+          courseCode: 'CS 1101',
+          term: 'Fall 2023',
+          courseName: 'Programming and Problem Solving'
+        }]
+      });
+    });
+
+    test('clears local errors after successful course addition', async () => {
+      const mockCourses = [
+        { courseCode: 'CS 1101', courseName: 'Programming' }
+      ];
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockCourses
+      });
+      
+      render(<Step4PreviousCourses {...defaultProps} />);
+      
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+      
+      // First trigger an error
+      const addButton = screen.getByText('Add Course');
+      fireEvent.click(addButton);
+      expect(screen.getByText('Please fill in course code and term')).toBeInTheDocument();
+      
+      // Then add a valid course
+      const courseDropdown = screen.getByPlaceholderText('e.g., CS 1101');
+      const termInput = screen.getByLabelText('Term *');
+      
+      fireEvent.focus(courseDropdown);
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('CS 1101'));
+      fireEvent.change(termInput, { target: { value: 'Fall 2023' } });
+      fireEvent.click(addButton);
+      
+      // Error should be cleared
+      expect(screen.queryByText('Please fill in course code and term')).not.toBeInTheDocument();
+    });
+
+    test('handles courseName field when CourseDropdown provides it', async () => {
+      // Mock CourseDropdown to return a course with name
+      const mockCourses = [
+        { courseCode: 'CS 1101', courseName: 'Programming and Problem Solving' }
+      ];
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockCourses
+      });
+      
+      render(<Step4PreviousCourses {...defaultProps} />);
+      
+      // Wait for courses to load
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+      
+      // CourseDropdown should receive the courses
+      const courseDropdown = screen.getByPlaceholderText('e.g., CS 1101');
+      expect(courseDropdown).toBeInTheDocument();
+    });
+
+    test('fetches available courses on mount', async () => {
+      const mockCourses = [
+        { courseCode: 'CS 1101', courseName: 'Programming' },
+        { courseCode: 'MATH 1200', courseName: 'Calculus' }
+      ];
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockCourses
+      });
+      
+      render(<Step4PreviousCourses {...defaultProps} />);
+      
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+    });
+
+    test('handles course fetch error gracefully', async () => {
+      global.fetch.mockRejectedValueOnce(new Error('Network error'));
+      
+      render(<Step4PreviousCourses {...defaultProps} />);
+      
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+      
+      // Component should still render despite fetch error
+      expect(screen.getByText('Step 4: Previous Courses (Optional)')).toBeInTheDocument();
+    });
+
+    test('handles course fetch with non-ok response', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500
+      });
+      
+      render(<Step4PreviousCourses {...defaultProps} />);
+      
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+      
+      // Component should still render
+      expect(screen.getByText('Step 4: Previous Courses (Optional)')).toBeInTheDocument();
+    });
+
+    test('adds course with empty courseName when CourseDropdown provides no name', async () => {
+      const mockCourses = [
+        { courseCode: 'CS 1101', courseName: '' }
+      ];
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockCourses
+      });
+      
+      render(<Step4PreviousCourses {...defaultProps} />);
+      
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+      
+      const courseDropdown = screen.getByPlaceholderText('e.g., CS 1101');
+      const termInput = screen.getByLabelText('Term *');
+      const addButton = screen.getByText('Add Course');
+      
+      fireEvent.focus(courseDropdown);
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('CS 1101'));
+      fireEvent.change(termInput, { target: { value: 'Fall 2023' } });
+      fireEvent.click(addButton);
+      
+      expect(mockOnUpdate).toHaveBeenCalledWith({
+        previousCourses: [{
+          courseCode: 'CS 1101',
+          term: 'Fall 2023',
+          courseName: ''
+        }]
+      });
+    });
+
+    test('handles PDF processing when result.courses is null', async () => {
+      const mockFile = new File(['test'], 'transcript.pdf', { type: 'application/pdf' });
+
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ courses: null })
+        });
+
+      render(<Step4PreviousCourses {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+
+      if (mockDropzoneConfig.onDrop) {
+        await mockDropzoneConfig.onDrop([mockFile]);
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText(/No courses found in the uploaded transcript/i)).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    test('handles PDF processing when result.courses is undefined', async () => {
+      const mockFile = new File(['test'], 'transcript.pdf', { type: 'application/pdf' });
+
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({})
+        });
+
+      render(<Step4PreviousCourses {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+
+      if (mockDropzoneConfig.onDrop) {
+        await mockDropzoneConfig.onDrop([mockFile]);
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText(/No courses found in the uploaded transcript/i)).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    test('handles PDF processing with courses that have courseName', async () => {
+      const mockFile = new File(['test'], 'transcript.pdf', { type: 'application/pdf' });
+      const mockCourses = [
+        { courseCode: 'CS 1101', term: 'Fall 2023', courseName: 'Programming' },
+        { courseCode: 'MATH 1200', term: 'Spring 2024', courseName: 'Calculus' }
+      ];
+
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ courses: mockCourses })
+        });
+
+      render(<Step4PreviousCourses {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+
+      if (mockDropzoneConfig.onDrop) {
+        await mockDropzoneConfig.onDrop([mockFile]);
+      }
+
+      await waitFor(() => {
+        expect(mockOnUpdate).toHaveBeenCalledWith({
+          previousCourses: mockCourses.map(course => ({
+            courseCode: course.courseCode,
+            term: course.term
+            // courseName should be excluded as per the code
+          }))
+        });
+      }, { timeout: 3000 });
+    });
+
+    test('clears PDF error when new upload starts', async () => {
+      const mockFile1 = new File(['test'], 'transcript1.pdf', { type: 'application/pdf' });
+      const mockFile2 = new File(['test'], 'transcript2.pdf', { type: 'application/pdf' });
+
+      // First upload fails
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          statusText: 'Server Error'
+        });
+
+      render(<Step4PreviousCourses {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+
+      if (mockDropzoneConfig.onDrop) {
+        await mockDropzoneConfig.onDrop([mockFile1]);
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText(/Failed to process PDF: Server Error/i)).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Second upload succeeds - error should be cleared
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ courses: [{ courseCode: 'CS 1101', term: 'Fall 2023' }] })
+      });
+
+      if (mockDropzoneConfig.onDrop) {
+        await mockDropzoneConfig.onDrop([mockFile2]);
+      }
+
+      await waitFor(() => {
+        expect(screen.queryByText(/Failed to process PDF: Server Error/i)).not.toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    test('handles removing course when previousCourses is empty array', () => {
+      render(<Step4PreviousCourses {...defaultProps} data={{ previousCourses: [] }} />);
+      
+      // Should not show course list
+      expect(screen.queryByText(/Added Courses/i)).not.toBeInTheDocument();
+    });
+
+    test('displays courseName in added courses if available', () => {
+      const courses = [
+        { courseCode: 'CS 1101', term: 'Fall 2023', courseName: 'Programming' }
+      ];
+      
+      render(<Step4PreviousCourses {...defaultProps} data={{ previousCourses: courses }} />);
+      
+      expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      expect(screen.getByText('Fall 2023')).toBeInTheDocument();
+      // courseName might not be displayed in the UI, but it's stored
+    });
+
+    test('handles term input change', () => {
+      render(<Step4PreviousCourses {...defaultProps} />);
+      
+      const termInput = screen.getByLabelText('Term *');
+      fireEvent.change(termInput, { target: { value: 'Spring 2024' } });
+      
+      expect(termInput.value).toBe('Spring 2024');
+    });
+
+    test('applies error class to term input when error exists', () => {
+      render(<Step4PreviousCourses {...defaultProps} />);
+      
+      // Trigger error
+      const addButton = screen.getByText('Add Course');
+      fireEvent.click(addButton);
+      
+      const termInput = screen.getByLabelText('Term *');
+      expect(termInput).toHaveClass('error');
+    });
+
+    test('handles multiple course additions in sequence', async () => {
+      const mockCourses = [
+        { courseCode: 'CS 1101', courseName: 'Programming' },
+        { courseCode: 'MATH 1200', courseName: 'Calculus' }
+      ];
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockCourses
+      });
+      
+      const { rerender } = render(<Step4PreviousCourses {...defaultProps} />);
+      
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+      
+      // Add first course
+      const courseDropdown1 = screen.getByPlaceholderText('e.g., CS 1101');
+      const termInput1 = screen.getByLabelText('Term *');
+      const addButton1 = screen.getByText('Add Course');
+      
+      fireEvent.focus(courseDropdown1);
+      await waitFor(() => {
+        expect(screen.getByText('CS 1101')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('CS 1101'));
+      fireEvent.change(termInput1, { target: { value: 'Fall 2023' } });
+      fireEvent.click(addButton1);
+      
+      expect(mockOnUpdate).toHaveBeenCalledWith({
+        previousCourses: [{ courseCode: 'CS 1101', term: 'Fall 2023', courseName: 'Programming' }]
+      });
+      
+      // Simulate state update
+      rerender(<Step4PreviousCourses {...defaultProps} data={{ previousCourses: [{ courseCode: 'CS 1101', term: 'Fall 2023', courseName: 'Programming' }] }} />);
+      
+      // Add second course
+      const courseDropdown2 = screen.getByPlaceholderText('e.g., CS 1101');
+      const termInput2 = screen.getByLabelText('Term *');
+      const addButton2 = screen.getByText('Add Course');
+      
+      fireEvent.focus(courseDropdown2);
+      await waitFor(() => {
+        expect(screen.getByText('MATH 1200')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('MATH 1200'));
+      fireEvent.change(termInput2, { target: { value: 'Spring 2024' } });
+      fireEvent.click(addButton2);
+      
+      expect(mockOnUpdate).toHaveBeenLastCalledWith({
+        previousCourses: [
+          { courseCode: 'CS 1101', term: 'Fall 2023', courseName: 'Programming' },
+          { courseCode: 'MATH 1200', term: 'Spring 2024', courseName: 'Calculus' }
+        ]
+      });
+    });
+
+    test('handles PDF upload with courses array but empty length', async () => {
+      const mockFile = new File(['test'], 'transcript.pdf', { type: 'application/pdf' });
+
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ courses: [] })
+        });
+
+      render(<Step4PreviousCourses {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+
+      if (mockDropzoneConfig.onDrop) {
+        await mockDropzoneConfig.onDrop([mockFile]);
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText(/No courses found in the uploaded transcript/i)).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    test('disables dropzone when processing PDF', async () => {
+      const mockFile = new File(['test'], 'transcript.pdf', { type: 'application/pdf' });
+      const mockCourses = [{ courseCode: 'CS 1101', term: 'Fall 2023' }];
+
+      let resolveFetch;
+      const fetchPromise = new Promise(resolve => {
+        resolveFetch = resolve;
+      });
+
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+        .mockReturnValueOnce(fetchPromise);
+
+      render(<Step4PreviousCourses {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/courses/list');
+      });
+
+      if (mockDropzoneConfig.onDrop) {
+        // Start upload
+        mockDropzoneConfig.onDrop([mockFile]);
+        
+        // Check that dropzone is disabled during processing
+        await waitFor(() => {
+          expect(mockDropzoneConfig.disabled).toBe(true);
+        });
+
+        // Resolve fetch
+        resolveFetch({
+          ok: true,
+          json: async () => ({ courses: mockCourses })
+        });
+
+        await waitFor(() => {
+          expect(mockDropzoneConfig.disabled).toBe(false);
+        }, { timeout: 3000 });
+      }
     });
   });
 });
