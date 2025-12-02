@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 
-const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, year, takenCourses }) => {
+const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, year, takenCourses, currentSemesterLabel, onRemoveClass }) => {
   const [saving, setSaving] = useState(false);
 
   console.log('TAKENCOURSES', takenCourses);
-  const currentSem = { term: 'Fall', year: 2025, label: 'Fall 2025' }
+
+  // Parse current semester label
+  const [currentTerm, currentYearStr] = (currentSemesterLabel || 'Fall 2025').split(' ');
+  const currentSem = { term: currentTerm, year: parseInt(currentYearStr), label: currentSemesterLabel || 'Fall 2025' };
 
   // Get current and future semesters (no summer, chronologically ordered)
   // Hardcoded to start from Fall 2025
@@ -13,25 +16,25 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, yea
     let startYear = 2025;
 
     let yearAdj = 0
-    
+
     switch (year) {
-      case 'Freshman': yearAdj=0; break;
-      case 'Sophomore': yearAdj=1; break;
-      case 'Junior': yearAdj=2; break;
-      case 'Senior': yearAdj=3; break;
+      case 'Freshman': yearAdj = 0; break;
+      case 'Sophomore': yearAdj = 1; break;
+      case 'Junior': yearAdj = 2; break;
+      case 'Senior': yearAdj = 3; break;
     }
     startYear = startYear - yearAdj
 
     // Start with Fall 2025
     semesters.push({ term: 'Fall', year: startYear, label: 'Fall ' + startYear });
-    
+
     // Generate next 4 years of semesters (Spring and Fall only)
     for (let i = 1; i < 8; i++) { // 8 semesters = 4 years
-      const year = startYear + Math.floor((i+1) / 2);
+      const year = startYear + Math.floor((i + 1) / 2);
       const term = i % 2 === 1 ? 'Spring' : 'Fall';
       semesters.push({ term, year, label: `${term} ${year}` });
     }
-    
+
     return semesters;
   };
 
@@ -40,20 +43,20 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, yea
   // Merge taken courses with planned courses
   const getMergedSemesterPlans = () => {
     const merged = { ...semesterPlans };
-    
+
     // Add taken courses to their respective semesters
     takenCourses.forEach(course => {
       if (course.term) {
         // Convert "Fall 2023" format to match semester labels
         const semesterLabel = course.term;
-        
+
         if (!merged[semesterLabel]) {
           merged[semesterLabel] = [];
         }
-        
+
         // Check if course is already in the semester plan
         const exists = merged[semesterLabel].some(cls => cls.code === course.courseCode);
-        
+
         if (!exists) {
           // Add taken course to the semester
           merged[semesterLabel].push({
@@ -67,18 +70,25 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, yea
         }
       }
     });
-    
+
     return merged;
   };
 
   const mergedPlans = getMergedSemesterPlans();
 
   const removeClassFromSemester = (semester, classId) => {
-    const updated = {
-      ...semesterPlans,
-      [semester]: (semesterPlans[semester] || []).filter(cls => cls.id !== classId)
-    };
-    onUpdateSemesterPlans(updated);
+    if (semester === currentSemesterLabel && onRemoveClass) {
+      // If it's the current semester, use the main removal handler to sync everything
+      // We need to find the courseId (which might be different from id if id is generated)
+      // But usually id is courseId.
+      onRemoveClass(classId);
+    } else {
+      const updated = {
+        ...semesterPlans,
+        [semester]: (semesterPlans[semester] || []).filter(cls => cls.id !== classId)
+      };
+      onUpdateSemesterPlans(updated);
+    }
   };
 
   const getTotalCredits = (semester) => {
@@ -160,15 +170,15 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, yea
         }}>
           <h3 style={{ margin: '0 0 10px 0', color: '#1976D2' }}>📅 Your 4-Year Plan is Empty</h3>
           <p style={{ margin: '0', color: '#666' }}>
-            Go to the <strong>Search Classes</strong> page and click the <strong>🎯 4-Year Plan</strong> button 
+            Go to the <strong>Search Classes</strong> page and click the <strong>🎯 4-Year Plan</strong> button
             next to any course to add it to a semester!
           </p>
         </div>
       )}
 
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(4, 1fr)', 
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
         gap: '20px',
         marginBottom: '20px'
       }}>
@@ -191,22 +201,22 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, yea
               <div style={{ marginBottom: '10px' }}>
                 <h3 style={{ margin: '0 0 5px 0', fontSize: '18px' }}>
                   {semester.label}
-                  <span style={{ 
-                    fontSize: '12px', 
+                  <span style={{
+                    fontSize: '12px',
                     marginLeft: '8px',
                     padding: '2px 6px',
                     borderRadius: '4px',
                     backgroundColor: '#FF9800',
                     color: 'white'
                   }}>
-                  {
-                    (semester.term > currentSem.term && semester.year === currentSem.year) ||
-                    (semester.year < currentSem.year)
-                      ? '✅ Taken'
-                      : (semester.term === currentSem.term && semester.year === currentSem.year)
-                        ? '🟢 Current'
-                        : '📅 Planned'
-                  }
+                    {
+                      (semester.term > currentSem.term && semester.year === currentSem.year) ||
+                        (semester.year < currentSem.year)
+                        ? '✅ Taken'
+                        : (semester.term === currentSem.term && semester.year === currentSem.year)
+                          ? '🟢 Current'
+                          : '📅 Planned'
+                    }
 
                   </span>
                 </h3>
@@ -217,9 +227,9 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, yea
 
               <div style={{ marginBottom: '10px' }}>
                 {classes.length === 0 ? (
-                  <div style={{ 
-                    padding: '20px', 
-                    textAlign: 'center', 
+                  <div style={{
+                    padding: '20px',
+                    textAlign: 'center',
                     color: '#999',
                     fontSize: '13px'
                   }}>

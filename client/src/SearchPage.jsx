@@ -5,26 +5,26 @@ import { getClassAverageRatings, formatRating, fetchDegreeRequirements } from '.
 // Helper function to get time frame from schedule
 const getTimeFrame = (startTime, endTime) => {
   if (!startTime || !endTime) return null;
-  
+
   // Parse time - handle formats like "11:15" or "11:15AM"
   const parseTime = (timeStr) => {
     const cleanTime = timeStr.replace(/[ap]m?/i, '').trim();
     const [hour, min] = cleanTime.split(':').map(Number);
     let hour24 = hour;
-    
+
     if (timeStr.toLowerCase().includes('p') && hour !== 12) {
       hour24 = hour + 12;
     } else if (timeStr.toLowerCase().includes('a') && hour === 12) {
       hour24 = 0;
     }
-    
+
     return hour24 * 60 + (min || 0); // Return minutes from midnight
   };
-  
+
   const startMinutes = parseTime(startTime);
   const endMinutes = parseTime(endTime);
   const midMinutes = (startMinutes + endMinutes) / 2;
-  
+
   // Define time frames
   if (midMinutes >= 8 * 60 && midMinutes < 12 * 60) {
     return 'Morning (8:00 AM - 12:00 PM)';
@@ -37,17 +37,18 @@ const getTimeFrame = (startTime, endTime) => {
   }
 };
 
-const SearchPage = ({ 
-  allClasses, 
-  plannedClasses, 
-  onAddToPlanner, 
-  usingMockData, 
+const SearchPage = ({
+  allClasses,
+  plannedClasses,
+  onAddToPlanner,
+  usingMockData,
   onRefreshData,
   semesterPlans = {},
   onAddToSemester,
   userMajor = 'Computer Science',
   year,
-  onRemoveClass
+  onRemoveClass,
+  currentSemesterLabel
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilter, setShowFilter] = useState(false);
@@ -59,7 +60,7 @@ const SearchPage = ({
   const [filterSearch, setFilterSearch] = useState({});
   const [degreeRequirements, setDegreeRequirements] = useState(null);
   const [courseCategoryMap, setCourseCategoryMap] = useState({});
-  
+
   // New state for grouping
   const [expandedGroups, setExpandedGroups] = useState({});
   const [selectedSections, setSelectedSections] = useState({});
@@ -67,41 +68,41 @@ const SearchPage = ({
   // Function to check if two courses have a time conflict
   const checkTimeConflict = (course1, course2) => {
     if (!course1.schedule || !course2.schedule) return false;
-    
+
     const days1 = Array.isArray(course1.schedule.days) ? course1.schedule.days : [course1.schedule.days];
     const days2 = Array.isArray(course2.schedule.days) ? course2.schedule.days : [course2.schedule.days];
-    
+
     // Check if they share any days
     const sharedDays = days1.some(day => days2.includes(day));
     if (!sharedDays) return false;
-    
+
     const start1 = course1.schedule.startTime;
     const end1 = course1.schedule.endTime;
     const start2 = course2.schedule.startTime;
     const end2 = course2.schedule.endTime;
-    
+
     if (!start1 || !end1 || !start2 || !end2) return false;
-    
+
     // Parse times - handle formats like "11:15" or "11:15AM"
     const parseTime = (timeStr) => {
       const cleanTime = timeStr.replace(/[ap]m?/i, '').trim();
       const [hour, min] = cleanTime.split(':').map(Number);
       let hour24 = hour;
-      
+
       if (timeStr.toLowerCase().includes('p') && hour !== 12) {
         hour24 = hour + 12;
       } else if (timeStr.toLowerCase().includes('a') && hour === 12) {
         hour24 = 0;
       }
-      
+
       return hour24 * 60 + (min || 0);
     };
-    
+
     const start1Minutes = parseTime(start1);
     const end1Minutes = parseTime(end1);
     const start2Minutes = parseTime(start2);
     const end2Minutes = parseTime(end2);
-    
+
     // Check if time ranges overlap
     return (start1Minutes < end2Minutes && end1Minutes > start2Minutes);
   };
@@ -111,38 +112,38 @@ const SearchPage = ({
     return plannedClasses.filter(plannedClass => checkTimeConflict(course, plannedClass));
   };
 
-//   const currentSem = { term: 'Fall', year: 2025, label: 'Fall 2025' }
-//   const nextSem = { term: 'Fall', year: 2025, label: 'Fall 2025' }
+  //   const currentSem = { term: 'Fall', year: 2025, label: 'Fall 2025' }
+  //   const nextSem = { term: 'Fall', year: 2025, label: 'Fall 2025' }
 
   // Dynamically determine current and next semester based on available classes
   const { currentSem, nextSem } = useMemo(() => {
     // if (allClasses.length === 0) {
-      // Fallback to current date if no classes
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth() + 1; // 1-12
-      
-      // Determine semester based on month
-      // Jan-May: Spring, Jun-Dec: Fall
-      let term, nextTerm, nextYear;
-      if ((currentMonth >= 1 && currentMonth <= 5)) {
-        term = 'Spring';
-        nextTerm = 'Fall';
-        nextYear = currentYear;
-      } else {
-        term = 'Fall';
-        nextTerm = 'Spring';
-        nextYear = currentYear + 1;
-      }
-      console.log('DEBUG CURRENT SEM', currentYear, term);
-      console.log('DEBUG NEXT SEM', nextYear, nextTerm);
-      
-      return {
-        currentSem: { term, year: currentYear, label: `${term} ${currentYear}` },
-        nextSem: { term: nextTerm, year: nextYear, label: `${nextTerm} ${nextYear}` }
-      };
+    // Fallback to current date if no classes
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 1-12
+
+    // Determine semester based on month
+    // Jan-May: Spring, Jun-Dec: Fall
+    let term, nextTerm, nextYear;
+    if ((currentMonth >= 1 && currentMonth <= 5)) {
+      term = 'Spring';
+      nextTerm = 'Fall';
+      nextYear = currentYear;
+    } else {
+      term = 'Fall';
+      nextTerm = 'Spring';
+      nextYear = currentYear + 1;
+    }
+    console.log('DEBUG CURRENT SEM', currentYear, term);
+    console.log('DEBUG NEXT SEM', nextYear, nextTerm);
+
+    return {
+      currentSem: { term, year: currentYear, label: `${term} ${currentYear}` },
+      nextSem: { term: nextTerm, year: nextYear, label: `${nextTerm} ${nextYear}` }
+    };
     // }
-    
+
     // // Parse all unique terms from classes
     // const terms = new Set();
     // allClasses.forEach(cls => {
@@ -150,7 +151,7 @@ const SearchPage = ({
     //     terms.add(cls.term);
     //   }
     // });
-    
+
     // // Parse terms into {year, term} objects
     // const parsedTerms = Array.from(terms).map(termStr => {
     //   const parts = termStr.split(' ');
@@ -161,7 +162,7 @@ const SearchPage = ({
     //   }
     //   return null;
     // }).filter(Boolean);
-    
+
     // // Sort terms chronologically
     // parsedTerms.sort((a, b) => {
     //   if (a.year !== b.year) return a.year - b.year;
@@ -169,10 +170,10 @@ const SearchPage = ({
     //   const termOrder = { 'Spring': 1, 'Summer': 2, 'Fall': 3 };
     //   return (termOrder[a.term] || 0) - (termOrder[b.term] || 0);
     // });
-    
+
     // // Find the earliest term (most current/next offering)
     // const current = parsedTerms[0] || { term: 'Fall', year: 2025, label: 'Fall 2025' };
-    
+
     // // Determine next semester after current
     // let next;
     // if (current.term === 'Spring') {
@@ -190,11 +191,11 @@ const SearchPage = ({
     // Assuming currentSem is defined elsewhere, or define it here
     // const currentYear = currentSem.year; // Adjust based on your current year logic
     // const currentTerm = currentSem.year; // Adjust based on your current term logic
-    
+
     // // Simple logic: if current term is Fall, next is Spring of same year
     // // If current term is Spring, next is Fall of next year
     // let nextTerm, nextYear;
-    
+
     // if (currentTerm === 'Fall') {
     //     nextTerm = 'Spring';
     //     nextYear = currentYear + 1;
@@ -205,7 +206,7 @@ const SearchPage = ({
     let nextTerm = nextSem.term;
     let nextYear = nextSem.year;
     let compare = nextYear + ' ' + nextTerm
-    
+
     return cls.term === compare;
   };
 
@@ -218,27 +219,47 @@ const SearchPage = ({
     let yearAdj = 0
 
     switch (year) {
-      case 'Freshman': yearAdj=0; break;
-      case 'Sophomore': yearAdj=1; break;
-      case 'Junior': yearAdj=2; break;
-      case 'Senior': yearAdj=3; break;
+      case 'Freshman': yearAdj = 0; break;
+      case 'Sophomore': yearAdj = 1; break;
+      case 'Junior': yearAdj = 2; break;
+      case 'Senior': yearAdj = 3; break;
     }
     startYear = startYear - yearAdj
 
     // Start with Fall 2025
     semesters.push({ term: 'Fall', year: startYear, label: 'Fall ' + startYear });
-    
+
     // Generate next 4 years of semesters (Spring and Fall only)
     for (let i = 1; i < 8; i++) { // 8 semesters = 4 years
-      const year = startYear + Math.floor((i+1) / 2);
+      const year = startYear + Math.floor((i + 1) / 2);
       const term = i % 2 === 1 ? 'Spring' : 'Fall';
       semesters.push({ term, year, label: `${term} ${year}` });
     }
-    
+
     return semesters;
   };
 
-  const availableSemesters = getAvailableSemesters();
+  const availableSemesters = getAvailableSemesters().filter(sem => {
+    // If currentSemesterLabel is provided, only show FUTURE semesters
+    // Assuming currentSemesterLabel is like "Fall 2025"
+    if (!currentSemesterLabel) return true;
+
+    const [currentTerm, currentYearStr] = currentSemesterLabel.split(' ');
+    const currentYear = parseInt(currentYearStr);
+
+    if (sem.year > currentYear) return true;
+    if (sem.year < currentYear) return false;
+
+    // Same year: Only show if current is Spring and target is Fall
+    // If current is Fall, then Spring (same year) is past (impossible in this logic but good to be safe)
+    // Actually, if current is Fall 2025, then Fall 2025 is current (exclude), Spring 2025 is past.
+    // We want strictly future.
+
+    // Term order: Spring < Summer < Fall
+    const termOrder = { 'Spring': 1, 'Summer': 2, 'Fall': 3 };
+
+    return termOrder[sem.term] > termOrder[currentTerm];
+  });
 
   // Fetch degree requirements and build category mapping
   useEffect(() => {
@@ -246,13 +267,13 @@ const SearchPage = ({
       try {
         const degreeData = await fetchDegreeRequirements(userMajor);
         setDegreeRequirements(degreeData);
-        
+
         // Build a map of course codes to categories
         const categoryMap = {};
         if (degreeData && degreeData.categories) {
           degreeData.categories.forEach((category) => {
             const categoryName = category.name;
-            
+
             // Add courses from availableClasses
             if (category.availableClasses && Array.isArray(category.availableClasses)) {
               category.availableClasses.forEach((course) => {
@@ -264,7 +285,7 @@ const SearchPage = ({
                     categoryMap[code] = new Set();
                   }
                   categoryMap[code].add(categoryName);
-                  
+
                   // Also store without space
                   const codeNoSpace = code.replace(/\s+/g, '');
                   if (codeNoSpace !== code) {
@@ -278,7 +299,7 @@ const SearchPage = ({
             }
           });
         }
-        
+
         // Convert Sets to Arrays for easier use
         const categoryMapArrays = {};
         Object.keys(categoryMap).forEach((code) => {
@@ -289,35 +310,35 @@ const SearchPage = ({
         console.error('Error loading degree requirements:', error);
       }
     };
-    
+
     loadDegreeRequirements();
   }, [userMajor]);
 
   // Get degree category for a course
   const getCourseCategories = (course) => {
     const categories = new Set();
-    
+
     if (!degreeRequirements || !degreeRequirements.categories) {
       return Array.from(categories);
     }
-    
+
     const courseCode = course.code?.toUpperCase().trim();
     if (!courseCode) return Array.from(categories);
-    
+
     // Normalize course code (remove spaces, handle variations like "CS1101" vs "CS 1101")
     const normalizedCode = courseCode.replace(/\s+/g, ' ');
-    
+
     // Check direct mapping (try both with and without spaces)
     if (courseCategoryMap[normalizedCode]) {
       courseCategoryMap[normalizedCode].forEach((cat) => categories.add(cat));
     }
-    
+
     // Also check without spaces
     const codeNoSpaces = normalizedCode.replace(/\s+/g, '');
     if (courseCategoryMap[codeNoSpaces]) {
       courseCategoryMap[codeNoSpaces].forEach((cat) => categories.add(cat));
     }
-    
+
     // Check special categories
     degreeRequirements.categories.forEach((category) => {
       if (category.name === 'Computer Science Depth') {
@@ -333,7 +354,7 @@ const SearchPage = ({
       // Note: Open Electives can include any course, but we don't auto-add it
       // to avoid cluttering. Users can still filter by it if needed.
     });
-    
+
     return Array.from(categories);
   };
 
@@ -366,7 +387,7 @@ const SearchPage = ({
 
   const attributeOptions = useMemo(() => {
     const options = {};
-    
+
     filterableKeys.forEach((key) => {
       if (key === 'degreeCategory') {
         // Special handling for degree category - get all categories from degree requirements
@@ -425,20 +446,20 @@ const SearchPage = ({
       } else {
         // Handle other fields normally
         const valuesSet = new Set();
-      allClasses.forEach((cls) => {
-        const val = cls[key];
+        allClasses.forEach((cls) => {
+          const val = cls[key];
           if (val !== null && val !== undefined) {
-        if (Array.isArray(val)) {
-          val.forEach((v) => valuesSet.add(v));
-        } else {
-          valuesSet.add(val);
+            if (Array.isArray(val)) {
+              val.forEach((v) => valuesSet.add(v));
+            } else {
+              valuesSet.add(val);
             }
-        }
-      });
+          }
+        });
         options[key] = Array.from(valuesSet).sort();
       }
     });
-    
+
     return options;
   }, [filterableKeys, allClasses]);
 
@@ -499,13 +520,13 @@ const SearchPage = ({
   // Group classes by course code
   const groupedClasses = useMemo(() => {
     const groups = {};
-    
+
     const filteredClasses = allClasses.filter(isNextSemester)
 
     filteredClasses.forEach(cls => {
       // Extract base course code (e.g., "CS 1101" from "CS 1101-001")
       const baseCode = cls.code.split('-')[0].trim();
-      
+
       if (!groups[baseCode]) {
         groups[baseCode] = {
           baseCode: baseCode,
@@ -515,10 +536,10 @@ const SearchPage = ({
           hasMultipleSections: false
         };
       }
-      
+
       groups[baseCode].allSections.push(cls);
     });
-    
+
     // Mark groups that have multiple sections and sort sections
     Object.values(groups).forEach(group => {
       group.hasMultipleSections = group.allSections.length > 1;
@@ -530,7 +551,7 @@ const SearchPage = ({
         return 0;
       });
     });
-    
+
     return groups;
   }, [allClasses]);
 
@@ -562,14 +583,14 @@ const SearchPage = ({
   // Filter grouped classes based on search and filters
   const filteredGroupedClasses = useMemo(() => {
     const filteredGroups = {};
-    
+
     Object.entries(groupedClasses).forEach(([baseCode, group]) => {
       const searchMatch =
         baseCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
         group.name.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       if (!searchMatch) return;
-      
+
       // Check if any section in the group matches the filters
       const hasMatchingSection = group.allSections.some(cls => {
         for (const key of filterableKeys) {
@@ -613,12 +634,12 @@ const SearchPage = ({
         }
         return true;
       });
-      
+
       if (hasMatchingSection) {
         filteredGroups[baseCode] = group;
       }
     });
-    
+
     return filteredGroups;
   }, [groupedClasses, searchTerm, selectedFilters, filterableKeys]);
 
@@ -633,14 +654,14 @@ const SearchPage = ({
           }
           return { dept: code, num: 0 };
         };
-        
+
         const aCode = parseCode(codeA);
         const bCode = parseCode(codeB);
-        
+
         if (aCode.dept !== bCode.dept) {
           return aCode.dept.localeCompare(bCode.dept);
         }
-        
+
         return aCode.num - bCode.num;
       });
   }, [filteredGroupedClasses]);
@@ -653,10 +674,10 @@ const SearchPage = ({
   return (
     <div>
       {usingMockData && (
-        <div style={{ 
-          background: '#fff3cd', 
-          border: '1px solid #ffeaa7', 
-          padding: '10px', 
+        <div style={{
+          background: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          padding: '10px',
           margin: '10px 0',
           borderRadius: '5px',
           fontSize: '14px'
@@ -674,8 +695,8 @@ const SearchPage = ({
       />
 
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
-      <button
-        onClick={() => setShowFilter(true)}
+        <button
+          onClick={() => setShowFilter(true)}
           style={{
             // backgroundColor: '#2196F3',
             backgroundColor: 'var(--info)',
@@ -695,8 +716,8 @@ const SearchPage = ({
           🔍 Filters
           {getActiveFilterCount() > 0 && (
             <span style={{
-            //   backgroundColor: '#ff4444',
-            backgroundColor: 'var(--error)',
+              //   backgroundColor: '#ff4444',
+              backgroundColor: 'var(--error)',
               color: 'white',
               borderRadius: '12px',
               padding: '2px 8px',
@@ -721,12 +742,12 @@ const SearchPage = ({
             }}
           >
             Clear All
-      </button>
+          </button>
         )}
         <button
-            onClick={deselectAll}
+          onClick={deselectAll}
         >
-            Collapse All
+          Collapse All
         </button>
       </div>
 
@@ -739,18 +760,18 @@ const SearchPage = ({
         {sortedGroupedClasses.map(([baseCode, group]) => {
           const isExpanded = expandedGroups[baseCode];
           const selectedSection = getSelectedSection(baseCode);
-          
+
           return (
             <li key={baseCode} className="class-item">
               {/* Course Group Header */}
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '5px',
                 cursor: 'pointer'
               }}
-              onClick={() => toggleGroupExpansion(baseCode)}
+                onClick={() => toggleGroupExpansion(baseCode)}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <strong>{baseCode}</strong>: {group.name}
@@ -763,7 +784,7 @@ const SearchPage = ({
                     // Calculate average across all sections
                     const allAverages = group.allSections.map(section => getClassAverageRatings(section));
                     const validAverages = allAverages.filter(avg => avg?.hasData);
-                    
+
                     if (validAverages.length === 0) return null;
 
                     const avgQuality = validAverages.reduce((sum, avg) => sum + avg.avgQuality, 0) / validAverages.length;
@@ -773,26 +794,26 @@ const SearchPage = ({
                     const difficulty = formatRating(avgDifficulty, 'difficulty');
 
                     return (
-                        <div style={{ fontSize: '16px', color: '#666', marginLeft: '8px' }}>
-                            <span style={{ color: quality.color, padding: '5px' }}>Quality: {quality.value}</span>{' '}
-                            <span style={{ color: difficulty.color, padding: '5px' }}>Difficulty: {difficulty.value}</span>
-                        </div>
+                      <div style={{ fontSize: '16px', color: '#666', marginLeft: '8px' }}>
+                        <span style={{ color: quality.color, padding: '5px' }}>Quality: {quality.value}</span>{' '}
+                        <span style={{ color: difficulty.color, padding: '5px' }}>Difficulty: {difficulty.value}</span>
+                      </div>
                     );
                   })()}
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={(e) => {
-                        if (plannedClasses.some(planned => planned.id === selectedSection.id)) {
-                            e.stopPropagation();
-                            onRemoveClass(selectedSection.courseId);
-                        } else {
-                            e.stopPropagation();
-                            onAddToPlanner(selectedSection);
-                        }
+                      if (plannedClasses.some(planned => planned.id === selectedSection.id)) {
+                        e.stopPropagation();
+                        onRemoveClass(selectedSection.courseId);
+                      } else {
+                        e.stopPropagation();
+                        onAddToPlanner(selectedSection);
+                      }
                     }}
                     style={{
-                    //   backgroundColor: '#4CAF50',
+                      //   backgroundColor: '#4CAF50',
                       backgroundColor: 'var(--primary-hover)',
                       color: 'white',
                       border: 'none',
@@ -800,7 +821,7 @@ const SearchPage = ({
                       padding: '8px 12px',
                       cursor: 'pointer',
                     }}
-                    // disabled={plannedClasses.some(planned => planned.id === selectedSection.id)}
+                  // disabled={plannedClasses.some(planned => planned.id === selectedSection.id)}
                   >
                     {plannedClasses.some(planned => planned.id === selectedSection.id) ? '✓ Added' : '+ Add'}
                   </button>
@@ -810,7 +831,7 @@ const SearchPage = ({
                       setShowSemesterSelector(selectedSection);
                     }}
                     style={{
-                    //   backgroundColor: '#2196F3',
+                      //   backgroundColor: '#2196F3',
                       backgroundColor: 'var(--info)',
                       color: 'white',
                       border: 'none',
@@ -828,7 +849,7 @@ const SearchPage = ({
               {isExpanded && group.allSections.map((section) => {
                 const isSelected = selectedSection.id === section.id;
                 const conflicts = getConflictingCourses(section);
-                
+
                 return (
                   <div
                     key={`${section.id}-${section.sectionNumber}`}
@@ -870,20 +891,20 @@ const SearchPage = ({
                       </div>
                       {isSelected && <span style={{ color: '#2196F3', fontWeight: 'bold' }}>✓ Selected</span>}
                     </div>
-                    
+
                     <div className="class-meta">
                       Prof: {section.professors.join(', ')} | Term: {section.term}
                       {section.sectionType && ` | Type: ${section.sectionType}`}
                     </div>
-                    
+
                     {section.schedule && (
                       <div style={{ fontSize: '13px', marginTop: '4px' }}>
-                        📅 {Array.isArray(section.schedule.days) ? section.schedule.days.join(', ') : section.schedule.days} 
+                        📅 {Array.isArray(section.schedule.days) ? section.schedule.days.join(', ') : section.schedule.days}
                         {' '}{section.schedule.startTime} - {section.schedule.endTime}
                         {section.schedule.location && ` | ${section.schedule.location}`}
                       </div>
                     )}
-                    
+
                     {(() => {
                       const avg = getClassAverageRatings(section);
                       if (!avg?.hasData) return null;
@@ -898,7 +919,7 @@ const SearchPage = ({
                         </div>
                       );
                     })()}
-                    
+
                     <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
                       <button
                         onClick={(e) => {
@@ -948,9 +969,9 @@ const SearchPage = ({
       {showFilter && (
         <Modal onClose={() => setShowFilter(false)}>
           <div style={{ maxWidth: '600px', width: '100%' }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'center',
               marginBottom: '24px',
               paddingBottom: '16px',
@@ -1033,8 +1054,8 @@ const SearchPage = ({
                           </span>
                         )}
                       </div>
-                      <span style={{ 
-                        fontSize: '14px', 
+                      <span style={{
+                        fontSize: '14px',
                         color: '#666',
                         flexShrink: 0,
                         marginLeft: '12px',
@@ -1119,8 +1140,8 @@ const SearchPage = ({
                                     }
                                   }}
                                 >
-                    <input
-                      type="checkbox"
+                                  <input
+                                    type="checkbox"
                                     checked={isSelected}
                                     onChange={(e) => {
                                       e.stopPropagation();
@@ -1134,12 +1155,12 @@ const SearchPage = ({
                                       height: '18px',
                                       flexShrink: 0
                                     }}
-                    />
+                                  />
                                   <span style={{ flex: 1 }}>{String(option)}</span>
                                   {isSelected && (
                                     <span style={{ color: '#2196F3', fontSize: '16px', flexShrink: 0 }}>✓</span>
                                   )}
-                  </label>
+                                </label>
                               );
                             })
                           )}
@@ -1199,15 +1220,15 @@ const SearchPage = ({
           <p style={{ marginBottom: '20px', fontSize: '14px', color: '#666' }}>
             Select a semester to add this course to your long term plan:
           </p>
-          <div style={{ 
-            display: 'grid', 
+          <div style={{
+            display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
             gap: '10px'
           }}>
             {availableSemesters.map(semester => {
               const classesInSemester = semesterPlans[semester.label] || [];
               const isAlreadyAdded = classesInSemester.some(cls => cls.id === showSemesterSelector.id);
-              
+
               return (
                 <button
                   key={semester.label}

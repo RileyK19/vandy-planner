@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import './App.css'
-import { 
-  fetchClassesFromDB, 
-  savePlannedClassesToDB, 
-  isAuthenticated, 
-  getUserProfile, 
+import {
+  fetchClassesFromDB,
+  savePlannedClassesToDB,
+  isAuthenticated,
+  getUserProfile,
   logoutUser,
   loadSemesterPlanner  // NEW: Import the new function
 } from './api.jsx'
@@ -27,7 +27,7 @@ function App() {
   const [user, setUser] = useState(null)
   const [authError, setAuthError] = useState('')
   const [authLoading, setAuthLoading] = useState(true)
-    
+
   // App state
   const [currentView, setCurrentView] = useState('search')
   const [allClasses, setAllClasses] = useState([])
@@ -37,6 +37,9 @@ function App() {
   const [usingMockData, setUsingMockData] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showInfoModal, setShowInfoModal] = useState(false)
+
+  // Define current semester label - centralized source of truth
+  const currentSemesterLabel = 'Fall 2025';
 
   const [toast, setToast] = useState(null);
 
@@ -56,12 +59,12 @@ function App() {
           console.log('User profile loaded:', userData);
           setUser(userData)
           setIsLoggedIn(true)
-          
+
           // NEW: Load one-semester planner from database
           try {
             console.log('📖 Loading semester planner from database...');
             const semesterPlan = await loadSemesterPlanner();
-            
+
             if (semesterPlan && semesterPlan.classes && semesterPlan.classes.length > 0) {
               console.log('✅ Loaded semester planner:', {
                 semester: semesterPlan.semesterName,
@@ -76,14 +79,14 @@ function App() {
             console.error('Error loading semester planner:', plannerError);
             // Don't fail - just continue with empty planner
           }
-          
+
           // Load 4-year plans from plannedSchedules (EXISTING)
           if (userData.plannedSchedules && userData.plannedSchedules.length > 0) {
             console.log('📅 Loading 4-year plan from plannedSchedules...');
             const latestSchedule = userData.plannedSchedules[userData.plannedSchedules.length - 1]
-            
+
             const semesterPlansFromDB = {}
-            
+
             if (latestSchedule.classes && Array.isArray(latestSchedule.classes)) {
               latestSchedule.classes.forEach(course => {
                 if (course.semester) {
@@ -105,7 +108,7 @@ function App() {
                 }
               })
             }
-            
+
             if (Object.keys(semesterPlansFromDB).length > 0) {
               setSemesterPlans(semesterPlansFromDB)
               localStorage.setItem('semesterPlans', JSON.stringify(semesterPlansFromDB))
@@ -155,7 +158,7 @@ function App() {
     async function loadClasses() {
       setLoading(true)
       try {
-        const dbClasses = await fetchClassesWithRatings()        
+        const dbClasses = await fetchClassesWithRatings()
         if (dbClasses && dbClasses.length > 0) {
           setAllClasses(dbClasses)
           setUsingMockData(false)
@@ -200,33 +203,33 @@ function App() {
 
     const hasConflict = plannedClasses.some(plannedClass => {
       if (!classItem.schedule || !plannedClass.schedule) return false
-      
+
       const newDays = Array.isArray(classItem.schedule.days) ? classItem.schedule.days : [classItem.schedule.days]
       const plannedDays = Array.isArray(plannedClass.schedule.days) ? plannedClass.schedule.days : [plannedClass.schedule.days]
-      
+
       const sharedDays = newDays.some(day => plannedDays.includes(day))
       if (!sharedDays) return false
-      
+
       const newStart = classItem.schedule.startTime
       const newEnd = classItem.schedule.endTime
       const plannedStart = plannedClass.schedule.startTime
       const plannedEnd = plannedClass.schedule.endTime
-      
+
       if (!newStart || !newEnd || !plannedStart || !plannedEnd) return false
-      
+
       const [newStartHour, newStartMin] = newStart.split(':').map(Number)
       const [newEndHour, newEndMin] = newEnd.split(':').map(Number)
       const [plannedStartHour, plannedStartMin] = plannedStart.split(':').map(Number)
       const [plannedEndHour, plannedEndMin] = plannedEnd.split(':').map(Number)
-      
+
       const newStartMinutes = newStartHour * 60 + newStartMin
       const newEndMinutes = newEndHour * 60 + newEndMin
       const plannedStartMinutes = plannedStartHour * 60 + plannedStartMin
       const plannedEndMinutes = plannedEndHour * 60 + plannedEndMin
-      
+
       return (newStartMinutes < plannedEndMinutes && newEndMinutes > plannedStartMinutes)
     })
-    
+
     if (hasConflict) {
       showToast('This class conflicts with another class in your planner!', 'warning');
     } else {
@@ -234,10 +237,32 @@ function App() {
     }
 
     setPlannedClasses(prev => [...prev, classItem])
+
+    // Sync with semesterPlans for current semester
+    setSemesterPlans(prev => {
+      const existing = prev[currentSemesterLabel] || [];
+      // Check if already in semester plan (should be handled by plannedClasses check but good to be safe)
+      if (existing.some(cls => cls.id === classItem.id)) return prev;
+
+      return {
+        ...prev,
+        [currentSemesterLabel]: [...existing, classItem]
+      };
+    });
   }
 
   const removeFromPlanner = (classId) => {
     setPlannedClasses(prev => prev.filter(cls => cls.courseId !== classId))
+
+    // Sync with semesterPlans for current semester
+    setSemesterPlans(prev => {
+      const existing = prev[currentSemesterLabel] || [];
+      return {
+        ...prev,
+        [currentSemesterLabel]: existing.filter(cls => cls.id !== classId && cls.courseId !== classId)
+      };
+    });
+
     showToast('Class removed successfully!', 'success');
   }
 
@@ -245,12 +270,23 @@ function App() {
     setSemesterPlans(prev => {
       const existing = prev[semester] || []
       const isAlreadyAdded = existing.some(cls => cls.id === classItem.id)
-      
+
       if (isAlreadyAdded) {
         showToast('This class is already in your planner!', 'warning');
         return prev
       }
-      
+
+      // If adding to current semester, also update plannedClasses
+      if (semester === currentSemesterLabel) {
+        // Check for conflicts in plannedClasses first? 
+        // For now, we'll just add it, assuming the user knows what they are doing if they add via 4-year plan
+        // But we should check if it's already in plannedClasses
+        setPlannedClasses(prevPlanned => {
+          if (prevPlanned.some(p => p.id === classItem.id)) return prevPlanned;
+          return [...prevPlanned, classItem];
+        });
+      }
+
       return {
         ...prev,
         [semester]: [...existing, classItem]
@@ -273,11 +309,11 @@ function App() {
           term: course.term,
           sectionNumber: course.sectionNumber
         }))
-        
+
         // Use existing 4-year plan endpoint
         await savePlannedClassesToDB(coursesToSave)
       }
-      
+
       console.log('4-year plan saved successfully!')
     } catch (error) {
       console.error('Failed to save 4-year plan:', error)
@@ -290,12 +326,12 @@ function App() {
     setAuthError('')
     setUser(userData)
     setIsLoggedIn(true)
-    
+
     // NEW: Load semester planner immediately after login
     try {
       console.log('📖 Loading semester planner on login...');
       const semesterPlan = await loadSemesterPlanner();
-      
+
       if (semesterPlan && semesterPlan.classes && semesterPlan.classes.length > 0) {
         console.log('✅ Loaded semester planner on login:', {
           semester: semesterPlan.semesterName,
@@ -303,18 +339,24 @@ function App() {
         });
         setPlannedClasses(semesterPlan.classes);
         localStorage.setItem('plannedClasses', JSON.stringify(semesterPlan.classes));
+
+        // Sync to semesterPlans
+        setSemesterPlans(prev => ({
+          ...prev,
+          [currentSemesterLabel]: semesterPlan.classes
+        }));
       }
     } catch (error) {
       console.error('Error loading semester planner on login:', error);
     }
-    
+
     // Load 4-year plans from plannedSchedules (EXISTING)
     if (userData.plannedSchedules && userData.plannedSchedules.length > 0) {
       console.log('📅 Loading 4-year plans from login...');
       const latestSchedule = userData.plannedSchedules[userData.plannedSchedules.length - 1]
-      
+
       const semesterPlansFromDB = {}
-      
+
       if (latestSchedule.classes && Array.isArray(latestSchedule.classes)) {
         latestSchedule.classes.forEach(course => {
           if (course.semester) {
@@ -336,7 +378,7 @@ function App() {
           }
         })
       }
-      
+
       if (Object.keys(semesterPlansFromDB).length > 0) {
         setSemesterPlans(semesterPlansFromDB)
         localStorage.setItem('semesterPlans', JSON.stringify(semesterPlansFromDB))
@@ -396,30 +438,30 @@ function App() {
     <>
       {/* Mobile Overlay */}
       {!sidebarCollapsed && (
-        <div 
+        <div
           className="sidebar-overlay"
           onClick={() => setSidebarCollapsed(true)}
         />
       )}
-      
+
       {/* Sidebar */}
       <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : 'expanded'}`}>
         {/* Sidebar Header */}
         <div className="sidebar-header">
-          <div 
+          <div
             className="sidebar-logo-container"
             style={{ cursor: 'pointer' }}
           >
             {!sidebarCollapsed && (
               <button
-                onClick={() => setCurrentView('search')} 
+                onClick={() => setCurrentView('search')}
               >
-                  <img src="/cropped_logo.png?v=3" alt="Vandy Planner" className="sidebar-logo" />
+                <img src="/cropped_logo.png?v=3" alt="Vandy Planner" className="sidebar-logo" />
               </button>
             )}
-            
+
             {/* Hamburger Menu Icon */}
-            <button 
+            <button
               className="hamburger-menu"
               onClick={(e) => {
                 e.stopPropagation();
@@ -432,23 +474,23 @@ function App() {
               <span></span> */}
               {sidebarCollapsed && (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                      xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2"
-                      stroke-linecap="round" stroke-linejoin="round">
+                  xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="9 6 15 12 9 18"></polyline>
                 </svg>
               )}
               {!sidebarCollapsed && (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                      xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2"
-                      stroke-linecap="round" stroke-linejoin="round">
+                  xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
               )}
             </button>
           </div>
           {!sidebarCollapsed && user && (
-            <button 
-              onClick={() => setCurrentView('profile')} 
+            <button
+              onClick={() => setCurrentView('profile')}
               className="sidebar-user"
             >
               <div className="user-avatar">
@@ -461,21 +503,21 @@ function App() {
             </button>
           )}
         </div>
-        
+
         {/* Navigation */}
         <nav className="sidebar-nav">
           <div className="nav-section">
             {!sidebarCollapsed && <div className="nav-section-title">Navigation</div>}
-            <button 
-              onClick={() => setCurrentView('search')} 
+            <button
+              onClick={() => setCurrentView('search')}
               className={`nav-item ${currentView === 'search' ? 'active' : ''}`}
               title="Search Classes"
             >
               <span className="nav-icon">🔍</span>
               {!sidebarCollapsed && <span className="nav-text">Search Classes</span>}
             </button>
-            <button 
-              onClick={() => setCurrentView('planner')} 
+            <button
+              onClick={() => setCurrentView('planner')}
               className={`nav-item ${currentView === 'planner' ? 'active' : ''}`}
               title="Next Semester Plan"
             >
@@ -485,24 +527,24 @@ function App() {
                 <span className="nav-badge">{plannedClasses.length}</span>
               )}
             </button>
-            <button 
-              onClick={() => setCurrentView('audit')} 
+            <button
+              onClick={() => setCurrentView('audit')}
               className={`nav-item ${currentView === 'audit' ? 'active' : ''}`}
               title="Degree Audit"
             >
               <span className="nav-icon">🎓</span>
               {!sidebarCollapsed && <span className="nav-text">Degree Audit</span>}
             </button>
-            <button 
-              onClick={() => setCurrentView('recommend')} 
+            <button
+              onClick={() => setCurrentView('recommend')}
               className={`nav-item ${currentView === 'recommend' ? 'active' : ''}`}
               title="Recommendation"
             >
               <span className="nav-icon">💡</span>
               {!sidebarCollapsed && <span className="nav-text">Recommendations</span>}
             </button>
-            <button 
-              onClick={() => setCurrentView('fouryear')} 
+            <button
+              onClick={() => setCurrentView('fouryear')}
               className={`nav-item ${currentView === 'fouryear' ? 'active' : ''}`}
               title="Long-Term Plan"
             >
@@ -510,19 +552,19 @@ function App() {
               {!sidebarCollapsed && <span className="nav-text">Long-Term Plan</span>}
             </button>
           </div>
-          
+
           <div className="nav-section">
             {!sidebarCollapsed && <div className="nav-section-title">Account</div>}
-            <button 
-              onClick={() => setCurrentView('profile')} 
+            <button
+              onClick={() => setCurrentView('profile')}
               className={`nav-item ${currentView === 'profile' ? 'active' : ''}`}
               title="My Profile"
             >
               <span className="nav-icon">👤</span>
               {!sidebarCollapsed && <span className="nav-text">My Profile</span>}
             </button>
-            <button 
-              onClick={() => setCurrentView('userSearch')} 
+            <button
+              onClick={() => setCurrentView('userSearch')}
               className={`nav-item ${currentView === 'userSearch' ? 'active' : ''}`}
               title="Find Users"
             >
@@ -530,11 +572,11 @@ function App() {
               {!sidebarCollapsed && <span className="nav-text">Find Users</span>}
             </button>
           </div>
-          
+
           <div className="nav-section">
             {!sidebarCollapsed && <div className="nav-section-title">Tools</div>}
             {usingMockData && (
-              <button 
+              <button
                 onClick={refreshData}
                 className="nav-item"
                 title="Refresh Data"
@@ -543,7 +585,7 @@ function App() {
                 {!sidebarCollapsed && <span className="nav-text">Refresh Data</span>}
               </button>
             )}
-            <button 
+            <button
               onClick={() => setShowInfoModal(true)}
               className="nav-item"
               title="About"
@@ -553,10 +595,10 @@ function App() {
             </button>
           </div>
         </nav>
-        
+
         {/* Sidebar Footer */}
         <div className="sidebar-footer">
-          <button 
+          <button
             onClick={handleLogout}
             className="logout-button"
             title="Logout"
@@ -566,10 +608,10 @@ function App() {
           </button>
         </div>
       </div>
-      
+
       <div className={`app-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         {currentView === 'search' ? (
-          <SearchPage 
+          <SearchPage
             allClasses={allClasses}
             plannedClasses={plannedClasses}
             onAddToPlanner={addToPlanner}
@@ -580,11 +622,13 @@ function App() {
             userMajor={user?.major || 'Computer Science'}
             year={user.year}
             onRemoveClass={removeFromPlanner}
+            currentSemesterLabel={currentSemesterLabel}
           />
         ) : currentView === 'planner' ? (
-          <PlannerCalendar 
-            plannedClasses={plannedClasses} 
+          <PlannerCalendar
+            plannedClasses={plannedClasses}
             onRemoveClass={removeFromPlanner}
+            currentSemesterLabel={currentSemesterLabel}
           />
         ) : currentView === 'recommend' ? (
           <RecommendMe
@@ -597,16 +641,18 @@ function App() {
             }}
           />
         ) : currentView === 'fouryear' ? (
-          <FourYearPlanner 
+          <FourYearPlanner
             allClasses={allClasses}
             onSavePlan={handleSaveFourYearPlan}
             semesterPlans={semesterPlans}
             onUpdateSemesterPlans={setSemesterPlans}
             year={user.year}
             takenCourses={user.previousCourses}
+            currentSemesterLabel={currentSemesterLabel}
+            onRemoveClass={removeFromPlanner}
           />
         ) : currentView === 'profile' ? (
-          <ProfilePage 
+          <ProfilePage
             user={user}
             onProfileUpdate={(updatedUser) => {
               setUser(updatedUser);
@@ -614,8 +660,8 @@ function App() {
           />
         ) : currentView === 'userSearch' ? (
           <UserSearch />
-        ) :  (
-          <DegreeAudit 
+        ) : (
+          <DegreeAudit
             plannedClasses={plannedClasses}
             major="Computer Science"
             userEmail={user?.email}
@@ -652,8 +698,8 @@ function App() {
             top: '20px',
             left: '50%',
             transform: 'translateX(-50%)',
-            backgroundColor: toast.type === 'error' ? '#ff4444' : 
-                            toast.type === 'warning' ? '#ff9800' : '#4CAF50',
+            backgroundColor: toast.type === 'error' ? '#ff4444' :
+              toast.type === 'warning' ? '#ff9800' : '#4CAF50',
             color: 'white',
             padding: '15px 20px',
             borderRadius: '8px',
