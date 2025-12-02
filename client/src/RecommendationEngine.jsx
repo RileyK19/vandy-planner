@@ -294,76 +294,91 @@ const uniqueCandidates = candidates;
       };
     }) || [];
 
-  const prompt = `You are an expert academic advisor for ${degreeData?.major || 'CS'} students at Vanderbilt University.
+    const prompt = `You are an expert academic advisor for ${degreeData?.major || 'CS'} students at Vanderbilt University.
 
-  STUDENT PROFILE:
-  Progress: ${progressPercent}% complete (${completedHours}/${totalRequired} hours)
-  
-  DEGREE REQUIREMENTS BREAKDOWN:
-  ${degreeAuditInfo.map(cat => `
-  ${cat.name}: ${cat.earned}/${cat.required} hours earned ${cat.earned >= cat.required ? '✓' : '⚠️ INCOMPLETE'}
-    Description: ${cat.description || 'No description'}
-    ${cat.minCourses ? `Minimum ${cat.minCourses} courses required` : ''}
-    Completed: ${cat.completed.length > 0 ? cat.completed.join(', ') : 'None'}
-    ${cat.available.length > 0 ? `Available options: ${cat.available.slice(0, 5).join(', ')}${cat.available.length > 5 ? '...' : ''}` : ''}
-  `).join('\n')}
-  
-  COMPLETED COURSES (do not recommend similar/redundant courses):
-  ${takenCourses?.map(c => c.courseCode || c.code).join(', ') || 'None'}
-  
-  ALREADY PLANNED:
-  ${plannedClasses?.map(c => c.code).join(', ') || 'None'}
-  
-  STUDENT PREFERENCES:
-  - Workload: ${preferences.workload}
-  - Schedule preference: ${preferences.weekPattern}
-  ${preferences.avoidProfessors?.length ? `- Avoid: ${preferences.avoidProfessors.join(', ')}` : ''}
-  
-  AVAILABLE COURSES (pre-filtered, prioritized candidates):
-  ${courseData.slice(0, 40).map((c, i) => 
-    `${i + 1}. ${c.code} - ${c.name} (${c.hrs}h, Prof: ${c.prof}, RMP: ${c.rmp}, Required: ${c.req})`
-  ).join('\n')}
-  
-  YOUR TASK:
-  Select EXACTLY 15 courses that will help this student progress toward graduation efficiently.
-  
-  KEY PRINCIPLES:
-  1. **Avoid redundancy**: Don't recommend courses that cover similar material to what the student has already taken
-   - Example: If they took "Computer Architecture", don't recommend "Microarchitecture" or "Digital Systems"
-   - Example: If they took "Calculus I" (any version), don't recommend other Calc I equivalents
-   - **Graduate/Undergrad versions**: If a course has the same name but different numbers (e.g., CS 4281 and CS 5281), treat them as the SAME course - don't recommend both, prefer the undergrad version (lower class code) 
-   - If a course has the same last 2 numbers, it's the same class listed as graduate and undergrad, so DON'T recommend a graduate course that they've already taken as an undergrad class (or vice versa)
-   - Use course names and your knowledge to identify overlaps
-
-  2. **Maximize progress**: Choose courses that fulfill DIFFERENT degree requirements
-     - Spread across multiple requirement categories
-     - Prioritize courses marked "Required: YES"
-     - READ THE DESCRIPTIONS OF THE DEGREE REQUIREMENTS
-  
-  3. **Respect constraints**:
-     - NEVER recommend courses they've taken or planned
-     - NEVER recommend undergraduate research courses (codes with 2860, 3860, 3861)
-     - Limit to 2 sections maximum of any base course number
-  
-  4. **Consider quality**: Factor in RMP ratings when choosing between similar options
-  
-  5. **Match preferences**: Consider their workload and schedule preferences when selecting
-
-  6. **Variety** Prioritize classes that AREN'T in the student's major for open electives (CS students would rather take ECON than CS for open electives)
-  
-  OUTPUT FORMAT (JSON only, no markdown):
-  [
-    {
-      "courseCode": "EXACT_CODE_FROM_LIST",
-      "rank": 1,
-      "confidence": "high",
-      "reasoning": "One sentence explaining why - mention which requirement it fulfills or what gap it fills"
-    }
-  ]
-  
-  Return exactly 15 courses. Think carefully about avoiding redundancy with completed courses.
-  
-  THANKS :D`;
+    STUDENT PROFILE:
+    Progress: ${progressPercent}% complete (${completedHours}/${totalRequired} hours)
+    
+    DEGREE REQUIREMENTS BREAKDOWN:
+    ${degreeAuditInfo.map(cat => `
+    ${cat.name}: ${cat.earned}/${cat.required} hours earned ${cat.earned >= cat.required ? '✓' : '⚠️ INCOMPLETE'}
+      Description: ${cat.description || 'No description'}
+      ${cat.minCourses ? `Minimum ${cat.minCourses} courses required` : ''}
+      Completed: ${cat.completed.length > 0 ? cat.completed.join(', ') : 'None'}
+    `).join('\n')}
+    
+    COMPLETED COURSES (do not recommend similar/redundant courses):
+    ${takenCourses?.map(c => c.courseCode || c.code).join(', ') || 'None'}
+    
+    ALREADY PLANNED:
+    ${plannedClasses?.map(c => c.code).join(', ') || 'None'}
+    
+    STUDENT PREFERENCES:
+    - Workload: ${preferences.workload}
+    - Schedule preference: ${preferences.weekPattern}
+    ${preferences.avoidProfessors?.length ? `- Avoid: ${preferences.avoidProfessors.join(', ')}` : ''}
+    
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    ⚠️ CRITICAL: ONLY SELECT FROM THE COURSES IN THIS LIST ⚠️
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    AVAILABLE COURSES (you must choose from these ${courseData.length} options):
+    ${courseData.map((c, i) => 
+      `${i + 1}. ${c.code} - ${c.name} (${c.hrs}h, Prof: ${c.prof}, RMP: ${c.rmp}, Required: ${c.req})`
+    ).join('\n')}
+    
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    YOUR TASK:
+    Select EXACTLY 15 courses from the numbered list above that will help this student progress toward graduation efficiently.
+    
+    ⚠️ VALIDATION CHECKLIST - Before submitting, verify:
+    1. Every course code you return appears in the numbered list above (items 1-${courseData.length})
+    2. You have not recommended any course from "COMPLETED COURSES" or "ALREADY PLANNED"
+    3. You have not recommended any courses that only appear in the "DEGREE REQUIREMENTS" section
+    4. You have exactly 15 unique course codes
+    5. You have not duplicated any course code
+    
+    KEY PRINCIPLES:
+    1. **Avoid redundancy**: Don't recommend courses that cover similar material to what the student has already taken
+     - Example: If they took "Computer Architecture", don't recommend "Microarchitecture" or "Digital Systems"
+     - Example: If they took "Calculus I" (any version), don't recommend other Calc I equivalents
+     - **Graduate/Undergrad versions**: If a course has the same name but different numbers (e.g., CS 4281 and CS 5281), treat them as the SAME course - don't recommend both
+     - If a course has the same last 2 numbers, it's the same class listed as graduate and undergrad
+     - Use course names and your knowledge to identify overlaps
+    
+    2. **Maximize progress**: Choose courses that fulfill DIFFERENT degree requirements
+       - Spread across multiple requirement categories
+       - Prioritize courses marked "Required: YES"
+       - Consider the degree requirements descriptions above
+    
+    3. **Respect constraints**:
+       - NEVER recommend courses they've taken or planned
+       - NEVER recommend undergraduate research courses (codes with 2860, 3860, 3861)
+       - Limit to 2 sections maximum of any base course number
+       - ONLY use course codes from the numbered AVAILABLE COURSES list
+    
+    4. **Consider quality**: Factor in RMP ratings when choosing between similar options
+    
+    5. **Match preferences**: Consider their workload and schedule preferences when selecting
+    
+    6. **Variety**: Prioritize classes that AREN'T in the student's major for open electives (CS students would rather take ECON than CS for open electives)
+    
+    OUTPUT FORMAT (JSON only, no markdown, no code blocks):
+    [
+      {
+        "courseCode": "EXACT_CODE_FROM_NUMBERED_LIST",
+        "rank": 1,
+        "confidence": "high",
+        "reasoning": "One sentence explaining why - mention which requirement it fulfills"
+      }
+    ]
+    
+    ⚠️ FINAL REMINDER: 
+    - Every "courseCode" must exactly match a code from the numbered list (items 1-${courseData.length})
+    - Cross-check each code exists in the AVAILABLE COURSES section before including it
+    - Return exactly 15 unique courses
+    - Output pure JSON only (no markdown formatting, no \`\`\`json blocks)`;
 
   // console.log('📤 Sending prompt with', uniqueCandidates.length, 'unique courses');
   console.log('PROMPT: ', prompt);

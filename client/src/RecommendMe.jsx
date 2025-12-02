@@ -1,6 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react'
 import { getCourseRecommendations } from './api.jsx'
-import RecommendMeFourYear from './RecommendMeFourYear.jsx'
 import { useRecommendations } from './RecommendationContext.jsx'
 
 function timeOptions(startHour = 7, endHour = 21) {
@@ -46,8 +45,6 @@ export default function RecommendMe({
   onAddToPlanner,
   onReset
 }) {
-  const [activeTab, setActiveTab] = useState('semester') // 'semester' or 'four_year'
-
   const { recommendations: savedRecs, saveRecommendations, clearRecommendations } = useRecommendations()
   
   const [avoidProfessors, setAvoidProfessors] = useState([])
@@ -135,7 +132,7 @@ export default function RecommendMe({
       saveRecommendations(recs, {
         preferences: payload,
         major,
-        semester: 'current' // or whatever semester they're planning for
+        semester: 'current'
       })
     } catch (err) {
       setError(err.message)
@@ -147,274 +144,238 @@ export default function RecommendMe({
   const workloadHelper = WORKLOAD_OPTIONS.find((w) => w.value === workload)?.helper
   const weekPatternHelper = WEEK_PATTERN_OPTIONS.find((w) => w.value === weekPattern)?.helper
 
-  // Tab Navigation Component
-  const TabNav = () => (
-    <div style={{ 
-      display: 'flex', 
-      gap: '8px', 
-      borderBottom: '2px solid #e0e0e0',
-      marginBottom: '20px'
-    }}>
-      <button
-        onClick={() => setActiveTab('semester')}
-        style={{
-          padding: '12px 24px',
-          border: 'none',
-          borderBottom: activeTab === 'semester' ? '3px solid #007bff' : '3px solid transparent',
-          background: 'none',
-          cursor: 'pointer',
-          fontSize: '16px',
-          fontWeight: activeTab === 'semester' ? 600 : 500,
-          color: activeTab === 'semester' ? '#007bff' : '#666',
-          transition: 'all 0.2s'
-        }}
-      >
-        1 Semester
-      </button>
-      <button
-        onClick={() => setActiveTab('four_year')}
-        style={{
-          padding: '12px 24px',
-          border: 'none',
-          borderBottom: activeTab === 'four_year' ? '3px solid #007bff' : '3px solid transparent',
-          background: 'none',
-          cursor: 'pointer',
-          fontSize: '16px',
-          fontWeight: activeTab === 'four_year' ? 600 : 500,
-          color: activeTab === 'four_year' ? '#007bff' : '#666',
-          transition: 'all 0.2s'
-        }}
-      >
-        4-Year Plan
-      </button>
-    </div>
-  )
-
-  // Show 4-Year Planner
-  if (activeTab === 'four_year') {
-    return (
-      <div>
-        <TabNav />
-        <RecommendMeFourYear
-          knownProfessors={knownProfessors}
-          major={major}
-          userEmail={userEmail}
-          plannedClasses={plannedClasses}
-          onAddToPlanner={onAddToPlanner}
-        />
-      </div>
-    )
-  }
-
-  // Show 1-semester recommendations
+  // Show recommendations
   if (recommendations) {
     return (
-      <div>
-        <TabNav />
-        <div style={{ padding: '20px' }}>
-          <button onClick={handleReset} style={{ marginBottom: '20px' }}>← Back</button>
-          <h2>Your Recommendations ({recommendations.length})</h2>
-          <div style={{ display: 'grid', gap: '16px' }}>
-            {recommendations.map((course, idx) => (
-              <div key={course.id || course.code || idx} style={{ border: '1px solid #ddd', padding: '16px', borderRadius: '8px' }}>
-                <h3>#{idx + 1} {course.code} - {course.name}</h3>
-                <p><strong>Match Score:</strong> {course.score}</p>
-                
-                {course.isGPTEnhanced && (
-                  <div style={{ 
-                    backgroundColor: '#f0f7ff', 
-                    padding: '12px', 
-                    borderRadius: '6px', 
-                    marginBottom: '12px' 
-                  }}>
-                    <p style={{ margin: '0 0 8px 0' }}>
-                      <strong>🤖 AI Insight:</strong> {course.gptReasoning}
-                    </p>
-                    {course.gptWarning && (
-                      <p style={{ margin: 0, color: '#856404' }}>
-                        ⚠️ {course.gptWarning}
-                      </p>
-                    )}
-                  </div>
-                )}
-                
-                {course.prerequisiteInfo?.hasPrerequisites && (
-                  <p style={{ 
-                    fontSize: '14px', 
-                    color: '#666', 
-                    marginTop: '8px',
-                    padding: '8px',
-                    backgroundColor: '#f5f5f5',
-                    borderRadius: '4px'
-                  }}>
-                    <strong>Prerequisites:</strong> {course.prerequisiteInfo.prerequisiteText}
-                  </p>
-                )}
-                
-                {course.recommendationReasons && course.recommendationReasons.length > 0 && (
-                  <ul>
-                    {course.recommendationReasons.map((r, i) => <li key={i}>{r}</li>)}
-                  </ul>
-                )}
-                
-                {course.professors && course.professors.length > 0 && (
-                  <p style={{ fontSize: '14px', color: '#555' }}>
-                    <strong>Professors:</strong> {course.professors.join(', ')}
-                  </p>
-                )}
-                
-                {course.schedule && course.schedule.days && (
-                  <p style={{ fontSize: '14px', color: '#555' }}>
-                    <strong>Schedule:</strong> {course.schedule.days.join('/')} {course.schedule.startTime}-{course.schedule.endTime}
-                  </p>
-                )}
-                
-                {onAddToPlanner && (
-                  <button onClick={() => onAddToPlanner(course)}>+ Add to Planner</button>
-                )}
-              </div>
-            ))}
+      <div style={{ padding: '20px' }}>
+        <button onClick={handleReset} style={{ marginBottom: '20px' }}>← Back</button>
+        <h2>Your Recommendations ({recommendations.length})</h2>
+        
+        {error && (
+          <div style={{ 
+            backgroundColor: '#fff3cd', 
+            padding: '12px', 
+            borderRadius: '6px', 
+            marginBottom: '16px',
+            color: '#856404'
+          }}>
+            ⚠️ {error}
           </div>
+        )}
+        
+        <div style={{ display: 'grid', gap: '16px' }}>
+          {recommendations.map((course, idx) => (
+            <div key={course.id || course.code || idx} style={{ 
+              border: '1px solid #ddd', 
+              padding: '16px', 
+              borderRadius: '8px' 
+            }}>
+              <h3 style={{ 
+                fontSize: '18px', 
+                marginBottom: '8px',
+                wordBreak: 'break-word' // Prevent text cutoff
+              }}>
+                #{idx + 1} {course.code} - {course.name}
+              </h3>
+              
+              <p><strong>Match Score:</strong> {course.score}</p>
+              
+              {course.isGPTEnhanced && (
+                <div style={{ 
+                  backgroundColor: '#f0f7ff', 
+                  padding: '12px', 
+                  borderRadius: '6px', 
+                  marginBottom: '12px' 
+                }}>
+                  <p style={{ margin: '0 0 8px 0' }}>
+                    <strong>🤖 AI Insight:</strong> {course.gptReasoning}
+                  </p>
+                  {course.gptWarning && (
+                    <p style={{ margin: 0, color: '#856404' }}>
+                      ⚠️ {course.gptWarning}
+                    </p>
+                  )}
+                </div>
+              )}
+              
+              {course.prerequisiteInfo?.hasPrerequisites && (
+                <p style={{ 
+                  fontSize: '14px', 
+                  color: '#666', 
+                  marginTop: '8px',
+                  padding: '8px',
+                  backgroundColor: '#f5f5f5',
+                  borderRadius: '4px'
+                }}>
+                  <strong>Prerequisites:</strong> {course.prerequisiteInfo.prerequisiteText}
+                </p>
+              )}
+              
+              {course.recommendationReasons && course.recommendationReasons.length > 0 && (
+                <ul style={{ marginTop: '12px' }}>
+                  {course.recommendationReasons.map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              )}
+              
+              {course.professors && course.professors.length > 0 && (
+                <p style={{ fontSize: '14px', color: '#555', marginTop: '8px' }}>
+                  <strong>Professors:</strong> {course.professors.join(', ')}
+                </p>
+              )}
+              
+              {course.schedule && course.schedule.days && (
+                <p style={{ fontSize: '14px', color: '#555', marginTop: '4px' }}>
+                  <strong>Schedule:</strong> {course.schedule.days.join('/')} {course.schedule.startTime}-{course.schedule.endTime}
+                </p>
+              )}
+              
+              {onAddToPlanner && (
+                <button 
+                  onClick={() => onAddToPlanner(course)}
+                  style={{ marginTop: '12px' }}
+                >
+                  + Add to Planner
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     )
   }
 
-  // Show preferences form for 1-semester
+  // Show preferences form
   return (
-    <div>
-      <TabNav />
-      <div className="card">
-        <div className="card-content">
-          <div className="grid-2 equal-rows">
-            {/* Professors to avoid */}
-            <section className="section-group">
-              <div className="section-title-row">
-                <h3>Any professors you'd prefer to avoid?</h3>
+    <div className="card">
+      <div className="card-content">
+        <div className="grid-2 equal-rows">
+          {/* Professors to avoid */}
+          <section className="section-group">
+            <div className="section-title-row">
+              <h3>Any professors you'd prefer to avoid?</h3>
+            </div>
+            <div className="chips-input">
+              <div className="typeahead">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={profQuery}
+                  onChange={(e) => {
+                    setProfQuery(e.target.value)
+                    setShowProfPopover(true)
+                  }}
+                  onKeyDown={handleProfKeyDown}
+                  onFocus={() => setShowProfPopover(true)}
+                  placeholder={avoidProfessors.length === 0 ? 'Type a name and press Enter…' : 'Type to search…'}
+                  disabled={avoidProfessors.length >= 8 || loading}
+                />
+                {avoidProfessors.length >= 8 && (
+                  <div className="hint">Limit reached (8).</div>
+                )}
+                {showProfPopover && profQuery && filteredProfessors.length > 0 && (
+                  <div className="popover">
+                    {filteredProfessors.map((p) => (
+                      <div key={p} className="popover-item" onMouseDown={() => addProfessorChip(p)}>
+                        {p}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="chips-input">
-                <div className="typeahead">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={profQuery}
-                    onChange={(e) => {
-                      setProfQuery(e.target.value)
-                      setShowProfPopover(true)
-                    }}
-                    onKeyDown={handleProfKeyDown}
-                    onFocus={() => setShowProfPopover(true)}
-                    placeholder={avoidProfessors.length === 0 ? 'Type a name and press Enter…' : 'Type to search…'}
-                    disabled={avoidProfessors.length >= 8 || loading}
-                  />
-                  {avoidProfessors.length >= 8 && (
-                    <div className="hint">Limit reached (8).</div>
-                  )}
-                  {showProfPopover && profQuery && filteredProfessors.length > 0 && (
-                    <div className="popover">
-                      {filteredProfessors.map((p) => (
-                        <div key={p} className="popover-item" onMouseDown={() => addProfessorChip(p)}>
-                          {p}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="chips-row">
-                  {avoidProfessors.map((name) => (
-                    <span key={name} className="chip">
-                      {name}
-                      <button aria-label={`Remove ${name}`} className="chip-x" onClick={() => removeProfessorChip(name)}>×</button>
-                    </span>
-                  ))}
-                </div>
+              <div className="chips-row">
+                {avoidProfessors.map((name) => (
+                  <span key={name} className="chip">
+                    {name}
+                    <button aria-label={`Remove ${name}`} className="chip-x" onClick={() => removeProfessorChip(name)}>×</button>
+                  </span>
+                ))}
               </div>
-            </section>
+            </div>
+          </section>
 
-            {/* Time blocks */}
-            <section className="section-group">
-              <div className="section-title-row">
-                <h3>Time blocks that don't work</h3>
-                <p className="muted">Pick all that apply.</p>
-              </div>
-              <div className="pill-grid">
-                {PILL_OPTIONS.map((opt) => {
-                  const selected = blockedSlots.has(opt.value)
-                  return (
-                    <button
-                      key={opt.value}
-                      className={`pill ${selected ? 'pill-selected' : 'pill-outline'}`}
-                      onClick={() => togglePill(opt.value)}
-                      type="button"
-                      disabled={loading}
-                    >
-                      {opt.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </section>
-
-            {/* Workload */}
-            <section className="section-group">
-              <div className="section-title-row">
-                <h3>How intense should next semester be?</h3>
-              </div>
-              <div className="segmented">
-                {WORKLOAD_OPTIONS.map((opt) => (
+          {/* Time blocks */}
+          <section className="section-group">
+            <div className="section-title-row">
+              <h3>Time blocks that don't work</h3>
+              <p className="muted">Pick all that apply.</p>
+            </div>
+            <div className="pill-grid">
+              {PILL_OPTIONS.map((opt) => {
+                const selected = blockedSlots.has(opt.value)
+                return (
                   <button
                     key={opt.value}
-                    className={`segment ${workload === opt.value ? 'segment-selected' : ''}`}
-                    onClick={() => setWorkload(opt.value)}
+                    className={`pill ${selected ? 'pill-selected' : 'pill-outline'}`}
+                    onClick={() => togglePill(opt.value)}
                     type="button"
                     disabled={loading}
                   >
                     {opt.label}
                   </button>
-                ))}
-              </div>
-              <p className="muted" style={{ marginTop: '6px' }}>{workloadHelper}</p>
-            </section>
+                )
+              })}
+            </div>
+          </section>
 
-            {/* Week pattern */}
-            <section className="section-group">
-              <div className="section-title-row">
-                <h3>
-                  Preferred weekly rhythm
-                  <span className="info-tip" title="We'll prioritize section meeting patterns that match this preference."> ⓘ</span>
-                </h3>
-                <p className="muted">Pick which days carry more of your load.</p>
-              </div>
-              <div className="segmented">
-                {WEEK_PATTERN_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    className={`segment ${weekPattern === opt.value ? 'segment-selected' : ''}`}
-                    onClick={() => setWeekPattern(opt.value)}
-                    type="button"
-                    disabled={loading}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              <p className="muted" style={{ marginTop: '6px' }}>{weekPatternHelper}</p>
-            </section>
-          </div>
-        </div>
+          {/* Workload */}
+          <section className="section-group">
+            <div className="section-title-row">
+              <h3>How intense should next semester be?</h3>
+            </div>
+            <div className="segmented">
+              {WORKLOAD_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  className={`segment ${workload === opt.value ? 'segment-selected' : ''}`}
+                  onClick={() => setWorkload(opt.value)}
+                  type="button"
+                  disabled={loading}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="muted" style={{ marginTop: '6px' }}>{workloadHelper}</p>
+          </section>
 
-        {/* Actions */}
-        <div className="card-actions">
-          <button className="button ghost" type="button" onClick={handleReset} disabled={loading}>Reset</button>
-          <button
-            className="button primary"
-            type="button"
-            onClick={handleSubmit}
-            disabled={loading}
-          >
-            {loading ? 'Querying AI...' : 'Get Course Recommendations'}
-          </button>
+          {/* Week pattern */}
+          <section className="section-group">
+            <div className="section-title-row">
+              <h3>
+                Preferred weekly rhythm
+                <span className="info-tip" title="We'll prioritize section meeting patterns that match this preference."> ⓘ</span>
+              </h3>
+              <p className="muted">Pick which days carry more of your load.</p>
+            </div>
+            <div className="segmented">
+              {WEEK_PATTERN_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  className={`segment ${weekPattern === opt.value ? 'segment-selected' : ''}`}
+                  onClick={() => setWeekPattern(opt.value)}
+                  type="button"
+                  disabled={loading}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="muted" style={{ marginTop: '6px' }}>{weekPatternHelper}</p>
+          </section>
         </div>
+      </div>
+
+      {/* Actions */}
+      <div className="card-actions">
+        <button className="button ghost" type="button" onClick={handleReset} disabled={loading}>Reset</button>
+        <button
+          className="button primary"
+          type="button"
+          onClick={handleSubmit}
+          disabled={loading}
+        >
+          {loading ? 'Querying AI...' : 'Get Course Recommendations'}
+        </button>
       </div>
     </div>
   )
