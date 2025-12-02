@@ -69,18 +69,19 @@ export function generateRecommendations({
 
 function smartPreFilter(classes, preferences, neededCourses, prerequisitesMap) {
   // Step 1: First deduplicate at the start
-  const uniqueCandidates = [];
-  const seenCodes = new Set();
+  // const uniqueCandidates = [];
+  // const seenCodes = new Set();
   
-  for (const cls of classes) {
-    const normalizedCode = cls.code.toUpperCase().replace(/\s+/g, '');
-    if (!seenCodes.has(normalizedCode)) {
-      seenCodes.add(normalizedCode);
-      uniqueCandidates.push(cls);
-    }
-  }
+  // for (const cls of classes) {
+  //   const normalizedCode = cls.code.toUpperCase().replace(/\s+/g, '');
+  //   if (!seenCodes.has(normalizedCode)) {
+  //     seenCodes.add(normalizedCode);
+  //     uniqueCandidates.push(cls);
+  //   }
+  // }
   
-  console.log(`✓ Deduplicated: ${classes.length} → ${uniqueCandidates.length} unique courses`);
+  // console.log(`✓ Deduplicated: ${classes.length} → ${uniqueCandidates.length} unique courses`);
+  const uniqueCandidates = classes;
   
   // Step 2: Now filter and score the unique courses
   const filtered = uniqueCandidates.map(cls => {
@@ -180,9 +181,9 @@ function smartPreFilter(classes, preferences, neededCourses, prerequisitesMap) {
   // Step 3: Sort by priority and take top 100
   const top100 = filtered
     .sort((a, b) => b.priority - a.priority)
-    .slice(0, 100);
+    .slice(0, 75);
     
-  console.log(`✓ Returning top 100 candidates`);
+  console.log(`✓ Returning top 75 candidates`);
   
   return top100;
 }
@@ -202,6 +203,15 @@ export async function enhanceWithGPT(candidatesData, context) {
   
   const primaryKey = import.meta.env.VITE_OPENAI_API_KEY || import.meta.env.OPENAI_API_KEY;
   const secondaryKey = import.meta.env.VITE_OPENAI_API_KEY_2 || import.meta.env.OPENAI_API_KEY_2;
+  // DEBUG: Check keys
+  console.log('🔍 Key check:', {
+    primaryExists: !!primaryKey,
+    primaryValid: primaryKey?.length >= 20,
+    primaryPrefix: primaryKey?.substring(0, 10),
+    secondaryExists: !!secondaryKey,
+    secondaryValid: secondaryKey?.length >= 20,
+    secondaryPrefix: secondaryKey?.substring(0, 10)
+  });
   
   let apiKey = null;
   let keySource = null;
@@ -265,43 +275,95 @@ const uniqueCandidates = candidates;
     )
     .join(', ');
 
-  // FIXED: Better prompt with explicit instructions
-  const prompt = `You are an academic advisor ranking courses for a ${degreeData?.major || 'CS'} student.
+    // Format degree audit data for GPT
+    const normalizeCode = (code) => code?.toUpperCase().replace(/\s+/g, '');
+  
+    const degreeAuditInfo = degreeData?.categories?.map(cat => {
+      const completedInCategory = cat.availableClasses?.filter(cls => 
+        takenCourses.some(tc => normalizeCode(tc.courseCode || tc.code) === normalizeCode(cls.code))
+      ) || [];
+      
+      return {
+        name: cat.name,
+        description: cat.description,
+        required: cat.requiredHours,
+        earned: neededCourses?.categories?.[cat.name]?.earnedHours || 0,
+        minCourses: cat.minCourses,
+        completed: completedInCategory.map(c => `${c.code} (${c.name})`),
+        available: cat.availableClasses?.slice(0, 15).map(c => `${c.code} (${c.name})`) || []
+      };
+    }) || [];
 
-STUDENT STATUS:
-- Progress: ${progressPercent}% (${completedHours}/${totalRequired} hours)
-- Requirements: ${categoryStatus || 'Not available'}
-- Completed: ${takenCourses?.map(c => c.courseCode || c.code).join(', ') || 'None'}
-- Planned: ${plannedClasses?.map(c => c.code).join(', ') || 'None'}
+  const prompt = `You are an expert academic advisor for ${degreeData?.major || 'CS'} students at Vanderbilt University.
 
-PREFERENCES:
-- Workload: ${preferences.workload}
-- Schedule: ${preferences.weekPattern}
-- Avoid professors: ${preferences.avoidProfessors?.join(', ') || 'None'}
+  STUDENT PROFILE:
+  Progress: ${progressPercent}% complete (${completedHours}/${totalRequired} hours)
+  
+  DEGREE REQUIREMENTS BREAKDOWN:
+  ${degreeAuditInfo.map(cat => `
+  ${cat.name}: ${cat.earned}/${cat.required} hours earned ${cat.earned >= cat.required ? '✓' : '⚠️ INCOMPLETE'}
+    Description: ${cat.description || 'No description'}
+    ${cat.minCourses ? `Minimum ${cat.minCourses} courses required` : ''}
+    Completed: ${cat.completed.length > 0 ? cat.completed.join(', ') : 'None'}
+    ${cat.available.length > 0 ? `Available options: ${cat.available.slice(0, 5).join(', ')}${cat.available.length > 5 ? '...' : ''}` : ''}
+  `).join('\n')}
+  
+  COMPLETED COURSES (do not recommend similar/redundant courses):
+  ${takenCourses?.map(c => c.courseCode || c.code).join(', ') || 'None'}
+  
+  ALREADY PLANNED:
+  ${plannedClasses?.map(c => c.code).join(', ') || 'None'}
+  
+  STUDENT PREFERENCES:
+  - Workload: ${preferences.workload}
+  - Schedule preference: ${preferences.weekPattern}
+  ${preferences.avoidProfessors?.length ? `- Avoid: ${preferences.avoidProfessors.join(', ')}` : ''}
+  
+  AVAILABLE COURSES (pre-filtered, prioritized candidates):
+  ${courseData.slice(0, 40).map((c, i) => 
+    `${i + 1}. ${c.code} - ${c.name} (${c.hrs}h, Prof: ${c.prof}, RMP: ${c.rmp}, Required: ${c.req})`
+  ).join('\n')}
+  
+  YOUR TASK:
+  Select EXACTLY 15 courses that will help this student progress toward graduation efficiently.
+  
+  KEY PRINCIPLES:
+  1. **Avoid redundancy**: Don't recommend courses that cover similar material to what the student has already taken
+   - Example: If they took "Computer Architecture", don't recommend "Microarchitecture" or "Digital Systems"
+   - Example: If they took "Calculus I" (any version), don't recommend other Calc I equivalents
+   - **Graduate/Undergrad versions**: If a course has the same name but different numbers (e.g., CS 4281 and CS 5281), treat them as the SAME course - don't recommend both, prefer the undergrad version (lower class code) 
+   - If a course has the same last 2 numbers, it's the same class listed as graduate and undergrad, so DON'T recommend a graduate course that they've already taken as an undergrad class (or vice versa)
+   - Use course names and your knowledge to identify overlaps
 
-STRICT RULES - MUST FOLLOW:
-1. Return EXACTLY 15 courses, no more, no less
-2. Use EXACT course codes from the list (copy/paste, don't modify)
-3. NO duplicates - each course code should appear ONLY ONCE
-4. NO courses student has taken: ${takenCourses?.map(c => c.courseCode || c.code).join(', ') || 'None'}
-5. NO courses student planned: ${plannedClasses?.map(c => c.code).join(', ') || 'None'}
-6. NO undergraduate research (CS 2860, CS 3860, CS 3861)
-7. Prioritize 3-credit courses over 1-credit labs
-8. If multiple sections exist, pick the ONE best section only
+  2. **Maximize progress**: Choose courses that fulfill DIFFERENT degree requirements
+     - Spread across multiple requirement categories
+     - Prioritize courses marked "Required: YES"
+     - READ THE DESCRIPTIONS OF THE DEGREE REQUIREMENTS
+  
+  3. **Respect constraints**:
+     - NEVER recommend courses they've taken or planned
+     - NEVER recommend undergraduate research courses (codes with 2860, 3860, 3861)
+     - Limit to 2 sections maximum of any base course number
+  
+  4. **Consider quality**: Factor in RMP ratings when choosing between similar options
+  
+  5. **Match preferences**: Consider their workload and schedule preferences when selecting
 
-AVAILABLE COURSES (${courseData.length} options):
-${courseData.map((c, i) => 
-  `${i + 1}. ${c.code} | ${c.name} | ${c.hrs}h | Prof: ${c.prof} | ${c.sched} | RMP: ${c.rmp} | Required: ${c.req} | Prereqs: ${c.prereqCourses}`
-).join('\n')}
-
-Return valid JSON array with EXACTLY 15 courses:
-[{"courseCode":"EXACT_CODE_FROM_LIST","rank":1,"confidence":"high|medium|low","reasoning":"One sentence why this course","warning":null}]
-
-Double-check:
-✓ Exactly 15 courses
-✓ No duplicates
-✓ Only codes from the list above
-✓ None the student has taken/planned`;
+  6. **Variety** Prioritize classes that AREN'T in the student's major for open electives (CS students would rather take ECON than CS for open electives)
+  
+  OUTPUT FORMAT (JSON only, no markdown):
+  [
+    {
+      "courseCode": "EXACT_CODE_FROM_LIST",
+      "rank": 1,
+      "confidence": "high",
+      "reasoning": "One sentence explaining why - mention which requirement it fulfills or what gap it fills"
+    }
+  ]
+  
+  Return exactly 15 courses. Think carefully about avoiding redundancy with completed courses.
+  
+  THANKS :D`;
 
   // console.log('📤 Sending prompt with', uniqueCandidates.length, 'unique courses');
   console.log('PROMPT: ', prompt);
@@ -324,7 +386,8 @@ Double-check:
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        // model: 'gpt-4o-mini',
+        model: 'gpt-4.1-mini',
         messages: [
           { 
             role: 'system', 
@@ -341,12 +404,22 @@ Double-check:
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      const error = await response.json();
-      console.error(`❌ API Error with ${keySource} key:`, response.status, error);
+      const errorText = await response.text();
+      let error;
+      try {
+        error = JSON.parse(errorText);
+      } catch {
+        error = { message: errorText };
+      }
+      console.error(`❌ Primary key error (${response.status}):`, error);
       
       // If we used primary key and have a secondary key, try it
       if (keySource === 'primary' && secondaryKey) {
         console.log('🔄 Trying secondary API key...');
+        console.log('🔍 Secondary key details:', {
+          prefix: secondaryKey.substring(0, 15),
+          length: secondaryKey.length
+        });
         
         const timeSince2 = Date.now() - lastGPTCall;
         if (timeSince2 < MIN_DELAY) {
@@ -357,6 +430,8 @@ Double-check:
         const controller2 = new AbortController();
         const timeoutId2 = setTimeout(() => controller2.abort(), 60000);
         
+        console.log('📤 Making secondary API call NOW...');
+        
         const response2 = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -364,7 +439,8 @@ Double-check:
             'Authorization': `Bearer ${secondaryKey}`
           },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            // model: 'gpt-4o-mini',
+            model: 'gpt-4.1-mini',
             messages: [
               { 
                 role: 'system', 
@@ -380,8 +456,12 @@ Double-check:
         
         clearTimeout(timeoutId2);
         
+        console.log('📥 Secondary API response status:', response2.status);
+        console.log('Response', response2);
+        
         if (!response2.ok) {
-          console.error('❌ Secondary key also failed');
+          const error2 = await response2.text();
+          console.error('❌ Secondary key failed with:', error2);
           return uniqueCandidates.slice(0, 15);
         }
         
@@ -434,6 +514,19 @@ Double-check:
             };
           })
           .filter(Boolean)
+          .filter((course, index, self) => {
+            // Remove duplicate base courses (e.g., keep only 2 CS 3251 sections max)
+            const baseCourse = course.code.replace(/[A-Z]$/, '').trim(); // Remove section letter
+            const sameCourseCount = self.slice(0, index).filter(c => 
+              c.code.replace(/[A-Z]$/, '').trim() === baseCourse
+            ).length;
+            
+            if (sameCourseCount >= 2) {
+              console.warn(`⏭️ Limiting sections: Already have 2+ sections of ${baseCourse}`);
+              return false;
+            }
+            return true;
+          })
           .sort((a, b) => a.gptRank - b.gptRank);
 
         if (recommendations.length < 15) {
@@ -569,28 +662,18 @@ function checkPrerequisites(prereqData, completedCourses) {
 }
 
 function getAverageRating(cls) {
-  // FIXED: Better RMP data handling
-  if (!cls.rmpData || typeof cls.rmpData !== 'object') {
-    return null;
-  }
-
-  const ratings = Object.values(cls.rmpData);
+  const ratings = Object.values(cls.rmpData || {});
+  if (ratings.length === 0) return null;
   
-  if (ratings.length === 0) {
-    return null;
-  }
-
-  const qualities = ratings.filter(r => r?.quality != null && !isNaN(r.quality)).map(r => r.quality);
-  const difficulties = ratings.filter(r => r?.difficulty != null && !isNaN(r.difficulty)).map(r => r.difficulty);
-
-  if (qualities.length === 0) {
-    return null;
-  }
-
+  const qualityRatings = ratings.filter(r => r.quality !== null && r.quality !== undefined).map(r => r.quality);
+  const difficultyRatings = ratings.filter(r => r.difficulty !== null && r.difficulty !== undefined).map(r => r.difficulty);
+  
+  if (qualityRatings.length === 0) return null;
+  
   return {
-    quality: qualities.reduce((sum, q) => sum + q, 0) / qualities.length,
-    difficulty: difficulties.length > 0
-      ? difficulties.reduce((sum, d) => sum + d, 0) / difficulties.length
+    quality: qualityRatings.reduce((sum, q) => sum + q, 0) / qualityRatings.length,
+    difficulty: difficultyRatings.length > 0 
+      ? difficultyRatings.reduce((sum, d) => sum + d, 0) / difficultyRatings.length 
       : null,
     numRatings: ratings.length
   };
