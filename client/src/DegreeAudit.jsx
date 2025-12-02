@@ -197,6 +197,7 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
       )
       
       // For categories with availableClasses, count both taken and planned courses
+      // Updated: All categories now count planned courses (v2.0)
       if (isInAvailable) {
         return true;
       }
