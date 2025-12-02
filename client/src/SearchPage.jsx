@@ -74,7 +74,7 @@ const SearchPage = ({
     try {
       const savedFilters = localStorage.getItem('searchPage_filters');
       const savedSortBy = localStorage.getItem('searchPage_sortBy');
-      
+
       return {
         filters: savedFilters ? deserializeFilters(JSON.parse(savedFilters)) : {},
         sortBy: savedSortBy || 'none'
@@ -101,7 +101,7 @@ const SearchPage = ({
   // New state for grouping
   const [expandedGroups, setExpandedGroups] = useState({});
   const [selectedSections, setSelectedSections] = useState({});
-  
+
   // Sort state
   const [sortBy, setSortBy] = useState(persistedState.sortBy); // 'none', 'difficulty', 'quality'
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -732,28 +732,28 @@ const SearchPage = ({
   // Sort the filtered groups
   const sortedGroupedClasses = useMemo(() => {
     const entries = Object.entries(filteredGroupedClasses);
-    
+
     // If sorting by difficulty or quality
     if (sortBy === 'difficulty' || sortBy === 'quality') {
       return entries.sort(([codeA, groupA], [codeB, groupB]) => {
         // Calculate average rating for group A
         const allAveragesA = groupA.allSections.map(section => getClassAverageRatings(section));
         const validAveragesA = allAveragesA.filter(avg => avg?.hasData);
-        const avgValueA = validAveragesA.length > 0 
-          ? (sortBy === 'quality' 
-              ? validAveragesA.reduce((sum, avg) => sum + (avg.avgQuality || 0), 0) / validAveragesA.length
-              : validAveragesA.reduce((sum, avg) => sum + (avg.avgDifficulty || 0), 0) / validAveragesA.length)
+        const avgValueA = validAveragesA.length > 0
+          ? (sortBy === 'quality'
+            ? validAveragesA.reduce((sum, avg) => sum + (avg.avgQuality || 0), 0) / validAveragesA.length
+            : validAveragesA.reduce((sum, avg) => sum + (avg.avgDifficulty || 0), 0) / validAveragesA.length)
           : (sortBy === 'quality' ? 0 : 5); // Default: quality=0 (lowest), difficulty=5 (highest)
-        
+
         // Calculate average rating for group B
         const allAveragesB = groupB.allSections.map(section => getClassAverageRatings(section));
         const validAveragesB = allAveragesB.filter(avg => avg?.hasData);
         const avgValueB = validAveragesB.length > 0
           ? (sortBy === 'quality'
-              ? validAveragesB.reduce((sum, avg) => sum + (avg.avgQuality || 0), 0) / validAveragesB.length
-              : validAveragesB.reduce((sum, avg) => sum + (avg.avgDifficulty || 0), 0) / validAveragesB.length)
+            ? validAveragesB.reduce((sum, avg) => sum + (avg.avgQuality || 0), 0) / validAveragesB.length
+            : validAveragesB.reduce((sum, avg) => sum + (avg.avgDifficulty || 0), 0) / validAveragesB.length)
           : (sortBy === 'quality' ? 0 : 5);
-        
+
         // Sort by rating value
         // Quality: high to low (descending), Difficulty: low to high (ascending)
         let comparison = avgValueA - avgValueB;
@@ -761,7 +761,7 @@ const SearchPage = ({
           comparison = -comparison; // Reverse for quality (high to low)
         }
         // For difficulty, keep ascending (low to high)
-        
+
         // If ratings are equal, fall back to course code sorting
         if (comparison === 0) {
           const parseCode = (code) => {
@@ -771,21 +771,21 @@ const SearchPage = ({
             }
             return { dept: code, num: 0 };
           };
-          
+
           const aCode = parseCode(codeA);
           const bCode = parseCode(codeB);
-          
+
           if (aCode.dept !== bCode.dept) {
             return aCode.dept.localeCompare(bCode.dept);
           }
-          
+
           return aCode.num - bCode.num;
         }
-        
+
         return comparison;
       });
     }
-    
+
     // Default: sort by course code
     return entries.sort(([codeA, groupA], [codeB, groupB]) => {
       const parseCode = (code) => {
@@ -795,14 +795,14 @@ const SearchPage = ({
         }
         return { dept: code, num: 0 };
       };
-      
+
       const aCode = parseCode(codeA);
       const bCode = parseCode(codeB);
-      
+
       if (aCode.dept !== bCode.dept) {
         return aCode.dept.localeCompare(bCode.dept);
       }
-      
+
       return aCode.num - bCode.num;
     });
   }, [filteredGroupedClasses, sortBy]);
@@ -836,8 +836,8 @@ const SearchPage = ({
       />
 
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px', position: 'relative' }}>
-      <button
-        onClick={() => setShowFilter(true)}
+        <button
+          onClick={() => setShowFilter(true)}
           style={{
             // backgroundColor: '#2196F3',
             backgroundColor: 'var(--info)',
@@ -896,39 +896,39 @@ const SearchPage = ({
             🔀 Sort {sortBy !== 'none' && `(${sortBy === 'quality' ? 'Quality' : 'Difficulty'})`}
           </button>
           {showSortMenu && (
-            <div 
+            <div
               data-sort-menu
               style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              marginTop: '8px',
-              backgroundColor: 'white',
-              border: '1px solid #ddd',
-              borderRadius: '6px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              zIndex: 1000,
-              minWidth: '200px',
-              padding: '8px'
-            }}>
-              <div style={{ 
-                padding: '8px 12px', 
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                marginTop: '8px',
+                backgroundColor: 'white',
+                border: '1px solid #ddd',
+                borderRadius: '6px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                zIndex: 1000,
+                minWidth: '200px',
+                padding: '8px'
+              }}>
+              <div style={{
+                padding: '8px 12px',
                 cursor: 'pointer',
                 borderRadius: '4px',
                 backgroundColor: sortBy === 'none' ? '#e3f2fd' : 'transparent',
                 marginBottom: '4px'
               }}
-              onClick={() => {
-                setSortBy('none');
-                setShowSortMenu(false);
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = sortBy === 'none' ? '#e3f2fd' : 'transparent'}
+                onClick={() => {
+                  setSortBy('none');
+                  setShowSortMenu(false);
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = sortBy === 'none' ? '#e3f2fd' : 'transparent'}
               >
                 None
               </div>
-              <div style={{ 
-                padding: '8px 12px', 
+              <div style={{
+                padding: '8px 12px',
                 cursor: 'pointer',
                 borderRadius: '4px',
                 backgroundColor: sortBy === 'quality' ? '#e3f2fd' : 'transparent',
@@ -937,12 +937,12 @@ const SearchPage = ({
                 justifyContent: 'space-between',
                 alignItems: 'center'
               }}
-              onClick={() => {
-                setSortBy('quality');
-                setShowSortMenu(false);
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = sortBy === 'quality' ? '#e3f2fd' : 'transparent'}
+                onClick={() => {
+                  setSortBy('quality');
+                  setShowSortMenu(false);
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = sortBy === 'quality' ? '#e3f2fd' : 'transparent'}
               >
                 <span>Quality</span>
                 {sortBy === 'quality' && (
@@ -951,8 +951,8 @@ const SearchPage = ({
                   </span>
                 )}
               </div>
-              <div style={{ 
-                padding: '8px 12px', 
+              <div style={{
+                padding: '8px 12px',
                 cursor: 'pointer',
                 borderRadius: '4px',
                 backgroundColor: sortBy === 'difficulty' ? '#e3f2fd' : 'transparent',
@@ -960,12 +960,12 @@ const SearchPage = ({
                 justifyContent: 'space-between',
                 alignItems: 'center'
               }}
-              onClick={() => {
-                setSortBy('difficulty');
-                setShowSortMenu(false);
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = sortBy === 'difficulty' ? '#e3f2fd' : 'transparent'}
+                onClick={() => {
+                  setSortBy('difficulty');
+                  setShowSortMenu(false);
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = sortBy === 'difficulty' ? '#e3f2fd' : 'transparent'}
               >
                 <span>Difficulty</span>
                 {sortBy === 'difficulty' && (
@@ -994,26 +994,26 @@ const SearchPage = ({
           </button>
         )}
         <button
-            onClick={deselectAll}
-            disabled={!hasExpandedGroups}
-            style={{
-              backgroundColor: hasExpandedGroups ? 'var(--info)' : '#ccc',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '10px 20px',
-              cursor: hasExpandedGroups ? 'pointer' : 'not-allowed',
-              fontSize: '14px',
-              fontWeight: '500',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              opacity: hasExpandedGroups ? 1 : 0.6,
-              height: '40px',
-              boxSizing: 'border-box',
-              lineHeight: '1'
-            }}
+          onClick={deselectAll}
+          disabled={!hasExpandedGroups}
+          style={{
+            backgroundColor: hasExpandedGroups ? 'var(--info)' : '#ccc',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            padding: '10px 20px',
+            cursor: hasExpandedGroups ? 'pointer' : 'not-allowed',
+            fontSize: '14px',
+            fontWeight: '500',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            opacity: hasExpandedGroups ? 1 : 0.6,
+            height: '40px',
+            boxSizing: 'border-box',
+            lineHeight: '1'
+          }}
         >
           Collapse All
         </button>
@@ -1539,6 +1539,15 @@ const SearchPage = ({
           {infoClass.hours && (
             <p><strong>Credit Hours:</strong> {infoClass.hours}</p>
           )}
+          {(() => {
+            const categories = getCourseCategories(infoClass);
+            if (categories && categories.length > 0) {
+              return (
+                <p><strong>Category:</strong> {categories.join(', ')}</p>
+              );
+            }
+            return null;
+          })()}
           {(() => {
             const avg = getClassAverageRatings(infoClass);
             if (!avg?.hasData) return null;
