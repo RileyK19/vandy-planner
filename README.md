@@ -63,29 +63,60 @@ cd vandy-planner
 ```
 
 ### 3. Install Dependencies
+
+#### Install Client Dependencies
 ```bash
+cd client
+npm install
+```
+
+#### Install Server Dependencies
+```bash
+cd ../server
 npm install
 ```
 
 ### 4. Configure Environment Variables
-Create a `.env` file in the root or `client` directory:
+Create a `.env` file in the `server` directory:
 ```env
-MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/
+MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/vanderbilt_courses
+PORT=5000
 ```
 
 ### 5. Populate the Database
 
-#### (a) Populate Vanderbilt CS Courses
-```bash
-npm run scrape
-```
-Fetches Computer Science courses from the YES API and saves them to MongoDB.
+From the `scripts` directory:
 
-#### (b) Collect RateMyProfessor Data
+#### (a) Populate Vanderbilt Courses
 ```bash
-npm run collect-rmp
+cd scripts
+node populate-courses.cjs
+```
+Fetches course data from the Vanderbilt YES API and saves them to MongoDB.
+
+#### (b) Populate RateMyProfessor Ratings
+```bash
+npx tsx populate-ratings.tsx
 ```
 Fetches instructor ratings from RMP and merges them with existing course data.
+
+> **Note:** You may need to install `tsx` globally first: `npm install -g tsx`
+
+### 6. Run the Application
+
+#### Start the Backend Server
+From the `server` directory:
+```bash
+node index.js
+```
+The server will run on `http://localhost:5000`
+
+#### Start the Frontend (in a new terminal)
+From the `client` directory:
+```bash
+npm start
+```
+The React app will run on `http://localhost:3000` (or the next available port)
 
 ---
 
