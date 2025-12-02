@@ -21,7 +21,7 @@ app.use(express.json());
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
@@ -57,12 +57,12 @@ const authenticateToken = (req, res, next) => {
 function parseTranscriptCourses(text) {
   const courses = [];
   const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const coursePattern = /^(Fall|Spring|Summer|Winter)\s+(\d{4})([A-Z]{2,4})\s+(\d{4})(.+?)(\d)([A-Z][+\-]?)$/i;
     const match = line.match(coursePattern);
-    
+
     if (match) {
       try {
         const [, season, year, subject, courseNumber] = match;
@@ -70,7 +70,7 @@ function parseTranscriptCourses(text) {
           courseCode: `${subject} ${courseNumber}`,
           term: `${season} ${year}`
         };
-        
+
         if (course.courseCode && course.courseCode.length >= 3 && course.term) {
           courses.push(course);
           console.log('Successfully parsed course:', course.courseCode, course.term);
@@ -80,13 +80,13 @@ function parseTranscriptCourses(text) {
       }
     }
   }
-  
-  const uniqueCourses = courses.filter((course, index, self) => 
-    index === self.findIndex(c => 
+
+  const uniqueCourses = courses.filter((course, index, self) =>
+    index === self.findIndex(c =>
       c.courseCode === course.courseCode && c.term === course.term
     )
   );
-  
+
   return uniqueCourses;
 }
 
@@ -100,14 +100,14 @@ async function connectToDatabase() {
   }
 
   console.log('Creating new database connection');
-  
+
   try {
     await mongoose.connect(process.env.MONGO_URI, {
       dbName: 'Users',
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     });
-    
+
     cachedDb = mongoose.connection;
     console.log('MongoDB connected to Users database');
     return cachedDb;
@@ -136,7 +136,7 @@ app.get('/', (req, res) => {
 app.post('/api/parse-transcript', upload.single('transcript'), async (req, res) => {
   try {
     console.log('=== PDF Upload Request Received ===');
-    
+
     if (!req.file) {
       console.log('ERROR: No file in request');
       return res.status(400).json({ error: 'No PDF file uploaded' });
@@ -158,7 +158,7 @@ app.post('/api/parse-transcript', upload.single('transcript'), async (req, res) 
     console.log('Parsed courses:', courses.length);
 
     if (courses.length === 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'No courses found in the transcript. The transcript format may not be supported.',
         extractedText: text.substring(0, 500)
       });
@@ -172,7 +172,7 @@ app.post('/api/parse-transcript', upload.single('transcript'), async (req, res) 
 
   } catch (error) {
     console.error('PDF parsing error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to process transcript PDF.',
       details: error.message
     });
@@ -185,7 +185,7 @@ app.get('/api/test-db', async (req, res) => {
     const collection = db.collection('cs_sections');
     const totalCount = await collection.countDocuments();
     const samples = await collection.find({}).limit(3).toArray();
-    
+
     res.json({
       database: db.databaseName,
       totalCount,
@@ -193,6 +193,39 @@ app.get('/api/test-db', async (req, res) => {
     });
   } catch (error) {
     console.error('Database test error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/courses/list', async (req, res) => {
+  try {
+    const db = mongoose.connection.client.db('vanderbilt_courses');
+    const collection = db.collection('cs_sections');
+
+    // Aggregate to get unique courses with their names
+    const courses = await collection.aggregate([
+      {
+        $group: {
+          _id: "$abbreviation",
+          courseName: { $first: "$courseName" },
+          courseCode: { $first: "$abbreviation" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          courseCode: 1,
+          courseName: 1
+        }
+      },
+      {
+        $sort: { courseCode: 1 }
+      }
+    ]).toArray();
+
+    res.json(courses);
+  } catch (error) {
+    console.error('Error fetching course list:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -216,10 +249,10 @@ app.get('/api/rmp-ratings', async (req, res) => {
     const db = mongoose.connection.db;
     const rmpDb = db.client.db('rmp_data');
     const rmpCollection = rmpDb.collection('course_instructor_averages');
-    
+
     const ratings = await rmpCollection.find({}).toArray();
     console.log('Found RMP ratings:', ratings.length);
-    
+
     res.json(ratings);
   } catch (error) {
     console.error('Error fetching RMP ratings:', error);
@@ -233,13 +266,13 @@ app.get('/api/degree-requirements', async (req, res) => {
     const db = mongoose.connection.db;
     const degreeDb = db.client.db('vanderbilt_courses');
     const degreeCollection = degreeDb.collection('degree_audits');
-    
+
     const degreeReq = await degreeCollection.findOne({ major: major || 'Computer Science' });
-    
+
     if (!degreeReq) {
       return res.status(404).json({ error: 'Degree requirements not found' });
     }
-    
+
     res.json(degreeReq);
   } catch (error) {
     console.error('Error fetching degree requirements:', error);
@@ -253,8 +286,8 @@ app.post('/api/auth/register', async (req, res) => {
     const { email, password, name, major, year, dorm, previousCourses = [] } = req.body;
 
     if (!email || !password || !name || !major || !year || !dorm) {
-      return res.status(400).json({ 
-        error: 'Missing required fields: email, password, name, major, year, and dorm are required' 
+      return res.status(400).json({
+        error: 'Missing required fields: email, password, name, major, year, and dorm are required'
       });
     }
 
@@ -417,9 +450,9 @@ app.post('/api/auth/save-schedule', authenticateToken, async (req, res) => {
 
     await user.save();
 
-    res.json({ 
-      message: 'Schedule saved successfully', 
-      schedule: user.plannedSchedules[user.plannedSchedules.length - 1] 
+    res.json({
+      message: 'Schedule saved successfully',
+      schedule: user.plannedSchedules[user.plannedSchedules.length - 1]
     });
   } catch (error) {
     console.error('Save schedule error:', error);
@@ -444,7 +477,7 @@ app.get('/api/auth/schedules', authenticateToken, async (req, res) => {
 app.get('/api/test-users', async (req, res) => {
   try {
     const userCount = await User.countDocuments();
-    res.json({ 
+    res.json({
       message: 'Users collection is working',
       userCount,
       database: 'Users'
@@ -470,7 +503,7 @@ app.post('/api/auth/past-courses', authenticateToken, async (req, res) => {
 
     user.completedCourses = user.completedCourses || [];
     courses.forEach(course => {
-      const exists = user.completedCourses.some(c => 
+      const exists = user.completedCourses.some(c =>
         c.id === course.id && c.semester === course.semester
       );
       if (!exists) {
@@ -480,9 +513,9 @@ app.post('/api/auth/past-courses', authenticateToken, async (req, res) => {
 
     await user.save();
 
-    res.json({ 
-      message: 'Past courses saved successfully', 
-      totalCompleted: user.completedCourses.length 
+    res.json({
+      message: 'Past courses saved successfully',
+      totalCompleted: user.completedCourses.length
     });
   } catch (error) {
     console.error('Save past courses error:', error);
@@ -494,14 +527,14 @@ app.get('/api/users/:email/courses', async (req, res) => {
   try {
     const { email } = req.params;
     console.log('Fetching courses for user:', email);
-    
+
     const user = await User.findOne({ email: email.toLowerCase() });
-    
+
     if (!user) {
       console.log('User not found:', email);
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     console.log('Found user, previousCourses:', user.previousCourses);
     res.json(user.previousCourses || []);
   } catch (error) {
@@ -515,19 +548,19 @@ app.get('/api/courses/:courseCode/prerequisites', async (req, res) => {
     const { courseCode } = req.params;
     const db = mongoose.connection.client.db('Users');
     const prerequisitesCollection = db.collection('prerequisites');
-    
-    const prereqData = await prerequisitesCollection.findOne({ 
-      courseId: courseCode.toUpperCase() 
+
+    const prereqData = await prerequisitesCollection.findOne({
+      courseId: courseCode.toUpperCase()
     });
-    
+
     if (!prereqData) {
-      return res.json({ 
+      return res.json({
         courseId: courseCode,
         hasPrerequisites: false,
         prerequisites: []
       });
     }
-    
+
     res.json({
       courseId: prereqData.courseId,
       hasPrerequisites: true,
@@ -545,20 +578,20 @@ app.get('/api/courses/:courseCode/prerequisites', async (req, res) => {
 app.post('/api/courses/prerequisites/batch', async (req, res) => {
   try {
     const { courseCodes } = req.body;
-    
+
     if (!Array.isArray(courseCodes) || courseCodes.length === 0) {
       return res.status(400).json({ error: 'courseCodes must be a non-empty array' });
     }
-    
+
     const db = mongoose.connection.client.db('Users');
     const prerequisitesCollection = db.collection('prerequisites');
-    
+
     const upperCaseCodes = courseCodes.map(code => code.toUpperCase());
-    
+
     const prerequisites = await prerequisitesCollection
       .find({ courseId: { $in: upperCaseCodes } })
       .toArray();
-    
+
     const prereqMap = {};
     prerequisites.forEach(prereq => {
       prereqMap[prereq.courseId] = {
@@ -569,7 +602,7 @@ app.post('/api/courses/prerequisites/batch', async (req, res) => {
         lastUpdated: prereq.lastUpdated
       };
     });
-    
+
     courseCodes.forEach(code => {
       const upperCode = code.toUpperCase();
       if (!prereqMap[upperCode]) {
@@ -579,7 +612,7 @@ app.post('/api/courses/prerequisites/batch', async (req, res) => {
         };
       }
     });
-    
+
     res.json(prereqMap);
   } catch (error) {
     console.error('Error fetching batch prerequisites:', error);
@@ -592,18 +625,18 @@ app.get('/api/degree-requirements/:major', async (req, res) => {
     const { major } = req.params;
     const db = mongoose.connection.client.db('Users');
     const degreeRequirementsCollection = db.collection('degree_requirements');
-    
-    let degreeData = await degreeRequirementsCollection.findOne({ 
+
+    let degreeData = await degreeRequirementsCollection.findOne({
       major: { $regex: new RegExp(`^${major}$`, 'i') }
     });
-    
+
     if (!degreeData) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         error: 'Degree requirements not found',
         major: major
       });
     }
-    
+
     res.json(degreeData);
   } catch (error) {
     console.error('Error fetching degree requirements:', error);
@@ -634,14 +667,14 @@ app.post('/api/auth/semester-planner', authenticateToken, async (req, res) => {
       sectionNumber: cls.sectionNumber,
       sectionType: cls.sectionType,
       active: cls.active,
-      
+
       schedule: cls.schedule ? {
         days: Array.isArray(cls.schedule.days) ? cls.schedule.days : [cls.schedule.days],
         startTime: cls.schedule.startTime,
         endTime: cls.schedule.endTime,
         location: cls.schedule.location || 'TBA'
       } : null,
-      
+
       professors: Array.isArray(cls.professors) ? cls.professors : [],
       rmpData: cls.rmpData || {},
       addedAt: new Date()
@@ -655,9 +688,9 @@ app.post('/api/auth/semester-planner', authenticateToken, async (req, res) => {
 
     await user.save();
 
-    res.json({ 
-      message: 'Semester planner saved successfully', 
-      plan: user.currentSemesterPlan 
+    res.json({
+      message: 'Semester planner saved successfully',
+      plan: user.currentSemesterPlan
     });
   } catch (error) {
     console.error('Save semester planner error:', error);
@@ -707,7 +740,7 @@ app.delete('/api/auth/semester-planner/class/:courseId', authenticateToken, asyn
     user.currentSemesterPlan.lastUpdated = new Date();
     await user.save();
 
-    res.json({ 
+    res.json({
       message: 'Class removed successfully',
       plan: user.currentSemesterPlan
     });
@@ -749,7 +782,7 @@ app.put('/api/auth/semester-planner/class/:courseId', authenticateToken, async (
     user.currentSemesterPlan.lastUpdated = new Date();
     await user.save();
 
-    res.json({ 
+    res.json({
       message: 'Class updated successfully',
       plan: user.currentSemesterPlan
     });
@@ -761,176 +794,176 @@ app.put('/api/auth/semester-planner/class/:courseId', authenticateToken, async (
 
 // Middleware to check if user is a superuser
 const requireSuperUser = async (req, res, next) => {
-    try {
-      const user = await User.findById(req.user.userId);
-      
-      if (!user || !user.isSuperUser) {
-        return res.status(403).json({ error: 'Forbidden: Admin access required' });
-      }
-      
-      req.superUser = user;
-      next();
-    } catch (error) {
-      console.error('SuperUser check error:', error);
-      return res.status(500).json({ error: 'Failed to verify admin status' });
+  try {
+    const user = await User.findById(req.user.userId);
+
+    if (!user || !user.isSuperUser) {
+      return res.status(403).json({ error: 'Forbidden: Admin access required' });
     }
-  };
-  
-  // Admin: Delete user
-  app.delete('/api/admin/users/:userId', authenticateToken, requireSuperUser, async (req, res) => {
-    try {
-      const { userId } = req.params;
-      
-      // Prevent deleting yourself
-      if (userId === req.user.userId) {
-        return res.status(400).json({ error: 'Cannot delete your own account' });
-      }
-      
-      const user = await User.findByIdAndDelete(userId);
-      
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-      
-      console.log(`Admin ${req.user.email} deleted user: ${user.email}`);
-      
-      res.json({ 
-        message: 'User deleted successfully',
-        deletedUser: {
-          email: user.email,
-          name: user.name
-        }
-      });
-    } catch (error) {
-      console.error('Admin delete user error:', error);
-      res.status(500).json({ error: 'Failed to delete user' });
+
+    req.superUser = user;
+    next();
+  } catch (error) {
+    console.error('SuperUser check error:', error);
+    return res.status(500).json({ error: 'Failed to verify admin status' });
+  }
+};
+
+// Admin: Delete user
+app.delete('/api/admin/users/:userId', authenticateToken, requireSuperUser, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Prevent deleting yourself
+    if (userId === req.user.userId) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
     }
-  });
-  
-  // Admin: Toggle superuser status
-  app.put('/api/admin/users/:userId/superuser', authenticateToken, requireSuperUser, async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const { isSuperUser } = req.body;
-      
-      if (typeof isSuperUser !== 'boolean') {
-        return res.status(400).json({ error: 'isSuperUser must be a boolean' });
-      }
-      
-      // Prevent removing your own superuser status
-      if (userId === req.user.userId && !isSuperUser) {
-        return res.status(400).json({ error: 'Cannot remove your own superuser status' });
-      }
-      
-      const user = await User.findByIdAndUpdate(
-        userId,
-        { isSuperUser },
-        { new: true }
-      ).select('-password');
-      
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-      
-      console.log(`Admin ${req.user.email} ${isSuperUser ? 'granted' : 'revoked'} superuser to: ${user.email}`);
-      
-      res.json({ 
-        message: `User ${isSuperUser ? 'promoted to' : 'removed from'} superuser`,
-        user
-      });
-    } catch (error) {
-      console.error('Admin toggle superuser error:', error);
-      res.status(500).json({ error: 'Failed to update user' });
+
+    const user = await User.findByIdAndDelete(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
-  });
-  
-  // Update the /api/users/search route to include isSuperUser in response
-  app.get('/api/users/search', authenticateToken, async (req, res) => {
-    try {
-      const { query, year, major, dorm } = req.query;
-  
-      const filter = {
-        _id: { $ne: req.user.userId }
-      };
-  
-      if (query && query.trim().length >= 2) {
-        const searchRegex = new RegExp(query.trim(), 'i');
-        filter.$or = [
-          { email: searchRegex },
-          { name: searchRegex }
-        ];
-      }
-  
-      if (year) {
-        filter.year = year;
-      }
-      if (major) {
-        filter.major = new RegExp(major, 'i');
-      }
-      if (dorm) {
-        filter.dorm = new RegExp(dorm, 'i');
-      }
-  
-      const users = await User.find(filter)
-        .select('email name major year dorm isSuperUser') // ADD isSuperUser here
-        .sort({ name: 1 })
-        .limit(100);
-  
-      res.json(users);
-    } catch (error) {
-      console.error('User search error:', error);
-      res.status(500).json({ error: 'Failed to search users' });
-    }
-  });
-  
-  // Update the /api/users/:userId/public-profile route to include isSuperUser
-  app.get('/api/users/:userId/public-profile', authenticateToken, async (req, res) => {
-    try {
-      const { userId } = req.params;
-  
-      const user = await User.findById(userId)
-        .select('email name major year dorm currentSemesterPlan isSuperUser'); // ADD isSuperUser here
-  
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-  
-      const publicProfile = {
-        _id: user._id, // ADD _id so frontend can use it for admin actions
+
+    console.log(`Admin ${req.user.email} deleted user: ${user.email}`);
+
+    res.json({
+      message: 'User deleted successfully',
+      deletedUser: {
         email: user.email,
-        name: user.name,
-        major: user.major,
-        year: user.year,
-        dorm: user.dorm,
-        isSuperUser: user.isSuperUser, // ADD this
-        semesterPlan: user.currentSemesterPlan || {
-          semesterName: '',
-          classes: [],
-          lastUpdated: null
-        }
-      };
-  
-      res.json(publicProfile);
-    } catch (error) {
-      console.error('Get public profile error:', error);
-      res.status(500).json({ error: 'Failed to fetch user profile' });
+        name: user.name
+      }
+    });
+  } catch (error) {
+    console.error('Admin delete user error:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// Admin: Toggle superuser status
+app.put('/api/admin/users/:userId/superuser', authenticateToken, requireSuperUser, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { isSuperUser } = req.body;
+
+    if (typeof isSuperUser !== 'boolean') {
+      return res.status(400).json({ error: 'isSuperUser must be a boolean' });
     }
-  });
+
+    // Prevent removing your own superuser status
+    if (userId === req.user.userId && !isSuperUser) {
+      return res.status(400).json({ error: 'Cannot remove your own superuser status' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { isSuperUser },
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log(`Admin ${req.user.email} ${isSuperUser ? 'granted' : 'revoked'} superuser to: ${user.email}`);
+
+    res.json({
+      message: `User ${isSuperUser ? 'promoted to' : 'removed from'} superuser`,
+      user
+    });
+  } catch (error) {
+    console.error('Admin toggle superuser error:', error);
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+// Update the /api/users/search route to include isSuperUser in response
+app.get('/api/users/search', authenticateToken, async (req, res) => {
+  try {
+    const { query, year, major, dorm } = req.query;
+
+    const filter = {
+      _id: { $ne: req.user.userId }
+    };
+
+    if (query && query.trim().length >= 2) {
+      const searchRegex = new RegExp(query.trim(), 'i');
+      filter.$or = [
+        { email: searchRegex },
+        { name: searchRegex }
+      ];
+    }
+
+    if (year) {
+      filter.year = year;
+    }
+    if (major) {
+      filter.major = new RegExp(major, 'i');
+    }
+    if (dorm) {
+      filter.dorm = new RegExp(dorm, 'i');
+    }
+
+    const users = await User.find(filter)
+      .select('email name major year dorm isSuperUser') // ADD isSuperUser here
+      .sort({ name: 1 })
+      .limit(100);
+
+    res.json(users);
+  } catch (error) {
+    console.error('User search error:', error);
+    res.status(500).json({ error: 'Failed to search users' });
+  }
+});
+
+// Update the /api/users/:userId/public-profile route to include isSuperUser
+app.get('/api/users/:userId/public-profile', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId)
+      .select('email name major year dorm currentSemesterPlan isSuperUser'); // ADD isSuperUser here
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const publicProfile = {
+      _id: user._id, // ADD _id so frontend can use it for admin actions
+      email: user.email,
+      name: user.name,
+      major: user.major,
+      year: user.year,
+      dorm: user.dorm,
+      isSuperUser: user.isSuperUser, // ADD this
+      semesterPlan: user.currentSemesterPlan || {
+        semesterName: '',
+        classes: [],
+        lastUpdated: null
+      }
+    };
+
+    res.json(publicProfile);
+  } catch (error) {
+    console.error('Get public profile error:', error);
+    res.status(500).json({ error: 'Failed to fetch user profile' });
+  }
+});
 
 // Only start server in non-production (for local development)
 if (process.env.NODE_ENV !== 'production') {
-    mongoose.connect(process.env.MONGO_URI, {
-      dbName: 'Users'
+  mongoose.connect(process.env.MONGO_URI, {
+    dbName: 'Users'
+  })
+    .then(() => {
+      console.log('✅ MongoDB connected to Users database');
+      app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
     })
-      .then(() => {
-        console.log('✅ MongoDB connected to Users database');
-        app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-      })
-      .catch(err => {
-        console.error('❌ MongoDB connection error:', err);
-        process.exit(1);
-      });
-  }
+    .catch(err => {
+      console.error('❌ MongoDB connection error:', err);
+      process.exit(1);
+    });
+}
 
 // Export for Vercel serverless
 export default app;
