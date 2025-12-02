@@ -148,9 +148,50 @@ app.post('/api/parse-transcript', upload.single('transcript'), async (req, res) 
       size: req.file.size
     });
 
+    // Validate file size (10MB limit)
+    if (req.file.size > 10 * 1024 * 1024) {
+      return res.status(400).json({ 
+        error: 'File too large. Maximum size is 10MB.' 
+      });
+    }
+
+    // Validate file type
+    if (req.file.mimetype !== 'application/pdf') {
+      return res.status(400).json({ 
+        error: 'Invalid file type. Only PDF files are allowed.' 
+      });
+    }
+
     console.log('Starting PDF parsing...');
-    const pdfData = await pdfParse(req.file.buffer);
-    const text = pdfData.text;
+    
+    let pdfData;
+    let text;
+    
+    try {
+      // Wrap pdfParse in a try-catch to catch native dependency errors
+      pdfData = await pdfParse(req.file.buffer);
+      text = pdfData.text;
+    } catch (parseError) {
+      console.error('PDF parsing library error:', parseError);
+      // Check if it's a native dependency issue
+      if (parseError.message && (
+        parseError.message.includes('native') || 
+        parseError.message.includes('binding') ||
+        parseError.message.includes('module')
+      )) {
+        return res.status(500).json({
+          error: 'PDF processing service unavailable. Please try again later or contact support.',
+          details: 'Native dependencies not available in serverless environment'
+        });
+      }
+      throw parseError; // Re-throw if it's a different error
+    }
+
+    if (!text || text.length === 0) {
+      return res.status(400).json({
+        error: 'Could not extract text from PDF. The PDF may be corrupted or password-protected.'
+      });
+    }
 
     console.log('PDF text extracted successfully, length:', text.length);
 
@@ -172,9 +213,23 @@ app.post('/api/parse-transcript', upload.single('transcript'), async (req, res) 
 
   } catch (error) {
     console.error('PDF parsing error:', error);
+    console.error('Error stack:', error.stack);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to process transcript PDF.';
+    let errorDetails = error.message;
+    
+    if (error.message && error.message.includes('timeout')) {
+      errorMessage = 'PDF processing timed out. The file may be too large or complex.';
+      errorDetails = 'Processing exceeded time limit';
+    } else if (error.message && error.message.includes('memory')) {
+      errorMessage = 'PDF processing failed due to memory constraints. Try a smaller file.';
+      errorDetails = 'Insufficient memory';
+    }
+    
     res.status(500).json({
-      error: 'Failed to process transcript PDF.',
-      details: error.message
+      error: errorMessage,
+      details: errorDetails
     });
   }
 });

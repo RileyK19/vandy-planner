@@ -15,6 +15,10 @@
     ],
     "routes": [
       {
+        "src": "/api/parse-transcript",
+        "dest": "/api/[...path].js"
+      },
+      {
         "src": "/api/(.*)",
         "dest": "/api/[...path].js"
       },
@@ -23,6 +27,11 @@
         "dest": "/client/$1"
       }
     ],
+    "functions": {
+      "api/[...path].js": {
+        "maxDuration": 60
+      }
+    },
     "headers": [
       {
         "source": "/(.*)",
