@@ -1,21 +1,5 @@
 {
     "version": 2,
-    "builds": [
-      {
-        "src": "api/[...path].js",
-        "use": "@vercel/node",
-        "config": {
-          "includeFiles": "api/**"
-        }
-      },
-      {
-        "src": "client/package.json",
-        "use": "@vercel/static-build",
-        "config": { 
-          "distDir": "dist"
-        }
-      }
-    ],
     "routes": [
       {
         "src": "/api/parse-transcript",
@@ -34,5 +18,16 @@
       "api/[...path].js": {
         "maxDuration": 60
       }
-    }
+    },
+    "headers": [
+      {
+        "source": "/(.*)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=0, must-revalidate"
+          }
+        ]
+      }
+    ]
   }
