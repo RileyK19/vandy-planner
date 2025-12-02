@@ -8,7 +8,18 @@ import { createRequire } from 'module';
 import User from './models/User.js';
 
 const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
+
+// Lazy load pdf-parse to handle potential native dependency issues
+let pdfParse;
+try {
+  pdfParse = require('pdf-parse');
+} catch (error) {
+  console.error('Failed to load pdf-parse:', error);
+  // Create a fallback function that returns an error
+  pdfParse = async () => {
+    throw new Error('PDF parsing library not available. Native dependencies may not be installed.');
+  };
+}
 
 dotenv.config();
 const app = express();
