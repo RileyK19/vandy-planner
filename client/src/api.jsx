@@ -290,6 +290,27 @@ export async function fetchUserTakenCourses(email) {
   }
 }
 
+// Fetch users planning to take a course next semester
+export async function fetchCourseClasslist(courseCode, sectionNumber = null) {
+  try {
+    let url = `/api/courses/${encodeURIComponent(courseCode)}/classlist`;
+    if (sectionNumber) {
+      url += `?sectionNumber=${encodeURIComponent(sectionNumber)}`;
+    }
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch classlist: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data; // { courseCode, semester, users: [...], count }
+  } catch (error) {
+    console.error('Error fetching classlist:', error);
+    throw error;
+  }
+}
+
 // Authentication API Functions
 
 /**

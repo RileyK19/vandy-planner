@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './Modal.jsx';
-import { getClassAverageRatings, formatRating, fetchDegreeRequirements } from './api.jsx';
+import { getClassAverageRatings, formatRating, fetchDegreeRequirements, fetchCourseClasslist } from './api.jsx';
 
 // Helper function to get time frame from schedule
 const getTimeFrame = (startTime, endTime) => {
@@ -93,6 +93,9 @@ const SearchPage = ({
   const [infoClass, setInfoClass] = useState(null);
   const [showSemesterSelector, setShowSemesterSelector] = useState(null);
   const [hoveredConflict, setHoveredConflict] = useState(null);
+  const [showClasslist, setShowClasslist] = useState(null);
+  const [classlistData, setClasslistData] = useState(null);
+  const [loadingClasslist, setLoadingClasslist] = useState(false);
   const [expandedFilters, setExpandedFilters] = useState({});
   const [filterSearch, setFilterSearch] = useState({});
   const [degreeRequirements, setDegreeRequirements] = useState(null);
@@ -1224,6 +1227,34 @@ const SearchPage = ({
                       >
                         ℹ️ Details
                       </button>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setShowClasslist(section);
+                          setLoadingClasslist(true);
+                          setClasslistData(null);
+                          try {
+                            const data = await fetchCourseClasslist(section.code, section.sectionNumber);
+                            setClasslistData(data);
+                          } catch (error) {
+                            console.error('Error fetching classlist:', error);
+                            setClasslistData({ error: 'Failed to load classlist' });
+                          } finally {
+                            setLoadingClasslist(false);
+                          }
+                        }}
+                        style={{
+                          backgroundColor: '#2196F3',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '6px 10px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                      >
+                        👥 Classlist
+                      </button>
                     </div>
                   </div>
                 );
@@ -1619,6 +1650,125 @@ const SearchPage = ({
               🎯 Add to Long Term Plan
             </button>
           </div>
+        </Modal>
+      )}
+
+      {/* Classlist Modal */}
+      {showClasslist && (
+        <Modal onClose={() => {
+          setShowClasslist(null);
+          setClasslistData(null);
+        }}>
+          <h2>👥 Classlist: {showClasslist.code}</h2>
+          <p style={{ marginBottom: '15px', color: '#666' }}>
+            <strong>{showClasslist.name}</strong>
+            {showClasslist.sectionNumber && (
+              <span style={{ marginLeft: '10px', fontSize: '14px', color: '#666' }}>
+                (Section {showClasslist.sectionNumber})
+              </span>
+            )}
+          </p>
+          
+          {loadingClasslist ? (
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              padding: '40px',
+              flexDirection: 'column',
+              gap: '20px'
+            }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                border: '4px solid #f3f3f3',
+                borderTop: '4px solid #2196F3',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }} />
+              <p style={{ color: '#666' }}>Loading classlist...</p>
+              <style>{`
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              `}</style>
+            </div>
+          ) : classlistData?.error ? (
+            <div style={{ 
+              padding: '20px', 
+              backgroundColor: '#ffebee', 
+              borderRadius: '8px',
+              color: '#c62828'
+            }}>
+              <p>{classlistData.error}</p>
+            </div>
+          ) : classlistData?.users && classlistData.users.length > 0 ? (
+            <div>
+              <p style={{ 
+                marginBottom: '15px', 
+                fontSize: '14px', 
+                color: '#666',
+                fontWeight: '500'
+              }}>
+                {classlistData.count} {classlistData.count === 1 ? 'student' : 'students'} planning this course:
+              </p>
+              <div style={{ 
+                maxHeight: '400px', 
+                overflowY: 'auto',
+                border: '1px solid #e0e0e0',
+                borderRadius: '8px',
+                padding: '10px'
+              }}>
+                <div style={{ 
+                  display: 'grid', 
+                  gap: '12px'
+                }}>
+                  {classlistData.users.map((user, idx) => (
+                    <div 
+                      key={idx}
+                      style={{
+                        padding: '15px',
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: '8px',
+                        border: '1px solid #e0e0e0',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                      }}
+                    >
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <div style={{ fontWeight: '600', fontSize: '16px', color: '#333' }}>
+                          {user.name}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>
+                          {user.year}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#666' }}>
+                        <div><strong>Major:</strong> {user.major}</div>
+                        {user.dorm && <div><strong>Dorm:</strong> {user.dorm}</div>}
+                        <div><strong>Email:</strong> {user.email}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : classlistData ? (
+            <div style={{ 
+              padding: '40px 20px', 
+              textAlign: 'center',
+              color: '#666'
+            }}>
+              <p style={{ fontSize: '18px', marginBottom: '10px' }}>👥</p>
+              <p>No students are currently planning to take this course next semester.</p>
+            </div>
+          ) : null}
         </Modal>
       )}
 

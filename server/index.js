@@ -545,6 +545,145 @@ app.get('/api/users/:email/courses', async (req, res) => {
   }
 });
 
+// Get users planning to take a specific course next semester
+app.get('/api/courses/:courseCode/classlist', async (req, res) => {
+  try {
+    const { courseCode } = req.params;
+    const { sectionNumber } = req.query; // Optional section number filter
+    const normalizedCourseCode = courseCode.toUpperCase().trim().replace(/\s+/g, ' ');
+    
+    // Determine current and next semester
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 1-12
+    
+    let currentTerm, currentSemesterLabel, nextTerm, nextYear, nextSemesterLabel;
+    if (currentMonth >= 1 && currentMonth <= 5) {
+      // Jan-May: current is Spring, next is Fall of same year
+      currentTerm = 'Spring';
+      currentSemesterLabel = `${currentTerm} ${currentYear}`;
+      nextTerm = 'Fall';
+      nextYear = currentYear;
+      nextSemesterLabel = `${nextTerm} ${nextYear}`;
+    } else {
+      // Jun-Dec: current is Fall, next is Spring of next year
+      currentTerm = 'Fall';
+      currentSemesterLabel = `${currentTerm} ${currentYear}`;
+      nextTerm = 'Spring';
+      nextYear = currentYear + 1;
+      nextSemesterLabel = `${nextTerm} ${nextYear}`;
+    }
+    
+    console.log(`🔍 Classlist query for ${normalizedCourseCode}${sectionNumber ? ` Section ${sectionNumber}` : ''}:`);
+    console.log(`   Current semester: ${currentSemesterLabel}`);
+    console.log(`   Next semester: ${nextSemesterLabel}`);
+    if (sectionNumber) {
+      console.log(`   Filtering by section: ${sectionNumber}`);
+    }
+    
+    // Find all users who have this course in their planned schedules for current OR next semester
+    // Check both currentSemesterPlan and plannedSchedules
+    const allUsers = await User.find({}).select('name email major year dorm currentSemesterPlan plannedSchedules').lean();
+    
+    // Filter users who have this course for current or next semester
+    const users = allUsers.filter(user => {
+      // Check currentSemesterPlan (one-semester planner) - check both current and next semester
+      if (user.currentSemesterPlan && user.currentSemesterPlan.classes) {
+        const semesterName = user.currentSemesterPlan.semesterName || '';
+        // Check if it's for current or next semester
+        if (semesterName === currentSemesterLabel || semesterName === nextSemesterLabel) {
+          const hasCourse = user.currentSemesterPlan.classes.some(cls => {
+            const clsCode = (cls.code || '').toUpperCase().trim().replace(/\s+/g, ' ');
+            const clsSectionNumber = cls.sectionNumber || '';
+            // Match course code and section number (if section filter is provided)
+            const codeMatches = clsCode === normalizedCourseCode;
+            const sectionMatches = !sectionNumber || clsSectionNumber === sectionNumber;
+            return codeMatches && sectionMatches;
+          });
+          if (hasCourse) {
+            console.log(`   ✅ Found in ${user.email}'s currentSemesterPlan (${semesterName})`);
+            return true;
+          }
+        }
+      }
+      
+      // Check plannedSchedules (4-year plan) - check both current and next semester
+      if (user.plannedSchedules && Array.isArray(user.plannedSchedules)) {
+        for (const schedule of user.plannedSchedules) {
+          if (schedule.classes && Array.isArray(schedule.classes)) {
+            const hasCourse = schedule.classes.some(cls => {
+              const clsCode = (cls.code || '').toUpperCase().trim().replace(/\s+/g, ' ');
+              const clsSemester = cls.semester || '';
+              const clsSectionNumber = cls.sectionNumber || '';
+              // Check if course code matches, semester is current or next, and section matches (if filter provided)
+              const codeMatches = clsCode === normalizedCourseCode;
+              const semesterMatches = clsSemester === currentSemesterLabel || clsSemester === nextSemesterLabel;
+              const sectionMatches = !sectionNumber || clsSectionNumber === sectionNumber;
+              return codeMatches && semesterMatches && sectionMatches;
+            });
+            if (hasCourse) {
+              console.log(`   ✅ Found in ${user.email}'s plannedSchedules`);
+              return true;
+            }
+          }
+        }
+      }
+      
+      return false;
+    });
+    
+    // Filter and format the results with semester info
+    const classlist = users.map(user => {
+      let planningSemester = null;
+      
+      // Determine which semester they're planning for
+      if (user.currentSemesterPlan && user.currentSemesterPlan.classes) {
+        const semesterName = user.currentSemesterPlan.semesterName || '';
+        if (semesterName === currentSemesterLabel || semesterName === nextSemesterLabel) {
+          planningSemester = semesterName;
+        }
+      }
+      
+      if (!planningSemester && user.plannedSchedules && Array.isArray(user.plannedSchedules)) {
+        for (const schedule of user.plannedSchedules) {
+          if (schedule.classes && Array.isArray(schedule.classes)) {
+            const matchingClass = schedule.classes.find(cls => {
+              const clsCode = (cls.code || '').toUpperCase().trim().replace(/\s+/g, ' ');
+              return clsCode === normalizedCourseCode;
+            });
+            if (matchingClass && matchingClass.semester) {
+              planningSemester = matchingClass.semester;
+              break;
+            }
+          }
+        }
+      }
+      
+      return {
+        name: user.name,
+        email: user.email,
+        major: user.major,
+        year: user.year,
+        dorm: user.dorm,
+        semester: planningSemester || nextSemesterLabel
+      };
+    });
+    
+    console.log(`   Found ${classlist.length} users planning this course`);
+    
+    res.json({
+      courseCode: normalizedCourseCode,
+      currentSemester: currentSemesterLabel,
+      nextSemester: nextSemesterLabel,
+      users: classlist,
+      count: classlist.length
+    });
+  } catch (error) {
+    console.error('Error fetching classlist:', error);
+    res.status(500).json({ error: 'Failed to fetch classlist' });
+  }
+});
+
 app.get('/api/courses/:courseCode/prerequisites', async (req, res) => {
   try {
     const { courseCode } = req.params;
