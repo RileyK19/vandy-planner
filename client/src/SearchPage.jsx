@@ -48,7 +48,8 @@ const SearchPage = ({
   userMajor = 'Computer Science',
   year,
   onRemoveClass,
-  currentSemesterLabel
+  currentSemesterLabel,
+  nextSemesterLabel
 }) => {
   // Helper functions to serialize/deserialize filters (Sets to Arrays)
   const serializeFilters = (filters) => {
@@ -284,25 +285,22 @@ const SearchPage = ({
   };
 
   const availableSemesters = getAvailableSemesters().filter(sem => {
-    // If currentSemesterLabel is provided, only show FUTURE semesters
-    // Assuming currentSemesterLabel is like "Fall 2025"
-    if (!currentSemesterLabel) return true;
+    // If nextSemesterLabel is provided, only show semesters AFTER it
+    // The user wants to restrict adding to Spring 2026 or before.
+    // So we only want semesters AFTER Spring 2026.
+    const targetLabel = nextSemesterLabel || 'Spring 2026'; // Fallback if not passed yet
 
-    const [currentTerm, currentYearStr] = currentSemesterLabel.split(' ');
-    const currentYear = parseInt(currentYearStr);
+    const [targetTerm, targetYearStr] = targetLabel.split(' ');
+    const targetYear = parseInt(targetYearStr);
 
-    if (sem.year > currentYear) return true;
-    if (sem.year < currentYear) return false;
+    if (sem.year > targetYear) return true;
+    if (sem.year < targetYear) return false;
 
-    // Same year: Only show if current is Spring and target is Fall
-    // If current is Fall, then Spring (same year) is past (impossible in this logic but good to be safe)
-    // Actually, if current is Fall 2025, then Fall 2025 is current (exclude), Spring 2025 is past.
-    // We want strictly future.
-
+    // Same year
     // Term order: Spring < Summer < Fall
     const termOrder = { 'Spring': 1, 'Summer': 2, 'Fall': 3 };
 
-    return termOrder[sem.term] > termOrder[currentTerm];
+    return termOrder[sem.term] > termOrder[targetTerm];
   });
 
   // Fetch degree requirements and build category mapping
@@ -1077,7 +1075,7 @@ const SearchPage = ({
                     onClick={(e) => {
                       if (plannedClasses.some(planned => planned.id === selectedSection.id)) {
                         e.stopPropagation();
-                        onRemoveClass(selectedSection.courseId);
+                        onRemoveClass(selectedSection.id);
                       } else {
                         e.stopPropagation();
                         onAddToPlanner(selectedSection);
@@ -1668,12 +1666,12 @@ const SearchPage = ({
               </span>
             )}
           </p>
-          
+
           {loadingClasslist ? (
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              alignItems: 'center', 
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
               padding: '40px',
               flexDirection: 'column',
               gap: '20px'
@@ -1695,9 +1693,9 @@ const SearchPage = ({
               `}</style>
             </div>
           ) : classlistData?.error ? (
-            <div style={{ 
-              padding: '20px', 
-              backgroundColor: '#ffebee', 
+            <div style={{
+              padding: '20px',
+              backgroundColor: '#ffebee',
               borderRadius: '8px',
               color: '#c62828'
             }}>
@@ -1705,27 +1703,27 @@ const SearchPage = ({
             </div>
           ) : classlistData?.users && classlistData.users.length > 0 ? (
             <div>
-              <p style={{ 
-                marginBottom: '15px', 
-                fontSize: '14px', 
+              <p style={{
+                marginBottom: '15px',
+                fontSize: '14px',
                 color: '#666',
                 fontWeight: '500'
               }}>
                 {classlistData.count} {classlistData.count === 1 ? 'student' : 'students'} planning this course:
               </p>
-              <div style={{ 
-                maxHeight: '400px', 
+              <div style={{
+                maxHeight: '400px',
                 overflowY: 'auto',
                 border: '1px solid #e0e0e0',
                 borderRadius: '8px',
                 padding: '10px'
               }}>
-                <div style={{ 
-                  display: 'grid', 
+                <div style={{
+                  display: 'grid',
                   gap: '12px'
                 }}>
                   {classlistData.users.map((user, idx) => (
-                    <div 
+                    <div
                       key={idx}
                       style={{
                         padding: '15px',
@@ -1737,8 +1735,8 @@ const SearchPage = ({
                         gap: '8px'
                       }}
                     >
-                      <div style={{ 
-                        display: 'flex', 
+                      <div style={{
+                        display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center'
                       }}>
@@ -1760,8 +1758,8 @@ const SearchPage = ({
               </div>
             </div>
           ) : classlistData ? (
-            <div style={{ 
-              padding: '40px 20px', 
+            <div style={{
+              padding: '40px 20px',
               textAlign: 'center',
               color: '#666'
             }}>

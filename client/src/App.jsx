@@ -40,6 +40,7 @@ function App() {
 
   // Define current semester label - centralized source of truth
   const currentSemesterLabel = 'Fall 2025';
+  const nextSemesterLabel = 'Spring 2026';
 
   const [toast, setToast] = useState(null);
 
@@ -238,28 +239,28 @@ function App() {
 
     setPlannedClasses(prev => [...prev, classItem])
 
-    // Sync with semesterPlans for current semester
+    // Sync with semesterPlans for next semester (Spring 2026)
     setSemesterPlans(prev => {
-      const existing = prev[currentSemesterLabel] || [];
+      const existing = prev[nextSemesterLabel] || [];
       // Check if already in semester plan (should be handled by plannedClasses check but good to be safe)
       if (existing.some(cls => cls.id === classItem.id)) return prev;
 
       return {
         ...prev,
-        [currentSemesterLabel]: [...existing, classItem]
+        [nextSemesterLabel]: [...existing, classItem]
       };
     });
   }
 
   const removeFromPlanner = (classId) => {
-    setPlannedClasses(prev => prev.filter(cls => cls.courseId !== classId))
+    setPlannedClasses(prev => prev.filter(cls => cls.id !== classId))
 
-    // Sync with semesterPlans for current semester
+    // Sync with semesterPlans for next semester
     setSemesterPlans(prev => {
-      const existing = prev[currentSemesterLabel] || [];
+      const existing = prev[nextSemesterLabel] || [];
       return {
         ...prev,
-        [currentSemesterLabel]: existing.filter(cls => cls.id !== classId && cls.courseId !== classId)
+        [nextSemesterLabel]: existing.filter(cls => cls.id !== classId)
       };
     });
 
@@ -276,8 +277,8 @@ function App() {
         return prev
       }
 
-      // If adding to current semester, also update plannedClasses
-      if (semester === currentSemesterLabel) {
+      // If adding to next semester, also update plannedClasses
+      if (semester === nextSemesterLabel) {
         // Check for conflicts in plannedClasses first? 
         // For now, we'll just add it, assuming the user knows what they are doing if they add via 4-year plan
         // But we should check if it's already in plannedClasses
@@ -343,7 +344,7 @@ function App() {
         // Sync to semesterPlans
         setSemesterPlans(prev => ({
           ...prev,
-          [currentSemesterLabel]: semesterPlan.classes
+          [nextSemesterLabel]: semesterPlan.classes
         }));
       }
     } catch (error) {
@@ -623,12 +624,13 @@ function App() {
             year={user.year}
             onRemoveClass={removeFromPlanner}
             currentSemesterLabel={currentSemesterLabel}
+            nextSemesterLabel={nextSemesterLabel}
           />
         ) : currentView === 'planner' ? (
           <PlannerCalendar
             plannedClasses={plannedClasses}
             onRemoveClass={removeFromPlanner}
-            currentSemesterLabel={currentSemesterLabel}
+            currentSemesterLabel={nextSemesterLabel}
           />
         ) : currentView === 'recommend' ? (
           <RecommendMe
@@ -649,6 +651,7 @@ function App() {
             year={user.year}
             takenCourses={user.previousCourses}
             currentSemesterLabel={currentSemesterLabel}
+            nextSemesterLabel={nextSemesterLabel}
             onRemoveClass={removeFromPlanner}
           />
         ) : currentView === 'profile' ? (
@@ -670,8 +673,8 @@ function App() {
           />
         ) : currentView === 'userSearch' ? (
           <UserSearch />
-        ) :  (
-          <DegreeAudit 
+        ) : (
+          <DegreeAudit
             key={`degree-audit-${user?.email}-${JSON.stringify((user?.previousCourses || []).map(c => c.courseCode).sort())}`}
             plannedClasses={plannedClasses}
             major="Computer Science"
