@@ -1,6 +1,16 @@
 import React, { useState } from 'react';
 
-const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, year, takenCourses, currentSemesterLabel, nextSemesterLabel, onRemoveClass }) => {
+const FourYearPlanner = ({ 
+  semesterPlans, 
+  onUpdateSemesterPlans, 
+  onSavePlan, 
+  year, 
+  takenCourses, 
+  currentSemesterLabel, 
+  nextSemesterLabel, 
+  onRemoveClass,
+  plannedClasses  
+}) => {
   const [saving, setSaving] = useState(false);
 
   console.log('TAKENCOURSES', takenCourses);
@@ -43,6 +53,24 @@ const FourYearPlanner = ({ semesterPlans, onUpdateSemesterPlans, onSavePlan, yea
   // Merge taken courses with planned courses
   const getMergedSemesterPlans = () => {
     const merged = { ...semesterPlans };
+    
+    // ADD THIS: Ensure Spring 2026 has plannedClasses
+    if (plannedClasses && plannedClasses.length > 0) {
+      if (!merged[nextSemesterLabel]) {
+        merged[nextSemesterLabel] = [];
+      }
+      
+      // Add any plannedClasses not already in Spring 2026
+      plannedClasses.forEach(cls => {
+        const exists = merged[nextSemesterLabel].some(s => s.id === cls.id);
+        if (!exists) {
+          merged[nextSemesterLabel].push({
+            ...cls,
+            isTaken: false
+          });
+        }
+      });
+    }
 
     // Add taken courses to their respective semesters
     takenCourses.forEach(course => {

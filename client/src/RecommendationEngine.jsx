@@ -68,22 +68,8 @@ export function generateRecommendations({
 }
 
 function smartPreFilter(classes, preferences, neededCourses, prerequisitesMap) {
-  // Step 1: First deduplicate at the start
-  // const uniqueCandidates = [];
-  // const seenCodes = new Set();
-  
-  // for (const cls of classes) {
-  //   const normalizedCode = cls.code.toUpperCase().replace(/\s+/g, '');
-  //   if (!seenCodes.has(normalizedCode)) {
-  //     seenCodes.add(normalizedCode);
-  //     uniqueCandidates.push(cls);
-  //   }
-  // }
-  
-  // console.log(`✓ Deduplicated: ${classes.length} → ${uniqueCandidates.length} unique courses`);
   const uniqueCandidates = classes;
   
-  // Step 2: Now filter and score the unique courses
   const filtered = uniqueCandidates.map(cls => {
     let priority = 0;
     
@@ -141,21 +127,54 @@ function smartPreFilter(classes, preferences, neededCourses, prerequisitesMap) {
       priority += 10;
     }
     
-    // Use RMP data properly
-    const avgRating = getAverageRating(cls);
-    if (avgRating?.quality) {
-      if (avgRating.quality >= 4.5) priority += 20;
-      else if (avgRating.quality >= 4.0) priority += 15;
-      else if (avgRating.quality >= 3.5) priority += 10;
-      else if (avgRating.quality < 2.5) priority -= 10;
+    // Use RMP data properly - get individual professor ratings
+    const professorRatings = getProfessorRatings(cls);
+    const professorCount = Object.keys(professorRatings).length;
+    
+    if (professorCount > 0) {
+      // Calculate average rating for this class
+      const qualities = Object.values(professorRatings)
+        .filter(r => r.quality !== null && r.quality !== undefined)
+        .map(r => r.quality);
+      
+      if (qualities.length > 0) {
+        const avgQuality = qualities.reduce((sum, q) => sum + q, 0) / qualities.length;
+        
+        if (avgQuality >= 4.5) priority += 25;
+        else if (avgQuality >= 4.0) priority += 20;
+        else if (avgQuality >= 3.5) priority += 15;
+        else if (avgQuality >= 3.0) priority += 10;
+        else if (avgQuality < 2.5) priority -= 10;
+        
+        // Store the calculated average on the class for later use
+        cls.calculatedRMP = {
+          quality: avgQuality,
+          professorCount: professorCount,
+          hasData: true
+        };
+      }
+    } else {
+      cls.calculatedRMP = { hasData: false };
     }
     
-    // Workload preferences
-    if (avgRating?.difficulty) {
-      const diff = avgRating.difficulty;
-      if (preferences.workload === 'easier' && diff <= 2.5) priority += 10;
-      else if (preferences.workload === 'challenging' && diff >= 3.5) priority += 10;
-      else if (preferences.workload === 'balanced' && diff >= 2.5 && diff <= 3.5) priority += 10;
+    // Workload preferences - use individual professor difficulty ratings
+    if (professorCount > 0) {
+      const difficulties = Object.values(professorRatings)
+        .filter(r => r.difficulty !== null && r.difficulty !== undefined)
+        .map(r => r.difficulty);
+      
+      if (difficulties.length > 0) {
+        const avgDifficulty = difficulties.reduce((sum, d) => sum + d, 0) / difficulties.length;
+        
+        if (preferences.workload === 'easier' && avgDifficulty <= 2.5) priority += 15;
+        else if (preferences.workload === 'challenging' && avgDifficulty >= 3.5) priority += 15;
+        else if (preferences.workload === 'balanced' && avgDifficulty >= 2.5 && avgDifficulty <= 3.5) priority += 15;
+        
+        // Store difficulty if not already stored
+        if (cls.calculatedRMP) {
+          cls.calculatedRMP.difficulty = avgDifficulty;
+        }
+      }
     }
     
     // Schedule pattern preferences
@@ -247,7 +266,31 @@ export async function enhanceWithGPT(candidatesData, context) {
   // console.log(`✓ Deduplicated: ${candidates.length} → ${uniqueCandidates.length} unique courses`);
 const uniqueCandidates = candidates;
   const courseData = uniqueCandidates.map(cls => {
-    const avgRating = getAverageRating(cls);
+    // Get RMP data from the class object directly
+    let rmpInfo = 'N/A';
+    
+    // Try multiple ways to get RMP data
+    if (cls.rmpData && Object.keys(cls.rmpData).length > 0) {
+      // cls.rmpData is an object with professor names as keys
+      const ratings = Object.values(cls.rmpData);
+      const qualityRatings = ratings.filter(r => r.quality !== null && r.quality !== undefined).map(r => r.quality);
+      const difficultyRatings = ratings.filter(r => r.difficulty !== null && r.difficulty !== undefined).map(r => r.difficulty);
+      
+      if (qualityRatings.length > 0) {
+        const avgQuality = qualityRatings.reduce((sum, q) => sum + q, 0) / qualityRatings.length;
+        const avgDifficulty = difficultyRatings.length > 0 
+          ? difficultyRatings.reduce((sum, d) => sum + d, 0) / difficultyRatings.length 
+          : null;
+        
+        rmpInfo = avgDifficulty ? `${avgQuality.toFixed(1)}/${avgDifficulty.toFixed(1)}` : `${avgQuality.toFixed(1)}/N/A`;
+      }
+    } else if (cls.calculatedRMP?.hasData) {
+      // Use calculatedRMP from smartPreFilter
+      const quality = cls.calculatedRMP.quality?.toFixed(1) || 'N/A';
+      const difficulty = cls.calculatedRMP.difficulty?.toFixed(1) || 'N/A';
+      rmpInfo = `${quality}/${difficulty}`;
+    }
+    
     const prereqInfo = prerequisitesMap?.[cls.code] || {};
     
     return {
@@ -258,7 +301,7 @@ const uniqueCandidates = candidates;
       sched: cls.schedule ? 
         `${cls.schedule.days?.join('/') || 'TBA'} ${cls.schedule.startTime || ''}-${cls.schedule.endTime || ''}`.trim() : 
         'TBA',
-      rmp: avgRating ? `${avgRating.quality.toFixed(1)}/${avgRating.difficulty.toFixed(1)}` : 'N/A',
+      rmp: rmpInfo, // This should now show actual ratings
       req: cls.priority > 50 ? 'YES' : 'No',
       prereqCourses: prereqInfo.prerequisiteCourses?.join(',') || 'None'
     };
@@ -497,16 +540,11 @@ const uniqueCandidates = candidates;
           .map(gptRec => {
             const normalizedGptCode = normalizeCode(gptRec.courseCode);
             
+            // Validate not already taken/planned
             if (takenSet.has(normalizedGptCode) || plannedSet.has(normalizedGptCode)) {
               console.warn('❌ GPT recommended taken/planned course:', gptRec.courseCode);
               return null;
             }
-            
-            if (seenInResults.has(normalizedGptCode)) {
-              console.warn('❌ GPT returned duplicate:', gptRec.courseCode);
-              return null;
-            }
-            seenInResults.add(normalizedGptCode);
             
             const course = uniqueCandidates.find(c => {
               const normalizedCourseCode = normalizeCode(c.code);
@@ -529,20 +567,30 @@ const uniqueCandidates = candidates;
             };
           })
           .filter(Boolean)
-          .filter((course, index, self) => {
-            // Remove duplicate base courses (e.g., keep only 2 CS 3251 sections max)
-            const baseCourse = course.code.replace(/[A-Z]$/, '').trim(); // Remove section letter
-            const sameCourseCount = self.slice(0, index).filter(c => 
-              c.code.replace(/[A-Z]$/, '').trim() === baseCourse
-            ).length;
-            
-            if (sameCourseCount >= 2) {
-              console.warn(`⏭️ Limiting sections: Already have 2+ sections of ${baseCourse}`);
-              return false;
-            }
-            return true;
-          })
           .sort((a, b) => a.gptRank - b.gptRank);
+        
+        // NEW: Post-process to limit to 3 sections per base course
+        const sectionCounts = {};
+        const finalRecommendations = [];
+        
+        for (const course of recommendations) {
+          // Extract base course code (remove section letter)
+          const baseCourse = course.code.replace(/[A-Z]$/, '').trim();
+          
+          if (!sectionCounts[baseCourse]) {
+            sectionCounts[baseCourse] = 0;
+          }
+          
+          if (sectionCounts[baseCourse] < 3) {
+            sectionCounts[baseCourse]++;
+            finalRecommendations.push(course);
+            console.log(`✅ Adding ${course.code} (section ${sectionCounts[baseCourse]} of ${baseCourse})`);
+          } else {
+            console.warn(`⏭️ Limiting sections: Already have 3 sections of ${baseCourse}, skipping ${course.code}`);
+          }
+        }
+        
+        console.log(`✅ Final validated recommendations: ${finalRecommendations.length} (with section limits applied)`);
 
         if (recommendations.length < 15) {
           const usedCodes = new Set(recommendations.map(r => normalizeCode(r.code)));
@@ -590,13 +638,6 @@ const uniqueCandidates = candidates;
           return null;
         }
         
-        // Validate no duplicates in results
-        if (seenInResults.has(normalizedGptCode)) {
-          console.warn('❌ GPT returned duplicate:', gptRec.courseCode);
-          return null;
-        }
-        seenInResults.add(normalizedGptCode);
-        
         const course = uniqueCandidates.find(c => {
           const normalizedCourseCode = normalizeCode(c.code);
           return normalizedCourseCode === normalizedGptCode;
@@ -619,6 +660,29 @@ const uniqueCandidates = candidates;
       })
       .filter(Boolean)
       .sort((a, b) => a.gptRank - b.gptRank);
+
+    // NEW: Post-process to limit to 3 sections per base course
+    const sectionCounts = {};
+    const finalRecommendations = [];
+
+    for (const course of recommendations) {
+      // Extract base course code (remove section letter)
+      const baseCourse = course.code.replace(/[A-Z]$/, '').trim();
+      
+      if (!sectionCounts[baseCourse]) {
+        sectionCounts[baseCourse] = 0;
+      }
+      
+      if (sectionCounts[baseCourse] < 3) {
+        sectionCounts[baseCourse]++;
+        finalRecommendations.push(course);
+        console.log(`✅ Adding ${course.code} (section ${sectionCounts[baseCourse]} of ${baseCourse})`);
+      } else {
+        console.warn(`⏭️ Limiting sections: Already have 3 sections of ${baseCourse}, skipping ${course.code}`);
+      }
+    }
+
+    console.log(`✅ Final validated recommendations: ${finalRecommendations.length} (with section limits applied)`);
 
     console.log(`✅ Final validated recommendations: ${recommendations.length}`);
     
@@ -676,21 +740,54 @@ function checkPrerequisites(prereqData, completedCourses) {
   return normalizedPrereqs.every(prereq => normalizedCompleted.has(prereq));
 }
 
+function getProfessorRatings(cls) {
+  const ratings = {};
+  
+  if (cls.rmpData && typeof cls.rmpData === 'object') {
+    Object.entries(cls.rmpData).forEach(([professor, data]) => {
+      if (data && data.quality !== undefined) {
+        ratings[professor] = {
+          quality: data.quality,
+          difficulty: data.difficulty,
+          lastUpdated: data.lastUpdated
+        };
+      }
+    });
+  }
+  
+  return ratings;
+}
+
 function getAverageRating(cls) {
-  const ratings = Object.values(cls.rmpData || {});
-  if (ratings.length === 0) return null;
+  const professorRatings = getProfessorRatings(cls);
   
-  const qualityRatings = ratings.filter(r => r.quality !== null && r.quality !== undefined).map(r => r.quality);
-  const difficultyRatings = ratings.filter(r => r.difficulty !== null && r.difficulty !== undefined).map(r => r.difficulty);
+  if (Object.keys(professorRatings).length === 0) {
+    return null;
+  }
   
-  if (qualityRatings.length === 0) return null;
+  const qualityRatings = [];
+  const difficultyRatings = [];
+  
+  Object.values(professorRatings).forEach(rating => {
+    if (rating.quality !== null && rating.quality !== undefined) {
+      qualityRatings.push(rating.quality);
+    }
+    if (rating.difficulty !== null && rating.difficulty !== undefined) {
+      difficultyRatings.push(rating.difficulty);
+    }
+  });
+  
+  if (qualityRatings.length === 0) {
+    return null;
+  }
   
   return {
     quality: qualityRatings.reduce((sum, q) => sum + q, 0) / qualityRatings.length,
     difficulty: difficultyRatings.length > 0 
       ? difficultyRatings.reduce((sum, d) => sum + d, 0) / difficultyRatings.length 
       : null,
-    numRatings: ratings.length
+    numRatings: qualityRatings.length,
+    professorRatings: professorRatings // Include individual professor data
   };
 }
 

@@ -653,6 +653,7 @@ function App() {
             currentSemesterLabel={currentSemesterLabel}
             nextSemesterLabel={nextSemesterLabel}
             onRemoveClass={removeFromPlanner}
+            plannedClasses={plannedClasses}
           />
         ) : currentView === 'profile' ? (
           <ProfilePage
