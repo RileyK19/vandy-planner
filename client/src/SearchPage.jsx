@@ -49,9 +49,46 @@ const SearchPage = ({
   year,
   onRemoveClass
 }) => {
+  // Helper functions to serialize/deserialize filters (Sets to Arrays)
+  const serializeFilters = (filters) => {
+    const serialized = {};
+    Object.keys(filters).forEach(key => {
+      if (filters[key] instanceof Set) {
+        serialized[key] = Array.from(filters[key]);
+      }
+    });
+    return serialized;
+  };
+
+  const deserializeFilters = (serialized) => {
+    const filters = {};
+    Object.keys(serialized || {}).forEach(key => {
+      filters[key] = new Set(serialized[key]);
+    });
+    return filters;
+  };
+
+  // Load persisted state from localStorage
+  const loadPersistedState = () => {
+    try {
+      const savedFilters = localStorage.getItem('searchPage_filters');
+      const savedSortBy = localStorage.getItem('searchPage_sortBy');
+      
+      return {
+        filters: savedFilters ? deserializeFilters(JSON.parse(savedFilters)) : {},
+        sortBy: savedSortBy || 'none'
+      };
+    } catch (error) {
+      console.error('Error loading persisted state:', error);
+      return { filters: {}, sortBy: 'none' };
+    }
+  };
+
+  const persistedState = loadPersistedState();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilter, setShowFilter] = useState(false);
-  const [selectedFilters, setSelectedFilters] = useState({});
+  const [selectedFilters, setSelectedFilters] = useState(persistedState.filters);
   const [infoClass, setInfoClass] = useState(null);
   const [showSemesterSelector, setShowSemesterSelector] = useState(null);
   const [hoveredConflict, setHoveredConflict] = useState(null);
@@ -63,6 +100,10 @@ const SearchPage = ({
   // New state for grouping
   const [expandedGroups, setExpandedGroups] = useState({});
   const [selectedSections, setSelectedSections] = useState({});
+  
+  // Sort state
+  const [sortBy, setSortBy] = useState(persistedState.sortBy); // 'none', 'difficulty', 'quality'
+  const [showSortMenu, setShowSortMenu] = useState(false);
 
   // Function to check if two courses have a time conflict
   const checkTimeConflict = (course1, course2) => {
@@ -292,6 +333,46 @@ const SearchPage = ({
     
     loadDegreeRequirements();
   }, [userMajor]);
+
+  // Close sort menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showSortMenu && !event.target.closest('[data-sort-menu]')) {
+        setShowSortMenu(false);
+      }
+    };
+
+    if (showSortMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showSortMenu]);
+
+  // Persist filters to localStorage whenever they change
+  useEffect(() => {
+    try {
+      const serialized = {};
+      Object.keys(selectedFilters).forEach(key => {
+        if (selectedFilters[key] instanceof Set) {
+          serialized[key] = Array.from(selectedFilters[key]);
+        }
+      });
+      localStorage.setItem('searchPage_filters', JSON.stringify(serialized));
+    } catch (error) {
+      console.error('Error saving filters to localStorage:', error);
+    }
+  }, [selectedFilters]);
+
+  // Persist sortBy to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('searchPage_sortBy', sortBy);
+    } catch (error) {
+      console.error('Error saving sortBy to localStorage:', error);
+    }
+  }, [sortBy]);
 
   // Get degree category for a course
   const getCourseCategories = (course) => {
@@ -551,8 +632,13 @@ const SearchPage = ({
   };
 
   const deselectAll = () => {
-    setExpandedGroups([])
-  }
+    setExpandedGroups({});
+  };
+
+  // Check if there are any expanded groups
+  const hasExpandedGroups = useMemo(() => {
+    return Object.values(expandedGroups).some(isExpanded => isExpanded === true);
+  }, [expandedGroups]);
 
   // Get the currently selected section for a course group
   const getSelectedSection = (baseCode) => {
@@ -624,26 +710,81 @@ const SearchPage = ({
 
   // Sort the filtered groups
   const sortedGroupedClasses = useMemo(() => {
-    return Object.entries(filteredGroupedClasses)
-      .sort(([codeA, groupA], [codeB, groupB]) => {
-        const parseCode = (code) => {
-          const match = code.match(/^([A-Z]+)\s*(\d+)/i);
-          if (match) {
-            return { dept: match[1].toUpperCase(), num: parseInt(match[2]) };
+    const entries = Object.entries(filteredGroupedClasses);
+    
+    // If sorting by difficulty or quality
+    if (sortBy === 'difficulty' || sortBy === 'quality') {
+      return entries.sort(([codeA, groupA], [codeB, groupB]) => {
+        // Calculate average rating for group A
+        const allAveragesA = groupA.allSections.map(section => getClassAverageRatings(section));
+        const validAveragesA = allAveragesA.filter(avg => avg?.hasData);
+        const avgValueA = validAveragesA.length > 0 
+          ? (sortBy === 'quality' 
+              ? validAveragesA.reduce((sum, avg) => sum + (avg.avgQuality || 0), 0) / validAveragesA.length
+              : validAveragesA.reduce((sum, avg) => sum + (avg.avgDifficulty || 0), 0) / validAveragesA.length)
+          : (sortBy === 'quality' ? 0 : 5); // Default: quality=0 (lowest), difficulty=5 (highest)
+        
+        // Calculate average rating for group B
+        const allAveragesB = groupB.allSections.map(section => getClassAverageRatings(section));
+        const validAveragesB = allAveragesB.filter(avg => avg?.hasData);
+        const avgValueB = validAveragesB.length > 0
+          ? (sortBy === 'quality'
+              ? validAveragesB.reduce((sum, avg) => sum + (avg.avgQuality || 0), 0) / validAveragesB.length
+              : validAveragesB.reduce((sum, avg) => sum + (avg.avgDifficulty || 0), 0) / validAveragesB.length)
+          : (sortBy === 'quality' ? 0 : 5);
+        
+        // Sort by rating value
+        // Quality: high to low (descending), Difficulty: low to high (ascending)
+        let comparison = avgValueA - avgValueB;
+        if (sortBy === 'quality') {
+          comparison = -comparison; // Reverse for quality (high to low)
+        }
+        // For difficulty, keep ascending (low to high)
+        
+        // If ratings are equal, fall back to course code sorting
+        if (comparison === 0) {
+          const parseCode = (code) => {
+            const match = code.match(/^([A-Z]+)\s*(\d+)/i);
+            if (match) {
+              return { dept: match[1].toUpperCase(), num: parseInt(match[2]) };
+            }
+            return { dept: code, num: 0 };
+          };
+          
+          const aCode = parseCode(codeA);
+          const bCode = parseCode(codeB);
+          
+          if (aCode.dept !== bCode.dept) {
+            return aCode.dept.localeCompare(bCode.dept);
           }
-          return { dept: code, num: 0 };
-        };
-        
-        const aCode = parseCode(codeA);
-        const bCode = parseCode(codeB);
-        
-        if (aCode.dept !== bCode.dept) {
-          return aCode.dept.localeCompare(bCode.dept);
+          
+          return aCode.num - bCode.num;
         }
         
-        return aCode.num - bCode.num;
+        return comparison;
       });
-  }, [filteredGroupedClasses]);
+    }
+    
+    // Default: sort by course code
+    return entries.sort(([codeA, groupA], [codeB, groupB]) => {
+      const parseCode = (code) => {
+        const match = code.match(/^([A-Z]+)\s*(\d+)/i);
+        if (match) {
+          return { dept: match[1].toUpperCase(), num: parseInt(match[2]) };
+        }
+        return { dept: code, num: 0 };
+      };
+      
+      const aCode = parseCode(codeA);
+      const bCode = parseCode(codeB);
+      
+      if (aCode.dept !== bCode.dept) {
+        return aCode.dept.localeCompare(bCode.dept);
+      }
+      
+      return aCode.num - bCode.num;
+    });
+  }, [filteredGroupedClasses, sortBy]);
 
   const handleAddToSemester = (semester, classItem) => {
     onAddToSemester(semester.label, classItem);
@@ -673,7 +814,7 @@ const SearchPage = ({
         className="search-input"
       />
 
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px', position: 'relative' }}>
       <button
         onClick={() => setShowFilter(true)}
           style={{
@@ -689,7 +830,10 @@ const SearchPage = ({
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            height: '40px',
+            boxSizing: 'border-box',
+            lineHeight: '1'
           }}
         >
           🔍 Filters
@@ -707,6 +851,111 @@ const SearchPage = ({
             </span>
           )}
         </button>
+        <div style={{ position: 'relative' }} data-sort-menu>
+          <button
+            onClick={() => setShowSortMenu(!showSortMenu)}
+            style={{
+              backgroundColor: sortBy !== 'none' ? 'var(--primary-hover)' : 'var(--info)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '10px 20px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              height: '40px',
+              boxSizing: 'border-box',
+              lineHeight: '1'
+            }}
+          >
+            🔀 Sort {sortBy !== 'none' && `(${sortBy === 'quality' ? 'Quality' : 'Difficulty'})`}
+          </button>
+          {showSortMenu && (
+            <div 
+              data-sort-menu
+              style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              marginTop: '8px',
+              backgroundColor: 'white',
+              border: '1px solid #ddd',
+              borderRadius: '6px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 1000,
+              minWidth: '200px',
+              padding: '8px'
+            }}>
+              <div style={{ 
+                padding: '8px 12px', 
+                cursor: 'pointer',
+                borderRadius: '4px',
+                backgroundColor: sortBy === 'none' ? '#e3f2fd' : 'transparent',
+                marginBottom: '4px'
+              }}
+              onClick={() => {
+                setSortBy('none');
+                setShowSortMenu(false);
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = sortBy === 'none' ? '#e3f2fd' : 'transparent'}
+              >
+                None
+              </div>
+              <div style={{ 
+                padding: '8px 12px', 
+                cursor: 'pointer',
+                borderRadius: '4px',
+                backgroundColor: sortBy === 'quality' ? '#e3f2fd' : 'transparent',
+                marginBottom: '4px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+              onClick={() => {
+                setSortBy('quality');
+                setShowSortMenu(false);
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = sortBy === 'quality' ? '#e3f2fd' : 'transparent'}
+              >
+                <span>Quality</span>
+                {sortBy === 'quality' && (
+                  <span style={{ fontSize: '12px', color: '#666' }}>
+                    ↓ High to Low
+                  </span>
+                )}
+              </div>
+              <div style={{ 
+                padding: '8px 12px', 
+                cursor: 'pointer',
+                borderRadius: '4px',
+                backgroundColor: sortBy === 'difficulty' ? '#e3f2fd' : 'transparent',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+              onClick={() => {
+                setSortBy('difficulty');
+                setShowSortMenu(false);
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = sortBy === 'difficulty' ? '#e3f2fd' : 'transparent'}
+              >
+                <span>Difficulty</span>
+                {sortBy === 'difficulty' && (
+                  <span style={{ fontSize: '12px', color: '#666' }}>
+                    ↑ Easy to Hard
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
         {getActiveFilterCount() > 0 && (
           <button
             onClick={clearAllFilters}
@@ -725,6 +974,25 @@ const SearchPage = ({
         )}
         <button
             onClick={deselectAll}
+            disabled={!hasExpandedGroups}
+            style={{
+              backgroundColor: hasExpandedGroups ? 'var(--info)' : '#ccc',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '10px 20px',
+              cursor: hasExpandedGroups ? 'pointer' : 'not-allowed',
+              fontSize: '14px',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              opacity: hasExpandedGroups ? 1 : 0.6,
+              height: '40px',
+              boxSizing: 'border-box',
+              lineHeight: '1'
+            }}
         >
             Collapse All
         </button>

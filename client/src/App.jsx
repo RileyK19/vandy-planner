@@ -608,18 +608,30 @@ function App() {
         ) : currentView === 'profile' ? (
           <ProfilePage 
             user={user}
-            onProfileUpdate={(updatedUser) => {
-              setUser(updatedUser);
+            onProfileUpdate={async (updatedUser) => {
+              // Refetch user profile to ensure we have the latest data
+              try {
+                const freshUserData = await getUserProfile();
+                setUser(freshUserData);
+                console.log('✅ Profile updated, user state refreshed:', freshUserData);
+                console.log('Previous courses:', freshUserData.previousCourses);
+              } catch (error) {
+                console.error('Error refreshing user profile:', error);
+                // Fallback to using the updated user from callback
+                setUser(updatedUser);
+              }
             }}
           />
         ) : currentView === 'userSearch' ? (
           <UserSearch />
         ) :  (
           <DegreeAudit 
+            key={`degree-audit-${user?.email}-${JSON.stringify((user?.previousCourses || []).map(c => c.courseCode).sort())}`}
             plannedClasses={plannedClasses}
             major="Computer Science"
             userEmail={user?.email}
             semesterPlans={semesterPlans}
+            userPreviousCourses={user?.previousCourses || []}
           />
         )}
 

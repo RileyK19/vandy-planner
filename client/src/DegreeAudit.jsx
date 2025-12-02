@@ -2,7 +2,34 @@ import React, { useState, useEffect } from 'react'
 import { fetchDegreeRequirements, fetchUserTakenCourses } from './api.jsx'
 import './colors.css'
 
-function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, semesterPlans = {} }) {
+// Helper function to normalize course codes for comparison (defined outside component)
+const normalizeCourseCode = (code) => {
+  if (!code) return '';
+  // Convert to uppercase, trim, and normalize whitespace (multiple spaces to single space)
+  return code.toUpperCase().trim().replace(/\s+/g, ' ');
+};
+
+// Helper function to calculate credit hours based on course code
+const calculateCreditHours = (courseCode, providedHours) => {
+  if (!courseCode) return providedHours || 3;
+  
+  const normalizedCode = normalizeCourseCode(courseCode);
+  
+  // Lab courses (containing "L") count as 1 credit hour
+  if (normalizedCode.includes('L')) {
+    return 1;
+  }
+  
+  // CS 4959 (Computer Science Seminar) counts as 1 credit hour
+  if (normalizedCode === 'CS 4959') {
+    return 1;
+  }
+  
+  // Otherwise use provided hours or default to 3
+  return providedHours || 3;
+};
+
+function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, semesterPlans = {}, userPreviousCourses = [] }) {
   const [degreeData, setDegreeData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null);
@@ -17,17 +44,32 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
       setError(null);
   
       try {
+        // Always fetch fresh data from the server to ensure we have the latest courses
         const [degreeData, takenCourses] = await Promise.all([
           fetchDegreeRequirements(major),
           userEmail ? fetchUserTakenCourses(userEmail) : Promise.resolve([])
         ]);
   
+        console.log('🔄 DegreeAudit: Refetching data');
         console.log('Degree requirements:', degreeData);
-        console.log('Taken courses:', takenCourses);
+        console.log('Taken courses from API:', takenCourses);
+        console.log('User previous courses from props:', userPreviousCourses);
+        
+        // Debug: Log specific courses we're looking for
+        const cs1151 = takenCourses.find(tc => normalizeCourseCode(tc.courseCode) === 'CS 1151');
+        const cs4959 = takenCourses.find(tc => normalizeCourseCode(tc.courseCode) === 'CS 4959');
+        console.log('CS 1151 found in takenCourses:', cs1151);
+        console.log('CS 4959 found in takenCourses:', cs4959);
+        
+        // Verify the courses match what we expect
+        const takenCourseCodes = takenCourses.map(tc => normalizeCourseCode(tc.courseCode));
+        console.log('All taken course codes (normalized):', takenCourseCodes);
+        console.log('CS 1151 in list?', takenCourseCodes.includes('CS 1151'));
   
         setDegreeData(degreeData);
         setTakenCourses(takenCourses);
       } catch (err) {
+        console.error('Error loading degree audit data:', err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -35,7 +77,7 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
     };
   
     loadData();
-  }, [major, userEmail]);
+  }, [major, userEmail, JSON.stringify(userPreviousCourses.map(c => c.courseCode).sort())]);
 
   const toggleCategory = (categoryName) => {
     const newExpanded = new Set(expandedCategories);
@@ -57,12 +99,22 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
     setSelectedCategory(null);
   };
   
+
   const calculateProgress = (category, allocatedCourses = new Set()) => {
+    // Debug: Log all course sources for specific categories
+    if (category.name === 'Computers and Ethics' || category.name === 'Computer Science Seminar') {
+      console.log(`\n📊 Calculating progress for ${category.name}:`);
+      console.log(`   Taken courses (${takenCourses.length}):`, takenCourses.map(tc => tc.courseCode));
+      console.log(`   Planned classes (${plannedClasses.length}):`, plannedClasses.map(pc => pc.code));
+      console.log(`   Semester plans courses:`, Object.values(semesterPlans).flat().map(c => c.code));
+    }
+    
     // Get all courses from 4-year plan (semesterPlans)
     const fourYearPlanCourses = Object.values(semesterPlans).flat().map(course => ({
       code: course.code,
+      normalizedCode: normalizeCourseCode(course.code),
       name: course.name,
-      hours: course.hours || 3,
+      hours: calculateCreditHours(course.code, course.hours),
       isTaken: false,
       isFromFourYearPlan: true
     }));
@@ -71,48 +123,116 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
     const allCourses = [
       ...takenCourses.map(tc => ({ 
         code: tc.courseCode, 
+        normalizedCode: normalizeCourseCode(tc.courseCode),
         name: tc.courseName,
-        hours: tc.hours || 3,
+        hours: calculateCreditHours(tc.courseCode, tc.hours),
         isTaken: true,
         isFromFourYearPlan: false
       })),
       ...plannedClasses.map(pc => ({ 
         code: pc.code,
+        normalizedCode: normalizeCourseCode(pc.code),
         name: pc.name,
-        hours: pc.hours || 3,
+        hours: calculateCreditHours(pc.code, pc.hours),
         isTaken: false,
         isFromFourYearPlan: false
       })),
       ...fourYearPlanCourses
     ];
 
-    // Remove duplicates (prefer taken over planned)
+    // Remove duplicates (prefer taken over planned) using normalized codes
     const uniqueCourses = [];
     const seenCodes = new Set();
     
     for (const course of allCourses) {
-      if (!seenCodes.has(course.code)) {
+      const normalized = course.normalizedCode;
+      if (!seenCodes.has(normalized)) {
         uniqueCourses.push(course);
-        seenCodes.add(course.code);
+        seenCodes.add(normalized);
       }
     }
     
     // Find matching courses that haven't been allocated yet
     const matchingClasses = uniqueCourses.filter(course => {
-      // Skip if already allocated to another category
-      if (allocatedCourses.has(course.code)) return false;
+      // Skip if already allocated to another category (using normalized code)
+      const normalizedCourseCode = course.normalizedCode;
       
-      // Check if it's in the available classes list
+      // Debug logging for specific categories and courses
+      if (category.name === 'Computers and Ethics' || category.name === 'Computer Science Seminar') {
+        const isAllocated = allocatedCourses.has(normalizedCourseCode);
+        const availableCodes = category.availableClasses.map(a => normalizeCourseCode(a.code));
+        const isInAvailable = availableCodes.includes(normalizedCourseCode);
+        
+        console.log(`🔍 Checking ${category.name} for course ${course.code} (normalized: ${normalizedCourseCode}):`, {
+          isAllocated,
+          isInAvailable,
+          availableCodes,
+          courseDetails: {
+            code: course.code,
+            normalizedCode: normalizedCourseCode,
+            isTaken: course.isTaken,
+            isFromFourYearPlan: course.isFromFourYearPlan,
+            hours: course.hours,
+            source: course.isTaken ? 'takenCourses' : (course.isFromFourYearPlan ? 'semesterPlans' : 'plannedClasses')
+          }
+        });
+        
+        if (isAllocated) {
+          console.log(`  ⚠️ Course ${course.code} already allocated to another category`);
+        }
+        if (isInAvailable && !isAllocated) {
+          if (course.isTaken) {
+            console.log(`  ✅ Match found! Course ${course.code} matches ${category.name} (TAKEN)`);
+          } else {
+            console.log(`  ⚠️ Course ${course.code} matches ${category.name} but is only PLANNED, not TAKEN`);
+          }
+        }
+      }
+      
+      if (allocatedCourses.has(normalizedCourseCode)) return false;
+      
+      // Check if it's in the available classes list (using normalized codes)
       const isInAvailable = category.availableClasses.some(
-        avail => avail.code === course.code
+        avail => normalizeCourseCode(avail.code) === normalizedCourseCode
       )
       
-      if (isInAvailable) return true
+      // For categories with specific required courses (like "Computers and Ethics" or "Computer Science Seminar"),
+      // only count courses that are actually TAKEN, not just planned
+      if (isInAvailable) {
+        // Check if THIS SPECIFIC course is marked as required
+        const matchingAvailableClass = category.availableClasses.find(
+          avail => normalizeCourseCode(avail.code) === normalizedCourseCode
+        );
+        const isRequired = matchingAvailableClass?.required === true;
+        
+        // Also check category name for specific categories that should only count taken courses
+        const isSpecificCategory = category.name === 'Computers and Ethics' || 
+                                   category.name === 'Computer Science Seminar';
+        
+        if (isRequired || isSpecificCategory) {
+          // Only count if the course is actually taken (not just planned)
+          if (course.isTaken) {
+            return true;
+          } else {
+            // Debug log for required courses that are only planned
+            console.log(`  ⚠️ Course ${course.code} is in ${category.name} but is only PLANNED, not TAKEN. Skipping.`);
+            return false;
+          }
+        }
+        
+        // For non-required courses, count both taken and planned
+        return true;
+      }
       
       // For depth requirements (CS 3000+)
       if (category.name === "Computer Science Depth") {
-        const courseNum = parseInt(course.code.replace('CS ', ''))
-        return !isNaN(courseNum) && courseNum >= 3000
+        const normalized = normalizedCourseCode;
+        const match = normalized.match(/^CS\s*(\d+)/);
+        if (match) {
+          const courseNum = parseInt(match[1]);
+          return !isNaN(courseNum) && courseNum >= 3000;
+        }
+        return false;
       }
       
       // For open electives, count everything not already counted
@@ -123,8 +243,11 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
       return false
     })
     
-    const earnedHours = matchingClasses.reduce((sum, c) => sum + (c.hours || 3), 0)
+    const earnedHours = matchingClasses.reduce((sum, c) => sum + (c.hours || calculateCreditHours(c.code, c.hours)), 0)
     const earnedCourses = matchingClasses.length
+    
+    // Mark matched courses as allocated using normalized codes
+    matchingClasses.forEach(c => allocatedCourses.add(c.normalizedCode));
     
     return {
       earnedHours,
@@ -227,9 +350,9 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
 
   // Calculate total from all sources
   const totalEarned = [
-    ...takenCourses.map(tc => tc.hours || 3),
-    ...plannedClasses.map(pc => pc.hours || 3),
-    ...Object.values(semesterPlans).flat().map(course => course.hours || 3)
+    ...takenCourses.map(tc => calculateCreditHours(tc.courseCode, tc.hours)),
+    ...plannedClasses.map(pc => calculateCreditHours(pc.code, pc.hours)),
+    ...Object.values(semesterPlans).flat().map(course => calculateCreditHours(course.code, course.hours))
   ].reduce((sum, hours) => sum + hours, 0);
   
   const totalRequired = degreeData.categories.reduce((sum, cat) => sum + cat.requiredHours, 0)
@@ -347,12 +470,58 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
           // ✅ Shared allocation tracker to prevent double-counting
           const allocatedCourses = new Set();
 
-          return degreeData.categories.map((category, idx) => {
+          // Sort categories to prioritize specific requirements over general ones
+          // Categories with specific course requirements should be processed first
+          const sortedCategories = [...degreeData.categories].sort((a, b) => {
+            // Categories with specific availableClasses (non-empty) should come first
+            const aHasSpecific = a.availableClasses && a.availableClasses.length > 0;
+            const bHasSpecific = b.availableClasses && b.availableClasses.length > 0;
+            
+            // If one has specific courses and the other doesn't, prioritize the one with specific courses
+            if (aHasSpecific && !bHasSpecific) return -1;
+            if (!aHasSpecific && bHasSpecific) return 1;
+            
+            // If both have specific courses, prioritize those with required courses
+            if (aHasSpecific && bHasSpecific) {
+              const aHasRequired = a.availableClasses.some(c => c.required === true);
+              const bHasRequired = b.availableClasses.some(c => c.required === true);
+              if (aHasRequired && !bHasRequired) return -1;
+              if (!aHasRequired && bHasRequired) return 1;
+            }
+            
+            // Otherwise maintain original order
+            return 0;
+          });
+
+          return sortedCategories.map((category, idx) => {
+            // Debug: Log category processing order for specific categories
+            if (category.name === 'Computers and Ethics' || category.name === 'Computer Science Seminar') {
+              console.log(`\n📋 Processing category ${idx + 1}/${sortedCategories.length}: ${category.name} (sorted order)`);
+              console.log(`   Required hours: ${category.requiredHours}`);
+              console.log(`   Available classes:`, category.availableClasses.map(a => a.code));
+              console.log(`   Currently allocated courses:`, Array.from(allocatedCourses));
+            }
+            
             // Pass the shared allocatedCourses set
             const progress = calculateProgress(category, allocatedCourses);
 
-            // Mark matched courses as used so they aren’t reused
-            progress.matchingClasses.forEach(c => allocatedCourses.add(c.code));
+            // Note: Courses are already marked as allocated inside calculateProgress using normalized codes
+            
+            // Debug: Log results for specific categories
+            if (category.name === 'Computers and Ethics' || category.name === 'Computer Science Seminar') {
+              console.log(`   ✅ Progress for ${category.name}:`, {
+                earnedHours: progress.earnedHours,
+                earnedCourses: progress.earnedCourses,
+                matchingClasses: progress.matchingClasses.map(c => ({
+                  code: c.code,
+                  normalizedCode: c.normalizedCode,
+                  isTaken: c.isTaken,
+                  hours: c.hours
+                })),
+                isComplete: progress.isComplete
+              });
+              console.log(`   Allocated courses after:`, Array.from(allocatedCourses));
+            }
 
             const percentComplete = Math.min(
               (progress.earnedHours / category.requiredHours) * 100,
@@ -673,8 +842,9 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
               }}>
                 {selectedCategory.availableClasses.map((cls, clsIdx) => {
                   const progress = calculateProgress(selectedCategory);
+                  const normalizedClsCode = normalizeCourseCode(cls.code);
                   const matchedCourse = progress.matchingClasses.find(
-                    taken => taken.code === cls.code
+                    taken => normalizeCourseCode(taken.code) === normalizedClsCode
                   );
                   const isTaken = !!matchedCourse;
                   
