@@ -1570,12 +1570,10 @@ const SearchPage = ({
           )}
           {(() => {
             const categories = getCourseCategories(infoClass);
-            if (categories && categories.length > 0) {
-              return (
-                <p><strong>Category:</strong> {categories.join(', ')}</p>
-              );
-            }
-            return null;
+            const displayCategories = (categories && categories.length > 0) ? categories.join(', ') : 'None';
+            return (
+              <p><strong>Category:</strong> {displayCategories}</p>
+            );
           })()}
           {(() => {
             const avg = getClassAverageRatings(infoClass);
