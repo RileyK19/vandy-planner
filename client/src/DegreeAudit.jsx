@@ -184,7 +184,7 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
           if (course.isTaken) {
             console.log(`  ✅ Match found! Course ${course.code} matches ${category.name} (TAKEN)`);
           } else {
-            console.log(`  ⚠️ Course ${course.code} matches ${category.name} but is only PLANNED, not TAKEN`);
+            console.log(`  ✅ Match found! Course ${course.code} matches ${category.name} (PLANNED)`);
           }
         }
       }
@@ -196,35 +196,12 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
         avail => normalizeCourseCode(avail.code) === normalizedCourseCode
       )
       
-      // For categories with specific required courses (like "Computers and Ethics" or "Computer Science Seminar"),
-      // only count courses that are actually TAKEN, not just planned
+      // For categories with availableClasses, count both taken and planned courses
       if (isInAvailable) {
-        // Check if THIS SPECIFIC course is marked as required
-        const matchingAvailableClass = category.availableClasses.find(
-          avail => normalizeCourseCode(avail.code) === normalizedCourseCode
-        );
-        const isRequired = matchingAvailableClass?.required === true;
-        
-        // Also check category name for specific categories that should only count taken courses
-        const isSpecificCategory = category.name === 'Computers and Ethics' || 
-                                   category.name === 'Computer Science Seminar';
-        
-        if (isRequired || isSpecificCategory) {
-          // Only count if the course is actually taken (not just planned)
-          if (course.isTaken) {
-            return true;
-          } else {
-            // Debug log for required courses that are only planned
-            console.log(`  ⚠️ Course ${course.code} is in ${category.name} but is only PLANNED, not TAKEN. Skipping.`);
-            return false;
-          }
-        }
-        
-        // For non-required courses, count both taken and planned
         return true;
       }
       
-      // For depth requirements (CS 3000+)
+      // For depth requirements (CS 3000+), count both taken and planned courses
       if (category.name === "Computer Science Depth") {
         const normalized = normalizedCourseCode;
         const match = normalized.match(/^CS\s*(\d+)/);
@@ -235,9 +212,9 @@ function DegreeAudit({ plannedClasses, major = 'Computer Science', userEmail, se
         return false;
       }
       
-      // For open electives, count everything not already counted
+      // For open electives, only count courses that are actually taken (not planned)
       if (category.name === "Open Electives") {
-        return true
+        return course.isTaken;
       }
       
       return false
