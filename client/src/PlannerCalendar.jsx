@@ -205,10 +205,31 @@ function PlannerCalendar({ plannedClasses, onRemoveClass, onSavePlan, readOnly =
         </div>
 
         {plannedClasses.length === 0 && (
-          <p style={{ color: '#666', fontStyle: 'italic' }}>
-            No classes planned yet. Add some from the search!
-          </p>
+          <div>
+            <p style={{ color: '#666', fontStyle: 'italic' }}>
+              No classes planned yet. Add some from the search!
+            </p>
+
+            <button
+              onClick={handleSubmitPlan}
+              disabled={isSubmitting}
+              style={{
+                backgroundColor: isSubmitting ? '#ccc' : '#2196F3',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '10px 20px',
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                marginTop: '10px'
+              }}
+            >
+              {isSubmitting ? '💾 Saving...' : '💾 Submit to Database'}
+            </button>
+          </div>
         )}
+
       </div>
 
       {plannedClasses.length > 0 && (
