@@ -231,28 +231,21 @@ const SearchPage = ({
     // return { currentSem: current, nextSem: next };
   }, [allClasses]);
 
+  // Helper to check if a class is in the current semester
+  const isCurrentSemester = (cls) => {
+    const compare = currentSem.year + ' ' + currentSem.term;
+    return cls.term === compare;
+  };
+
   // Helper to check if a class is in the next semester
   const isNextSemester = (cls) => {
-    // Assuming currentSem is defined elsewhere, or define it here
-    // const currentYear = currentSem.year; // Adjust based on your current year logic
-    // const currentTerm = currentSem.year; // Adjust based on your current term logic
-
-    // // Simple logic: if current term is Fall, next is Spring of same year
-    // // If current term is Spring, next is Fall of next year
-    // let nextTerm, nextYear;
-
-    // if (currentTerm === 'Fall') {
-    //     nextTerm = 'Spring';
-    //     nextYear = currentYear + 1;
-    // } else { // Spring
-    //     nextTerm = 'Fall';
-    //     nextYear = currentYear;
-    // }
-    let nextTerm = nextSem.term;
-    let nextYear = nextSem.year;
-    let compare = nextYear + ' ' + nextTerm
-
+    const compare = nextSem.year + ' ' + nextSem.term;
     return cls.term === compare;
+  };
+
+  // Show current semester classes; fall back to next semester if none available
+  const isDisplayedSemester = (cls) => {
+    return isCurrentSemester(cls) || isNextSemester(cls);
   };
 
   // Get current and future semesters (no summer, chronologically ordered)
@@ -603,7 +596,7 @@ const SearchPage = ({
   const groupedClasses = useMemo(() => {
     const groups = {};
 
-    const filteredClasses = allClasses.filter(isNextSemester)
+    const filteredClasses = allClasses.filter(isDisplayedSemester)
 
     filteredClasses.forEach(cls => {
       // Extract base course code (e.g., "CS 1101" from "CS 1101-001")

@@ -880,7 +880,18 @@ async function _getCourseRecommendationsInternal(preferences, major, userEmail, 
         return enhanced;
       } catch (err) {
         console.warn('⚠️ GPT enhancement failed:', err.message);
-        return candidates.slice(0, 10);
+        // Assign fallback scores based on rank position (already sorted by priority)
+        const top = candidates.slice(0, 15);
+        if (top.length === 0) return [];
+        const last = top.length - 1 || 1;
+        return top.map((cls, i) => ({
+          ...cls,
+          gptRank: i + 1,
+          gptConfidence: 'medium',
+          gptReasoning: 'Recommended based on degree requirements, ratings, and schedule fit',
+          isGPTEnhanced: false,
+          score: Math.round(95 - (i / last) * 40)
+        }));
       }
     }
 

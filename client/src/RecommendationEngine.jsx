@@ -207,6 +207,57 @@ function smartPreFilter(classes, preferences, neededCourses, prerequisitesMap) {
   return top100;
 }
 
+/**
+ * Assign match scores (0-100) to candidates based on their priority ranking.
+ * Used as a fallback when GPT enhancement is unavailable.
+ * Higher priority → higher score, mapped to a 55-95 range.
+ */
+function assignFallbackScores(candidates, count = 15) {
+  const top = candidates.slice(0, count);
+  if (top.length === 0) return [];
+
+  const last = top.length - 1 || 1; // avoid division by zero
+
+  return top.map((cls, i) => {
+    // Rank-based score: #1 → 95, last → 55, evenly spaced
+    const score = Math.round(95 - (i / last) * 40);
+
+    return {
+      ...cls,
+      gptRank: i + 1,
+      gptConfidence: 'medium',
+      gptReasoning: buildFallbackReasoning(cls),
+      isGPTEnhanced: false,
+      score
+    };
+  });
+}
+
+/**
+ * Build a human-readable reasoning string for a fallback (non-GPT) recommendation.
+ */
+function buildFallbackReasoning(cls) {
+  const reasons = [];
+
+  if (cls.priority > 50) {
+    reasons.push('Required for your degree');
+  } else if (cls.priority > 30) {
+    reasons.push('Fulfills a degree requirement');
+  }
+
+  if (cls.calculatedRMP?.hasData && cls.calculatedRMP.quality >= 4.0) {
+    reasons.push(`Highly rated professor (${cls.calculatedRMP.quality.toFixed(1)}/5)`);
+  } else if (cls.calculatedRMP?.hasData && cls.calculatedRMP.quality >= 3.5) {
+    reasons.push(`Well rated professor (${cls.calculatedRMP.quality.toFixed(1)}/5)`);
+  }
+
+  if (reasons.length === 0) {
+    reasons.push('Recommended based on degree requirements, ratings, and schedule fit');
+  }
+
+  return reasons.join('. ');
+}
+
 export async function enhanceWithGPT(candidatesData, context) {
   const candidates = Array.isArray(candidatesData) ? candidatesData : candidatesData.candidates;
   const neededCourses = candidatesData.neededCourses || context.neededCourses;
@@ -245,8 +296,8 @@ export async function enhanceWithGPT(candidatesData, context) {
   }
   
   if (!apiKey) {
-    console.warn('⚠️ No valid API keys available, returning top 15 candidates');
-    return candidates.slice(0, 15);
+    console.warn('⚠️ No valid API keys available, returning top 15 candidates with fallback scores');
+    return assignFallbackScores(candidates, 15);
   }
   
   console.log(`🔑 Using ${keySource} API key`);
@@ -520,7 +571,7 @@ const uniqueCandidates = candidates;
         if (!response2.ok) {
           const error2 = await response2.text();
           console.error('❌ Secondary key failed with:', error2);
-          return uniqueCandidates.slice(0, 15);
+          return assignFallbackScores(uniqueCandidates, 15);
         }
         
         console.log('✅ Secondary key succeeded!');
@@ -612,7 +663,7 @@ const uniqueCandidates = candidates;
         return recommendations.slice(0, 15);
       }
       
-      return uniqueCandidates.slice(0, 15);
+      return assignFallbackScores(uniqueCandidates, 15);
     }
 
     const data = await response.json();
@@ -709,7 +760,7 @@ const uniqueCandidates = candidates;
 
   } catch (error) {
     console.error('❌ GPT failed:', error.message);
-    return uniqueCandidates.slice(0, 15);
+    return assignFallbackScores(uniqueCandidates, 15);
   }
 }
 
